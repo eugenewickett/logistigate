@@ -902,6 +902,7 @@ def Est_TrackedMLE(N,Y,Sens,Spec,RglrWt=0.1,M=500,Madapt=5000,delta=0.4,beta0_Li
     out_Interval95 = z95*np.sqrt(hess_invs[numImp:])
     out_Interval99 = z99*np.sqrt(hess_invs[numImp:])
     
+    '''
     outDict['90upper_imp'] = sps.expit(best_x[:numImp] + imp_Interval90)
     outDict['90lower_imp'] = sps.expit(best_x[:numImp] - imp_Interval90)
     outDict['95upper_imp'] = sps.expit(best_x[:numImp] + imp_Interval95)
@@ -914,6 +915,7 @@ def Est_TrackedMLE(N,Y,Sens,Spec,RglrWt=0.1,M=500,Madapt=5000,delta=0.4,beta0_Li
     outDict['95lower_out'] = sps.expit(best_x[numImp:] - out_Interval95)
     outDict['99upper_out'] = sps.expit(best_x[numImp:] + out_Interval99)
     outDict['99lower_out'] = sps.expit(best_x[numImp:] - out_Interval99)
+    '''
     
     #Generate intervals based on the non-transformed probabilities as well
     '''
