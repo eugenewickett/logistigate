@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Created on Thu Nov 14 17:04:36 2019
 
@@ -11,156 +10,13 @@ import pandas as pd
 import itertools
 import seaborn as sns
 import scipy.special as sps
-import csv
 import os
 import sys
 import pickle
 import matplotlib.pyplot as plt
 
 
-import winsound #COMMENT OUT BEFORE SENDING TO QUEST
-def CEOTTKbeep():
-    winsound.Beep(int(32.7032 * (2**3)*(1.059463094**10)),400)
-    winsound.Beep(int(32.7032 * (2**3)*(1.059463094**12)),400)
-    winsound.Beep(int(32.7032 * (2**3)*(1.059463094**8)),400)
-    winsound.Beep(int(32.7032 * (2**2)*(1.059463094**8)),400)
-    winsound.Beep(int(32.7032 * (2**3)*(1.059463094**3)),400)  
-
-
-def generateNodeListsFromFile(nodeInputFileString='',
-                              arcPreferencesFileString='',
-                              arcLTsFileString='',
-                              arcRsFileString='',
-                              NumSimDays=0,     
-                              globalDem=0.):
-    """
-    Processes node and arc files and returns node lists 
-    """
-    List_RootNode = []
-    List_IntermediateNode = []
-    List_EndNode = []
-    # Read the arc and node files as matrices/lists
-    with open(nodeInputFileString) as nodeFile, open(arcPreferencesFileString) as arcPrefsFile, open(arcLTsFileString) as arcLTsFile, open(arcRsFileString) as arcRsFile:
-        nodeReader = csv.reader(nodeFile,delimiter=',')
-        nodeList = list(nodeReader)
-        arcPreferencesReader = csv.reader(arcPrefsFile,delimiter=',')
-        arcPrefsList = list(arcPreferencesReader)
-        arcPreferencesMatrix = np.array(arcPrefsList).astype("float") #Preferences in matrix form
-        arcLTsReader = csv.reader(arcLTsFile,delimiter=',')
-        arcLTsList = list(arcLTsReader)
-        arcLTsMatrix = np.array(arcLTsList).astype("float") #LTs in matrix form
-        arcRsReader = csv.reader(arcRsFile,delimiter=',')
-        arcRsList = list(arcRsReader)
-        arcRsMatrix = np.array(arcRsList).astype("float") #LTs in matrix form
-        
-        
-    # Generate objects, lists, etc. for the nodes
-    nodeListHeader = nodeList[0] # Remove the headers from the list
-    nodeList = nodeList[1:] # Retain the node rows only
-    nodeNum = len(nodeList)
-    for currNode in range((len(nodeList))):
-        currRootTF = nodeList[currNode][0]            # Root node?
-        currEndTF = nodeList[currNode][1]             # End node?
-        if currRootTF == 'FALSE':
-            currReorderPoint = int(nodeList[currNode][2])
-            currReorderAmount = int(nodeList[currNode][3])
-        if currEndTF == 'TRUE': # We have an end node
-            currDemandDistribution = int(nodeList[currNode][4])
-            currDemandParamList = []
-            if not nodeList[currNode][5] == '':
-                if currDemandDistribution == 3: # Poisson dist; add global demand amount
-                    currDemandParam1 = float(nodeList[currNode][5]) + globalDem
-                    currDemandParamList.append(currDemandParam1)
-                else:
-                    currDemandParam1 = float(nodeList[currNode][5])
-                    currDemandParamList.append(currDemandParam1)
-            if not nodeList[currNode][6] == '':
-                currDemandParam2 = float(nodeList[currNode][6])
-                currDemandParamList.append(currDemandParam2)
-            if not nodeList[currNode][7] == '':
-                currDemandParam3 = float(nodeList[currNode][7])
-                currDemandParamList.append(currDemandParam3)
-        
-        # Add root node to List_RootNode; otherwise generate the preferred supplier list for this non-root node
-        if currRootTF == 'TRUE': # Currently a root node
-            List_RootNode.append(currNode) # List_Root only has integers
-        
-        else: # Generate preferred supplier list
-            currPreferredSuppliers = [] # Initialize our preferred supplier list
-            currPreferredSuppliersLTs = []
-            currPreferredSuppliersRs = []
-            numSuppliers = int(max(arcPreferencesMatrix.T[currNode])) # How many suppliers are ranked
-            for indSupplier in range(numSuppliers): # Add these suppliers by rank
-                findNum = indSupplier+1
-                for currSupplier in range(nodeNum): # Find the next ranked supplier
-                    if arcPreferencesMatrix.T[currNode][currSupplier] == findNum:
-                        currPreferredSuppliers.append(currSupplier) #Add the supplier's node number
-                        currPreferredSuppliersLTs.append(int(arcLTsMatrix[currSupplier][currNode])) # Add the lead time from the supplier to the current Node
-                        currPreferredSuppliersRs.append(int(arcRsMatrix[currSupplier][currNode])) # Add the lead time from the supplier to the current Node
-            # Supplier lists are now set            
-            
-            # Generate Node objects, including demand schedules if the current node is a root node
-            if currEndTF == 'FALSE': # Currently an intermediate node
-                # Pull the falsification procurement probability
-                currFalsifierProbability = float(nodeList[currNode][9])
-                # Add a node object to the List_IntermediateNode
-                newIntermediateNode = simClasses.Node(nodeNum=currNode, reorderPoint=currReorderPoint, reorderAmount=currReorderAmount, preferredSupplierVec=currPreferredSuppliers, preferredSupplierLTsVec=currPreferredSuppliersLTs, preferredSupplierRsVec=currPreferredSuppliersRs, endNodeTF = False, falseProb = currFalsifierProbability)
-                List_IntermediateNode.append(newIntermediateNode)
-            else: # Currently an end node
-                # Add a node object to the List_End
-                newDemandSchedule = demandScheduleGenerator_EndNode(int_numDays=NumSimDays, int_DistType=currDemandDistribution, arr_DistParameter=currDemandParamList)
-                newEndNode = simClasses.Node(nodeNum=currNode, reorderPoint=currReorderPoint, reorderAmount=currReorderAmount, preferredSupplierVec=currPreferredSuppliers, preferredSupplierLTsVec=currPreferredSuppliersLTs, preferredSupplierRsVec=currPreferredSuppliersRs, endNodeTF=True,demandSched=newDemandSchedule)
-                List_EndNode.append(newEndNode)    
-    ### END NODE FOR LOOP ###
-    return List_RootNode, List_IntermediateNode, List_EndNode, nodeListHeader, nodeList, nodeNum, arcPreferencesMatrix, arcLTsMatrix, arcRsMatrix
-
-
-def demandScheduleGenerator_EndNode(int_numDays=1000,
-                             int_DistType = 0, 
-                             arr_DistParameter = [4]
-                             ):
-    """
-    Randomly generates a demand schedule for a desired number of time units, 
-    with the following parameters entered:
-            1) int_numDays: Number of batches desired
-            2) int_DistType: Distribution for the demand of each time period
-                0 = Constant; parameter array should be [Constant value]
-                1 = Uniform; parameter array should be [Low Bound, High Bound]
-                2 = Triangular; parameter array should be [Left,Mode,Right]
-                3 = Poisson; parameter array should be [Mean]
-                ...
-            3) arr_DistParameter: Array of the parameters required for generatng
-                the demands
-                0 = Constant; parameter array should be [Constant value]
-                1 = Uniform; paramter array should be [Low Bound, High Bound]
-                2 = Triangular; parameter array should be [Left,Mode,Right]
-                3 = Poisson; parameter array should be [Mean]
-                ...
-    
-    Outputs a Python list with the following elements within each entry:
-            1) Demand: Integer denoting the demand for each simulation day
-    """
-    #Initialize our output, a list with the above mentioned outputs
-    demandSchedule = []
-    
-    if int_DistType == 0: #Constant
-        #Use the first value of the parameter array
-        demandSchedule = np.repeat(arr_DistParameter[0],int_numDays)
-    elif int_DistType == 1: #Uniform 
-        #Use the first two values of the parameter array
-        demandSchedule = np.round(np.random.uniform(low=arr_DistParameter[0],high=arr_DistParameter[1],size=int_numDays))      
-    elif int_DistType == 2: #Triangular
-        #Use the first two values of the parameter array
-        demandSchedule = np.round(np.random.triangular(left=arr_DistParameter[0],mode=arr_DistParameter[1],right=arr_DistParameter[2],size=int_numDays))
-    elif int_DistType == 3: #Poisson
-        #Use the first value of the parameter array
-        demandSchedule = np.round(np.random.poisson(lam=arr_DistParameter[0],size=int_numDays))
-    else:
-        print('Error generating the demand schedule.')
-    
-    return demandSchedule
-
- ### END "demandScheduleGenerator_EndNode" ###       
+  
 
 def SimReplicationOutput(OPdict):
     """

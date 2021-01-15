@@ -1,9 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Aug 31 15:48:57 2020
-
-@author: eugen
-
 This file contains the methods used for estimating SF prevalence from end node
 testing results. The inputs to these methdos are:
     1) A:   The estimated transition matrix between m intermediate nodes and n
@@ -22,7 +18,7 @@ import numpy as np
 import scipy.optimize as spo
 import scipy.stats as spstat
 import scipy.special as sps
-import SFP_Sim_Helpers as simHelpers
+import scai_helpers as simHelpers
 #simModules
 
 '''
@@ -202,7 +198,7 @@ def GeneratePostSamps_UNTRACKED(numSamples,posData,A,sens,spec,regWt,M,Madapt,de
     beta0 = -2 * np.ones(A.shape[1] + A.shape[0])
     samples, lnprob, epsilon = simHelpers.nuts6(UNTRACKEDtargetForNUTS,M,Madapt,beta0,delta)
     
-    return samples
+    return sps.expit(samples)
 
 ##### LIKELIHOOD FUNCTIONS ON NON-EXPIT PROBABILITIES
 def UNTRACKED_LogLike_Probs(pVec,numVec,posVec,sens,spec,transMat,RglrWt):
@@ -471,7 +467,7 @@ def GeneratePostSamps_TRACKED(N,Y,sens,spec,regWt,M,Madapt,delta,usePriors=1.):
     beta0 = -2 * np.ones(N.shape[1] + N.shape[0])
     samples, lnprob, epsilon = simHelpers.nuts6(TRACKEDtargetForNUTS,M,Madapt,beta0,delta)
     
-    return samples
+    return sps.expit(samples)
 
 ##### LIKELIHOOD FUNCTIONS ON NON-EXPIT PROBABILITIES
 def TRACKED_LogLike_Probs(pVec,numMat,posMat,sens,spec,RglrWt):
@@ -835,7 +831,7 @@ def Est_UntrackedMLE(A,PosData,NumSamples,Sens,Spec,RglrWt=0.1,M=500,\
     
     outDict['intProj'] = theta_hat
     outDict['endProj'] = pi_hat
-    outDict['hess'] = hess  
+    #outDict['hess'] = hess  
     
     return outDict
 #sps.expit(best_x)[0:numImp].tolist(), sps.expit(best_x)[numImp:].tolist()
@@ -885,6 +881,7 @@ def Est_TrackedMLE(N,Y,Sens,Spec,RglrWt=0.1,M=500,Madapt=5000,delta=0.4,beta0_Li
     
     best_x = solsList[np.argmin(likelihoodsList)]
     
+    
     #Generate confidence intervals
     #First we need to generate the information matrix
     #Expected positives vector at the outlets
@@ -905,20 +902,21 @@ def Est_TrackedMLE(N,Y,Sens,Spec,RglrWt=0.1,M=500,Madapt=5000,delta=0.4,beta0_Li
     out_Interval95 = z95*np.sqrt(hess_invs[numImp:])
     out_Interval99 = z99*np.sqrt(hess_invs[numImp:])
     
-    outDict['90upper_int'] = sps.expit(best_x[:numImp] + imp_Interval90)
-    outDict['90lower_int'] = sps.expit(best_x[:numImp] - imp_Interval90)
-    outDict['95upper_int'] = sps.expit(best_x[:numImp] + imp_Interval95)
-    outDict['95lower_int'] = sps.expit(best_x[:numImp] - imp_Interval95)
-    outDict['99upper_int'] = sps.expit(best_x[:numImp] + imp_Interval99)
-    outDict['99lower_int'] = sps.expit(best_x[:numImp] - imp_Interval99)
-    outDict['90upper_end'] = sps.expit(best_x[numImp:] + out_Interval90)
-    outDict['90lower_end'] = sps.expit(best_x[numImp:] - out_Interval90)
-    outDict['95upper_end'] = sps.expit(best_x[numImp:] + out_Interval95)
-    outDict['95lower_end'] = sps.expit(best_x[numImp:] - out_Interval95)
-    outDict['99upper_end'] = sps.expit(best_x[numImp:] + out_Interval99)
-    outDict['99lower_end'] = sps.expit(best_x[numImp:] - out_Interval99)
+    outDict['90upper_imp'] = sps.expit(best_x[:numImp] + imp_Interval90)
+    outDict['90lower_imp'] = sps.expit(best_x[:numImp] - imp_Interval90)
+    outDict['95upper_imp'] = sps.expit(best_x[:numImp] + imp_Interval95)
+    outDict['95lower_imp'] = sps.expit(best_x[:numImp] - imp_Interval95)
+    outDict['99upper_imp'] = sps.expit(best_x[:numImp] + imp_Interval99)
+    outDict['99lower_imp'] = sps.expit(best_x[:numImp] - imp_Interval99)
+    outDict['90upper_out'] = sps.expit(best_x[numImp:] + out_Interval90)
+    outDict['90lower_out'] = sps.expit(best_x[numImp:] - out_Interval90)
+    outDict['95upper_out'] = sps.expit(best_x[numImp:] + out_Interval95)
+    outDict['95lower_out'] = sps.expit(best_x[numImp:] - out_Interval95)
+    outDict['99upper_out'] = sps.expit(best_x[numImp:] + out_Interval99)
+    outDict['99lower_out'] = sps.expit(best_x[numImp:] - out_Interval99)
     
     #Generate intervals based on the non-transformed probabilities as well
+    '''
     hess_Probs = TRACKED_LogPost_Probs_Hess(sps.expit(best_x),N,Y,Sens,Spec)*-1
     hess_invs_Probs = [i if i >= 0 else np.nan for i in 1/np.diag(hess_Probs)] # Return 'nan' values if the diagonal is less than 0
     
@@ -940,10 +938,11 @@ def Est_TrackedMLE(N,Y,Sens,Spec,RglrWt=0.1,M=500,Madapt=5000,delta=0.4,beta0_Li
     outDict['95lower_end_Probs'] = [max(pi_hat[i] - out_Interval95_Probs[i],0.) for i in range(numOut)]
     outDict['99upper_end_Probs'] = [min(pi_hat[i] + out_Interval99_Probs[i],1.) for i in range(numOut)]
     outDict['99lower_end_Probs'] = [max(pi_hat[i] - out_Interval99_Probs[i],0.) for i in range(numOut)]
+    '''
     
-    outDict['intProj'] = theta_hat
-    outDict['endProj'] = pi_hat
-    outDict['hess'] = hess
+    outDict['impProj'] = theta_hat
+    outDict['outProj'] = pi_hat
+    #outDict['hess'] = hess
     
     return outDict
     
