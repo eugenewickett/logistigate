@@ -5,6 +5,9 @@ Created on Thu Nov 14 17:04:36 2019
 
 Stores modules for use with 'SC Simulator.py'
 """
+import csv
+
+
 import numpy as np
 import pandas as pd
 import itertools
@@ -13,10 +16,181 @@ import scipy.special as sps
 import os
 import sys
 import pickle
+from tabulate import tabulate
 import matplotlib.pyplot as plt
 
+def TestResultsFileToTable(inputFile):
+    '''
+    Takes a CSV file name as input and returns a usable Python list of testing
+    results, in addition to lists of the importer and outlet names.
+    
+    INPUTS
+    ------
+    inputFile: CSV file name string
+        CSV file must be located within the current working directory when
+        TestResultsFileToTable() is called. There should not be a header row.
+        Each row of the file should signify a single sample point, and each row
+        should have three columns, as follows:
+            column 1: string; Name of outlet/lower echelon entity
+            column 2: string; Name of importer/upper echelon entity
+            column 3: integer; 0 or 1, where 1 signifies aberration detection
+        Any data in additional columns is ignored.
+        
+    OUTPUTS
+    -------
+    dataTbl: Python list of testing results, with each entry organized as
+        [OUTLETNAME, IMPORTERNAME, TESTRESULT]
+    outletNames: Sorted list of unique outlet names
+    importerNames: Sorted list of unique importer names
+    '''
+    dataTbl = [] #Initialize list for raw data
+    try:
+        with open(inputFile,newline='') as file:
+            reader = csv.reader(file)
+            for row in reader:
+                row[2] = int(row[2]) #Convert results to integers
+                dataTbl.append(row)
+    except FileNotFoundError:
+        print('Unable to locate file '+str(inputFile)+' in the current directory.'+\
+              ' Make sure the directory is set to the location of the CSV file.')
+        return
+    except ValueError:
+        print('There seems to be something wrong with your data. Check that'+\
+              ' your CSV file is correctly formatted, with each row having'+\
+              ' entries [OUTLETNAME,IMPORTERNAME,TESTRESULT], and that the'+\
+              ' test results are all either 0 or 1.')
+        return
+    
+    # Grab list of unique outlet and importer names
+    outletNames = []
+    importerNames = []
+    for row in dataTbl:
+        if row[0] not in outletNames:
+            outletNames.append(row[0])
+        if row[1] not in importerNames:
+            importerNames.append(row[1])
+    outletNames.sort()
+    importerNames.sort()
+    
+    return dataTbl, outletNames, importerNames
 
-  
+def FormatForEstimate_TRACKED(dataTbl):
+    '''
+    Takes a list of testing results and returns the N,Y matrices necessary for the
+    Tracked method, where element (i,j) of N/Y signifies the number of
+    samples/aberrations collected from each (outlet i, importer j) track.
+    
+    INPUTS
+    ------
+    dataTbl: List
+        Each list entry should have three elements, as follows:
+            Element 1: string; Name of outlet/lower echelon entity
+            Element 2: string; Name of importer/upper echelon entity
+            Element 3: integer; 0 or 1, where 1 signifies aberration detection
+        
+    OUTPUTS
+    -------
+    N:   Numpy matrix where element (i,j) corresponds to the number of tests
+         done from the outlet i, importer j path
+    Y:   Numpy matrix where element (i,j) corresponds to the number of test
+         positives from the outlet i, importer j path
+    outletNames: Sorted list of unique outlet names
+    importerNames: Sorted list of unique importer names
+    '''
+    
+    if not isinstance(dataTbl, list): 
+        print('You did not enter a Python list into the FormatForEstimate_TRACKED() function.') 
+        return
+    
+    outletNames = []
+    importerNames = []
+    for row in dataTbl:
+        if row[0] not in outletNames:
+            outletNames.append(row[0])
+        if row[1] not in importerNames:
+            importerNames.append(row[1])
+    outletNames.sort()
+    importerNames.sort()
+    
+    N = np.zeros(shape=(len(outletNames),len(importerNames)))
+    Y = np.zeros(shape=(len(outletNames),len(importerNames)))
+    for row in dataTbl:
+        N[outletNames.index(row[0]), importerNames.index(row[1])] += 1
+        Y[outletNames.index(row[0]), importerNames.index(row[1])] += row[2]
+    
+    return N, Y, outletNames, importerNames
+
+def plotPostSamps(postSamps, numImp, numOut):
+    '''
+    Plots the distribution of posterior aberration rate samples, with importer
+    and outlet distributions plotted distinctly.
+    
+    INPUTS
+    ------
+    postSamps: List of posterior sample lists, with importer values entered first.
+    numImp:    Number of importers/upper echelon entities
+    numOut:    Number of outlets/lower echelon entities        
+    
+    OUTPUTS
+    -------
+    No values are returned
+    '''
+    
+    fig = plt.figure()
+    ax = fig.add_axes([0,0,2,1])
+    ax.set_title('Importers',fontsize=18)
+    ax.set_xlabel('Aberration rate',fontsize=14)
+    ax.set_ylabel('Posterior distribution frequency',fontsize=14)
+    for i in range(numImp):
+        plt.hist(postSamps[:,i])
+    
+    fig = plt.figure()
+    ax = fig.add_axes([0,0,2,1])
+    ax.set_title('Outlets',fontsize=18)
+    ax.set_xlabel('Aberration rate',fontsize=14)
+    ax.set_ylabel('Posterior distribution frequency',fontsize=14)
+    for i in range(numOut):
+        plt.hist(postSamps[:,numImp+i])
+    
+    return
+
+def printEstimates(estDict,impNames,outNames):
+    '''
+    Prints a formatted table of an estimate dictionary.
+    
+    INPUTS
+    ------
+    estDict:  Dictionary returned from scai_methods.Est_TrackedMLE() or
+              scai_methods.Est_UntrackedMLE()
+    impNames: List of names of importers/upper echelon entities
+    outNames: List of names of outlets/lower echelon entities
+    
+    OUTPUTS
+    -------
+    No values are returned
+    '''
+    impMLE = np.ndarray.tolist(estDict['impProj'])
+    impMLE = [[impNames[i]]+["{0:.1%}".format(impMLE[i])] for i in range(len(impMLE))]
+    outMLE = np.ndarray.tolist(estDict['outProj'])
+    outMLE = [[outNames[i]]+["{0:.1%}".format(outMLE[i])] for i in range(len(outMLE))]
+    
+    print('*'*100)
+    print('ESTIMATE DICTIONARY VALUES')
+    print('*'*100)
+    print(tabulate(impMLE,headers=['Importer Name','Max. Lklhd. Est.']))
+    print('*'*100)
+    print('*'*100)
+    print(tabulate(outMLE,headers=['Outlet Name','Max. Lklhd. Est.']))
+    
+    return
+
+
+
+
+
+
+
+
 
 def SimReplicationOutput(OPdict):
     """

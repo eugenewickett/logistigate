@@ -18,8 +18,7 @@ import numpy as np
 import scipy.optimize as spo
 import scipy.stats as spstat
 import scipy.special as sps
-import scai_helpers as simHelpers
-#simModules
+import scai_utilities
 
 '''
 First we define necessary prior, likelihood, and posterior functions. Then we
@@ -196,7 +195,7 @@ def GeneratePostSamps_UNTRACKED(numSamples,posData,A,sens,spec,regWt,M,Madapt,de
                    UNTRACKED_LogLike_Jac(beta,numSamples,posData,sens,spec,A,regWt)
     
     beta0 = -2 * np.ones(A.shape[1] + A.shape[0])
-    samples, lnprob, epsilon = simHelpers.nuts6(UNTRACKEDtargetForNUTS,M,Madapt,beta0,delta)
+    samples, lnprob, epsilon = scai_utilities.nuts6(UNTRACKEDtargetForNUTS,M,Madapt,beta0,delta)
     
     return sps.expit(samples)
 
@@ -465,7 +464,7 @@ def GeneratePostSamps_TRACKED(N,Y,sens,spec,regWt,M,Madapt,delta,usePriors=1.):
                    TRACKED_LogLike_Jac(beta,N,Y,sens,spec,regWt)
 
     beta0 = -2 * np.ones(N.shape[1] + N.shape[0])
-    samples, lnprob, epsilon = simHelpers.nuts6(TRACKEDtargetForNUTS,M,Madapt,beta0,delta)
+    samples, lnprob, epsilon = scai_utilities.nuts6(TRACKEDtargetForNUTS,M,Madapt,beta0,delta)
     
     return sps.expit(samples)
 
@@ -585,7 +584,7 @@ def Est_LinearProjection(A,PosData,NumSamples,Sens,Spec,RglrWt=0.1,M=500,\
     # Initialize output dictionary
     outDict = {}
     # Grab 'usable' data
-    adjA, adjPosData, adjNumSamples, zeroInds = simHelpers.GetUsableSampleVectors(A,PosData\
+    adjA, adjPosData, adjNumSamples, zeroInds = scai_utilities.GetUsableSampleVectors(A,PosData\
                                                                        ,NumSamples)
 
     X = np.array([adjPosData[i]/adjNumSamples[i] for i in range(len(adjNumSamples))])
@@ -662,7 +661,7 @@ def Est_BernoulliProjection(A,PosData,NumSamples,Sens,Spec,RglrWt=0.1,M=500,\
     
     # Grab 'usable' data
     big_m = A.shape[1]
-    adjA, adjPosData, adjNumSamples, zeroInds = simHelpers.GetUsableSampleVectors(A,PosData\
+    adjA, adjPosData, adjNumSamples, zeroInds = scai_utilities.GetUsableSampleVectors(A,PosData\
                                                                        ,NumSamples)
     
     A = np.array(adjA)
@@ -887,6 +886,9 @@ def Est_TrackedMLE(N,Y,Sens,Spec,RglrWt=0.1,M=500,Madapt=5000,delta=0.4,beta0_Li
     #Expected positives vector at the outlets
     pi_hat = sps.expit(best_x[numImp:])
     theta_hat = sps.expit(best_x[:numImp])
+    
+    
+    '''
     #y_Expec = (1-Spec) + (Sens+Spec-1) *(np.array([theta_hat]*numOut)+np.array([1-theta_hat]*numOut)*np.array([pi_hat]*numImp).transpose())
     #Insert it into our hessian
     hess = TRACKED_LogPost_Hess(best_x,N,Y,Sens,Spec)
@@ -902,7 +904,7 @@ def Est_TrackedMLE(N,Y,Sens,Spec,RglrWt=0.1,M=500,Madapt=5000,delta=0.4,beta0_Li
     out_Interval95 = z95*np.sqrt(hess_invs[numImp:])
     out_Interval99 = z99*np.sqrt(hess_invs[numImp:])
     
-    '''
+    
     outDict['90upper_imp'] = sps.expit(best_x[:numImp] + imp_Interval90)
     outDict['90lower_imp'] = sps.expit(best_x[:numImp] - imp_Interval90)
     outDict['95upper_imp'] = sps.expit(best_x[:numImp] + imp_Interval95)
@@ -954,7 +956,7 @@ def Est_PostSamps_Untracked(A,PosData,NumSamples,Sens,Spec,RglrWt=0.1,M=500,Mada
     Returns the mean estimate of M NUTS samples, using the Madapt and delta
     parameters and given testing data
     '''
-    samples = simHelpers.GeneratePostSamps_UNTRACKED(NumSamples,PosData,A,Sens,Spec,RglrWt,M,Madapt,delta)
+    samples = scai_utilities.GeneratePostSamps_UNTRACKED(NumSamples,PosData,A,Sens,Spec,RglrWt,M,Madapt,delta)
     intMeans = [sps.expit(np.mean(samples[:,i])) for i in range(A.shape[1])]
     endMeans = [sps.expit(np.mean(samples[:,A.shape[1]+i])) for i in range(A.shape[0])]
     return intMeans, endMeans
@@ -964,7 +966,7 @@ def Est_PostSamps_Tracked(Nmat,Ymat,Sens,Spec,RglrWt=0.1,M=500,Madapt=5000,delta
     Returns the mean estimate of M NUTS samples, using the Madapt and delta
     parameters and given testing data
     '''
-    samples = simHelpers.GeneratePostSamps_TRACKED(Nmat,Ymat,Sens,Spec,RglrWt,M,Madapt,delta)
+    samples = scai_utilities.GeneratePostSamps_TRACKED(Nmat,Ymat,Sens,Spec,RglrWt,M,Madapt,delta)
     intMeans = [sps.expit(np.mean(samples[:,i])) for i in range(Nmat.shape[1])]
     endMeans = [sps.expit(np.mean(samples[:,Nmat.shape[1]+i])) for i in range(Nmat.shape[0])]
     return intMeans, endMeans

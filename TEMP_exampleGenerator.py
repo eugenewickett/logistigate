@@ -40,7 +40,7 @@ with open(trueRatesFile,newline='') as file:
             outNames.append(row[0])
         counter += 1
 
-numSamples = 1000
+numSamples = 2000
 testingDataList = []
 for currSamp in range(numSamples):
     currOutlet = random.sample(outNames,1)[0]

@@ -57,15 +57,64 @@ Industrial Engineering & Management Sciences, Northwestern University
 """
 
 import numpy as np
-import csv
 import matplotlib.pyplot as plt
 #import nuts
-import scai_methods
+import scai_methods as methods
+import scai_utilities as util
 
-def scai(testingDataFileName,
-         diagnosticSensitivity=0.99, diagnosticSpecificity=0.99,
-         numPostSamples=500,
-         transitionMatrix=np.zeros(shape=(1,1)), useUntracked=False):
+def scai_Tracked(testingDataFileName, diagnosticSensitivity=0.99,
+                 diagnosticSpecificity=0.99, numPostSamples=500):
+    '''
+    This function reads an CSV list of testing results and returns an
+    estimation dictionary containing 90%,95%, and 99% confidence intervals for 
+    the aberration proportions at the importer and outlet echelons.
+    Additionally, posterior samples of the aberration rates, with the importer 
+    echelon listed first, are provided.
+        
+    INPUTS
+    ------
+    testingDataFileName:    CSV file name string
+        CSV file must be located within the current working directory when
+        scai() is called. Each row of the file should signify a single sample
+        point, and each row should have three columns, as follows:
+            column 1: string; Name of outlet/lower echelon entity
+            column 2: string; Name of importer/upper echelon entity
+            column 3: integer; 0 or 1, where 1 signifies aberration detection
+    
+    diagnosticSensitivity, diagnosticSpecificity: float
+        Diagnostic characteristics for completed testing
+    
+    numPostSamples:         integer
+        The number of posterior samples to generate
+    
+    OUTPUTS
+    -------                        
+    estDict:            Dictionary of estimation results, with the following 
+                        keys:
+            impProj:    Maximizers of posterior likelihood for importer echelon
+            outProj:    Maximizers of posterior likelihood for outlet echelon
+            90upper_imp, 90lower_imp, 95upper_imp, 95lower_imp,
+            99upper_imp, 99lower_imp, 90upper_out, 90lower_out,
+            95upper_out, 95lower_out, 99upper_out, 99lower_out:
+                        Upper and lower values for the 90%, 95%, and 99% 
+                        intervals on importer and outlet aberration rates
+        
+    postSamps:          List of posterior samples, generated using the NUTS
+                        from Hoffman & Gelman, 2011   
+    '''
+    
+    dataTbl, outNames, impNames = util.TestResultsFileToTable(testingDataFileName)
+    N, Y, _, _ = util.FormatForEstimate_TRACKED(dataTbl)
+    estDict = methods.Est_TrackedMLE(N, Y, diagnosticSensitivity, diagnosticSpecificity)
+    postSamps = methods.GeneratePostSamps_TRACKED(N, Y, diagnosticSensitivity,
+                            diagnosticSpecificity, regWt=0., M=numPostSamples,
+                            Madapt=5000, delta=0.4, usePriors=1.)
+    
+    return estDict, postSamps
+
+def scai_Untracked(testingDataFileName, diagnosticSensitivity=0.99,
+                   diagnosticSpecificity=0.99, numPostSamples=500,
+                   transitionMatrix=np.zeros(shape=(1,1)), useUntracked=False):
     '''
     This function reads an CSV list of testing results and returns an
     estimation dictionary containing 90%,95%, and 99% confidence intervals for 
@@ -99,10 +148,7 @@ def scai(testingDataFileName,
     
     
     OUTPUTS
-    -------
-    impList, outList:   Ordered lists of the importer and outlet echelons, as 
-                        interpreted by the function
-                        
+    -------                        
     estDict:            Dictionary of estimation results, with the following 
                         keys:
             impProj:    Maximizers of posterior likelihood for importer echelon
@@ -116,84 +162,42 @@ def scai(testingDataFileName,
     postSamps:          List of posterior samples, generated using the NUTS
                         from Hoffman & Gelman, 2011   
     '''
-    dataTbl = [] #Initialize list for raw data
-    try:
-        with open(testingDataFileName,newline='') as file:
-            reader = csv.reader(file)
-            for row in reader:
-                row[2] = int(row[2]) #Convert results to integers
-                dataTbl.append(row)
-    except:
-        print('Unable to locate file '+str(fileName)+' in the current directory.'+\
-              ' Make sure the directory is set to the location of the CSV file.')
-        return
-    
-    # Grab list of unique outlet and importer names
-    outletNames = []
-    importerNames = []
-    for row in dataTbl:
-        if row[0] not in outletNames:
-            outletNames.append(row[0])
-        if row[1] not in importerNames:
-            importerNames.append(row[1])
-    outletNames.sort()
-    importerNames.sort()
-    
-    outletNum = len(outletNames)
-    importerNum = len(importerNames)
-    
     '''
-    Build N, Y matrices, where element (i,j) of N/Y signifies the number of
-    samples/aberrations collected from each (outlet i, importer j) track
+    dataTbl, outNames, impNames = util.TestResultsFileToTable(testingDataFileName)
+    N, Y, _, _ = util.FormatForEstimate_TRACKED(dataTbl)
+    estDict = methods.Est_TrackedMLE(N, Y, diagnosticSensitivity, diagnosticSpecificity)
+    postSamps = methods.GeneratePostSamps_TRACKED(N, Y, diagnosticSensitivity,
+                            diagnosticSpecificity, regWt=0., M=numPostSamples,
+                            Madapt=5000, delta=0.4, usePriors=1.)
     '''
-    N = np.zeros(shape=(outletNum,importerNum))
-    Y = np.zeros(shape=(outletNum,importerNum))
-    for row in dataTbl:
-        outInd = outletNames.index(row[0])
-        impInd = importerNames.index(row[1])
-        N[outInd,impInd] += 1
-        Y[outInd,impInd] += row[2]
     
-    # Generate dictionary of estimates
-    estDict = scai_methods.Est_TrackedMLE(N,Y,diagnosticSensitivity,
-                                          diagnosticSpecificity)
-    # Form posterior samples
-    postSamps = scai_methods.GeneratePostSamps_TRACKED(N,Y,
-                                                       diagnosticSensitivity,
-                                                       diagnosticSpecificity,
-                                                       regWt=0.,
-                                                       M=numPostSamples,
-                                                       Madapt=5000,delta=0.4,
-                                                       usePriors=1.)
+    return 0
+
+
+def scai_Example1():
+    '''
+    This example [PUT DESCRIPTION OF EXAMPLE 1 HERE WHEN DECIDED]
+    '''
     
-    return estDict, postSamps
+    estDict, postSamps = scai_Tracked('example1_testData.csv',diagnosticSensitivity=0.90, 
+                                      diagnosticSpecificity=0.99, numPostSamples=500)
+    
+    numImp = len(estDict['impProj'])
+    numOut = len(estDict['outProj'])
+    
+    util.plotPostSamps(postSamps, numImp, numOut)
+    util.printEstimates(estDict)
+    
+    return
 
 
 
-fileName = 'example1_testingData.csv'
-estDict, postSamps = scai(fileName,
-                          diagnosticSensitivity=0.99, diagnosticSpecificity=0.99,
-                          numPostSamples=500,
-                          transitionMatrix=np.zeros(shape=(1,1)), useUntracked=False)
 
-numImp = len(estDict['impProj'])
-numOut = len(estDict['outProj'])
 
-fig = plt.figure()
-ax = fig.add_axes([0,0,2,1])
-ax.set_title('Importers',fontsize=18)
-ax.set_xlabel('Aberration rate',fontsize=14)
-ax.set_ylabel('Posterior distribution frequency',fontsize=14)
-for i in range(numImp):
-    plt.hist(postSamps[:,i])
+scai_Example1()
 
-fig = plt.figure()
-ax = fig.add_axes([0,0,2,1])
-ax.set_title('Outlets',fontsize=18)
-ax.set_xlabel('Aberration rate',fontsize=14)
-ax.set_ylabel('Posterior distribution frequency',fontsize=14)
-for i in range(numOut):
-    plt.hist(postSamps[:,numImp+i])
+
+
 
 
 
