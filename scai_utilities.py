@@ -6,8 +6,6 @@ Created on Thu Nov 14 17:04:36 2019
 Stores modules for use with 'SC Simulator.py'
 """
 import csv
-
-
 import numpy as np
 import pandas as pd
 import itertools
@@ -16,25 +14,29 @@ import scipy.special as sps
 import os
 import sys
 import pickle
+#import nuts
 from tabulate import tabulate
 import matplotlib.pyplot as plt
 
-def TestResultsFileToTable(inputFile):
+def TestResultsFileToTable(testDataFile, transitionMatrixFile=''):
     '''
     Takes a CSV file name as input and returns a usable Python list of testing
-    results, in addition to lists of the importer and outlet names.
+    results, in addition to lists of the outlet names and importer names, 
+    depending on whether tracked or untracked data was entered.
     
     INPUTS
     ------
     inputFile: CSV file name string
         CSV file must be located within the current working directory when
         TestResultsFileToTable() is called. There should not be a header row.
-        Each row of the file should signify a single sample point, and each row
-        should have three columns, as follows:
+        Each row of the file should signify a single sample point.
+        For tracked data, each row should have three columns, as follows:
             column 1: string; Name of outlet/lower echelon entity
             column 2: string; Name of importer/upper echelon entity
             column 3: integer; 0 or 1, where 1 signifies aberration detection
-        Any data in additional columns is ignored.
+        For untracked data, each row should have two columns, as follows:
+            column 1: string; Name of outlet/lower echelon entity
+            column 2: integer; 0 or 1, where 1 signifies aberration detection
         
     OUTPUTS
     -------
@@ -47,13 +49,13 @@ def TestResultsFileToTable(inputFile):
     dataTblDict = {}
     dataTbl = [] #Initialize list for raw data
     try:
-        with open(inputFile,newline='') as file:
+        with open(testDataFile, newline='') as file:
             reader = csv.reader(file)
             for row in reader:
-                row[2] = int(row[2]) #Convert results to integers
+                row[-1] = int(row[-1]) #Convert results to integers
                 dataTbl.append(row)
     except FileNotFoundError:
-        print('Unable to locate file '+str(inputFile)+' in the current directory.'+\
+        print('Unable to locate file '+str(testDataFile)+' in the current directory.'+\
               ' Make sure the directory is set to the location of the CSV file.')
         return
     except ValueError:
@@ -69,12 +71,32 @@ def TestResultsFileToTable(inputFile):
     for row in dataTbl:
         if row[0] not in outletNames:
             outletNames.append(row[0])
-        if row[1] not in importerNames:
-            importerNames.append(row[1])
+        if not transitionMatrixFile=='':
+            if row[1] not in importerNames:
+                importerNames.append(row[1])
     outletNames.sort()
     importerNames.sort()
     
+    transitionMatrix = np.zeros(shape=(len(outletNames),len(importerNames)))
+    if not transitionMatrixFile=='':
+        try:
+            with open(transitionMatrixFile, newline='') as file:
+                reader = csv.reader(file)
+                counter = 0
+                for row in reader:     
+                    row = [float(row[i]) for i in len(row)]
+                    transitionMatrix[counter] = row
+        except FileNotFoundError:
+            print('Unable to locate file '+str(testDataFile)+' in the current directory.'+\
+                  ' Make sure the directory is set to the location of the CSV file.')
+            return
+        except ValueError:
+            print('There seems to be something wrong with your transition matrix. Check that'+\
+                  ' your CSV file is correctly formatted, with only values between'+\
+                  ' 0 and 1 included.')
+            return
     dataTblDict['dataTbl'] = dataTbl
+    dataTblDict['transMat'] = transitionMatrix
     dataTblDict['outletNames'] = outletNames
     dataTblDict['importerNames'] = importerNames
     
@@ -179,7 +201,8 @@ def printEstimates(estDict,impNames,outNames):
     
     OUTPUTS
     -------
-    No values are returned
+    No values are returned; the contents of the estimate dictionary are printed
+    in a legible format.
     '''
     impMLE = np.ndarray.tolist(estDict['impProj'])
     imp99lower = np.ndarray.tolist(estDict['99lower_imp'])
@@ -193,7 +216,6 @@ def printEstimates(estDict,impNames,outNames):
                  ["{0:.1%}".format(imp90lower[i])] + ["{0:.1%}".format(imp90upper[i])] +
                  ["{0:.1%}".format(imp95upper[i])] + ["{0:.1%}".format(imp99upper[i])]
                  for i in range(len(impMLE))]
-    
     
     outMLE = np.ndarray.tolist(estDict['outProj'])
     out99lower = np.ndarray.tolist(estDict['99lower_out'])

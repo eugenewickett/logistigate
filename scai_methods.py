@@ -569,10 +569,14 @@ def TRACKED_LogPost_Probs_Hess(pVec,numVec,posVec,sens,spec):
             +TRACKED_LogPrior_Hess(sps.logit(pVec),numVec,posVec,sens,spec)
 ###### END TRACKED FUNCTIONS ######
 
+def FormEstimates(TransMat,PosData,NumSamples,Sens,Spec,RglrWt=0.1,M=500,Madapt=5000,
+                  delta=0.4,beta0_List=[],usePrior=1.):
+    '''
+    COMBINE ESTIMATE METHODS INTO ONE FUNCTION HERE
+    '''
+    
 
-
-
-
+    return 0
 
 ########################### SFP ESTIMATORS FOR SIMULATION ###########################
 def Est_UntrackedMLE(A,PosData,NumSamples,Sens,Spec,RglrWt=0.1,M=500,\

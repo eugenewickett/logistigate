@@ -9,12 +9,12 @@ import numpy as np
 import random
 
 
-transMatFileName = 'example1_transitionMatrix.csv'
+transMatFileName = 'example2_transitionMatrix.csv'
 
 numImp = 3
-numOut = 23
-diagSens = 0.90
-diagSpec = 0.99
+numOut = 12
+diagSens = 0.70
+diagSpec = 0.90
 
 transMat = np.zeros(shape=(numOut,numImp))
 with open(transMatFileName,newline='') as file:
@@ -25,7 +25,7 @@ with open(transMatFileName,newline='') as file:
             transMat[counter-1]= np.array([float(row[i]) for i in range(1,numImp+1)])
         counter+=1
 
-trueRatesFile = 'example1_trueRates.csv'
+trueRatesFile = 'example2_trueRates.csv'
 trueRates = np.zeros(numImp+numOut)
 impNames = []
 outNames = []
@@ -40,7 +40,7 @@ with open(trueRatesFile,newline='') as file:
             outNames.append(row[0])
         counter += 1
 
-numSamples = 2000
+numSamples = 4000
 testingDataList = []
 for currSamp in range(numSamples):
     currOutlet = random.sample(outNames,1)[0]

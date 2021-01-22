@@ -60,8 +60,9 @@ import numpy as np
 import scai_methods as methods
 import scai_utilities as util
 
-def scai_Tracked(testingDataFileName, diagnosticSensitivity=0.99,
-                 diagnosticSpecificity=0.99, numPostSamples=500):
+def logistigate(testingDataFileName, diagnosticSensitivity=0.99,
+                 diagnosticSpecificity=0.99, numPostSamples=500,
+                 useUntracked=False, transitionMatrix=np.zeros(shape=(1,1))):
     '''
     This function reads an CSV list of testing results and returns an
     estimation dictionary containing 90%,95%, and 99% confidence intervals for 
@@ -190,7 +191,61 @@ def scai_Example1():
     This example [PUT DESCRIPTION OF EXAMPLE 1 HERE WHEN DECIDED]
     '''
     
-    scaiDict = scai_Tracked('example1_testData.csv', diagnosticSensitivity=0.90, 
+    scaiDict = logistigate('example1_testData.csv', diagnosticSensitivity=0.90, 
+                            diagnosticSpecificity=0.99, numPostSamples=500)
+        
+    util.plotPostSamps(scaiDict['postSamps'], scaiDict['importerNum'], scaiDict['outletNum'])
+    util.printEstimates(scaiDict['estDict'], scaiDict['importerNames'], scaiDict['outletNames'])
+    
+    return
+
+def scai_Example2():
+    '''
+    This example [PUT DESCRIPTION OF EXAMPLE 2 HERE WHEN DECIDED]
+    '''
+    
+    scaiDict = logistigate('example2_testData.csv', diagnosticSensitivity=0.90, 
+                            diagnosticSpecificity=0.99, numPostSamples=500)
+        
+    util.plotPostSamps(scaiDict['postSamps'], scaiDict['importerNum'], scaiDict['outletNum'])
+    util.printEstimates(scaiDict['estDict'], scaiDict['importerNames'], scaiDict['outletNames'])
+    
+    return
+
+def scai_Example2b():
+    '''
+    This example uses the same underlying environment as example 2, but with 
+    1000 testing sample point instead of 4000.
+    '''
+    
+    scaiDict = logistigate('example2b_testData.csv', diagnosticSensitivity=0.90, 
+                            diagnosticSpecificity=0.99, numPostSamples=500)
+        
+    util.plotPostSamps(scaiDict['postSamps'], scaiDict['importerNum'], scaiDict['outletNum'])
+    util.printEstimates(scaiDict['estDict'], scaiDict['importerNames'], scaiDict['outletNames'])
+    
+    return
+
+def scai_Example2c():
+    '''
+    This example uses the same underlying environment as example 2 (including
+    4000 testing sample points), but with 70% sensitivity and 90% specificity
+    '''
+    
+    scaiDict = logistigate('example2c_testData.csv', diagnosticSensitivity=0.70, 
+                            diagnosticSpecificity=0.90, numPostSamples=500)
+        
+    util.plotPostSamps(scaiDict['postSamps'], scaiDict['importerNum'], scaiDict['outletNum'])
+    util.printEstimates(scaiDict['estDict'], scaiDict['importerNames'], scaiDict['outletNames'])
+    
+    return
+
+def scai_Example2d():
+    '''
+    This example [PUT DESCRIPTION OF EXAMPLE 2d HERE WHEN DECIDED]
+    '''
+    
+    scaiDict = logistigate('example2_testData.csv', diagnosticSensitivity=0.90, 
                             diagnosticSpecificity=0.99, numPostSamples=500)
         
     util.plotPostSamps(scaiDict['postSamps'], scaiDict['importerNum'], scaiDict['outletNum'])
@@ -199,11 +254,10 @@ def scai_Example1():
     return
 
 
-
-
-
 #scai_Example1()
-
+#scai_Example2()
+#scai_Example2b()
+#scai_Example2c()
 
 
 
