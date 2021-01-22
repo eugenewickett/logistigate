@@ -38,11 +38,13 @@ def TestResultsFileToTable(inputFile):
         
     OUTPUTS
     -------
-    dataTbl: Python list of testing results, with each entry organized as
-        [OUTLETNAME, IMPORTERNAME, TESTRESULT]
-    outletNames: Sorted list of unique outlet names
-    importerNames: Sorted list of unique importer names
+    Returns dataTblDict with the following keys:
+        dataTbl: Python list of testing results, with each entry organized as
+            [OUTLETNAME, IMPORTERNAME, TESTRESULT]
+        outletNames: Sorted list of unique outlet names
+        importerNames: Sorted list of unique importer names
     '''
+    dataTblDict = {}
     dataTbl = [] #Initialize list for raw data
     try:
         with open(inputFile,newline='') as file:
@@ -72,7 +74,11 @@ def TestResultsFileToTable(inputFile):
     outletNames.sort()
     importerNames.sort()
     
-    return dataTbl, outletNames, importerNames
+    dataTblDict['dataTbl'] = dataTbl
+    dataTblDict['outletNames'] = outletNames
+    dataTblDict['importerNames'] = importerNames
+    
+    return dataTblDict
 
 def FormatForEstimate_TRACKED(dataTbl):
     '''
@@ -90,14 +96,15 @@ def FormatForEstimate_TRACKED(dataTbl):
         
     OUTPUTS
     -------
-    N:   Numpy matrix where element (i,j) corresponds to the number of tests
-         done from the outlet i, importer j path
-    Y:   Numpy matrix where element (i,j) corresponds to the number of test
-         positives from the outlet i, importer j path
-    outletNames: Sorted list of unique outlet names
-    importerNames: Sorted list of unique importer names
+    Returns TrackedDict with the following keys:
+        N:   Numpy matrix where element (i,j) corresponds to the number of tests
+             done from the outlet i, importer j path
+        Y:   Numpy matrix where element (i,j) corresponds to the number of test
+             positives from the outlet i, importer j path
+        outletNames: Sorted list of unique outlet names
+        importerNames: Sorted list of unique importer names
     '''
-    
+    TrackedDict = {}
     if not isinstance(dataTbl, list): 
         print('You did not enter a Python list into the FormatForEstimate_TRACKED() function.') 
         return
@@ -118,7 +125,12 @@ def FormatForEstimate_TRACKED(dataTbl):
         N[outletNames.index(row[0]), importerNames.index(row[1])] += 1
         Y[outletNames.index(row[0]), importerNames.index(row[1])] += row[2]
     
-    return N, Y, outletNames, importerNames
+    TrackedDict.update({'importerNames':importerNames,
+                        'outletNames':  outletNames,
+                        'N':            N,
+                        'Y':            Y})
+    
+    return TrackedDict
 
 def plotPostSamps(postSamps, numImp, numOut):
     '''
@@ -170,17 +182,43 @@ def printEstimates(estDict,impNames,outNames):
     No values are returned
     '''
     impMLE = np.ndarray.tolist(estDict['impProj'])
-    impMLE = [[impNames[i]]+["{0:.1%}".format(impMLE[i])] for i in range(len(impMLE))]
-    outMLE = np.ndarray.tolist(estDict['outProj'])
-    outMLE = [[outNames[i]]+["{0:.1%}".format(outMLE[i])] for i in range(len(outMLE))]
+    imp99lower = np.ndarray.tolist(estDict['99lower_imp'])
+    imp95lower = np.ndarray.tolist(estDict['95lower_imp'])
+    imp90lower = np.ndarray.tolist(estDict['90lower_imp'])
+    imp99upper = np.ndarray.tolist(estDict['99upper_imp'])
+    imp95upper = np.ndarray.tolist(estDict['95upper_imp'])
+    imp90upper = np.ndarray.tolist(estDict['90upper_imp'])
+    impReport = [[impNames[i]]+["{0:.1%}".format(impMLE[i])] +
+                 ["{0:.1%}".format(imp99lower[i])] + ["{0:.1%}".format(imp95lower[i])] +
+                 ["{0:.1%}".format(imp90lower[i])] + ["{0:.1%}".format(imp90upper[i])] +
+                 ["{0:.1%}".format(imp95upper[i])] + ["{0:.1%}".format(imp99upper[i])]
+                 for i in range(len(impMLE))]
     
-    print('*'*100)
+    
+    outMLE = np.ndarray.tolist(estDict['outProj'])
+    out99lower = np.ndarray.tolist(estDict['99lower_out'])
+    out95lower = np.ndarray.tolist(estDict['95lower_out'])
+    out90lower = np.ndarray.tolist(estDict['90lower_out'])
+    out99upper = np.ndarray.tolist(estDict['99upper_out'])
+    out95upper = np.ndarray.tolist(estDict['95upper_out'])
+    out90upper = np.ndarray.tolist(estDict['90upper_out'])
+    outReport = [[outNames[i]]+["{0:.1%}".format(outMLE[i])] +
+                 ["{0:.1%}".format(out99lower[i])] + ["{0:.1%}".format(out95lower[i])] +
+                 ["{0:.1%}".format(out90lower[i])] + ["{0:.1%}".format(out90upper[i])] +
+                 ["{0:.1%}".format(out95upper[i])] + ["{0:.1%}".format(out99upper[i])]
+                 for i in range(len(outMLE))]
+    
+    print('*'*120)
     print('ESTIMATE DICTIONARY VALUES')
-    print('*'*100)
-    print(tabulate(impMLE,headers=['Importer Name','Max. Lklhd. Est.']))
-    print('*'*100)
-    print('*'*100)
-    print(tabulate(outMLE,headers=['Outlet Name','Max. Lklhd. Est.']))
+    print('*'*120)
+    print(tabulate(impReport,headers=['Importer Name','Max. Lklhd. Est.',
+                                      '99% Lower', '95% Lower', '90% Lower',
+                                      '90% Upper', '95% Upper', '99% Upper']))
+    print('*'*120)
+    print('*'*120)
+    print(tabulate(outReport,headers=['Outlet Name','Max. Lklhd. Est.',
+                                      '99% Lower', '95% Lower', '90% Lower',
+                                      '90% Upper', '95% Upper', '99% Upper']))
     
     return
 

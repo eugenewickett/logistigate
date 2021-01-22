@@ -57,8 +57,6 @@ Industrial Engineering & Management Sciences, Northwestern University
 """
 
 import numpy as np
-import matplotlib.pyplot as plt
-#import nuts
 import scai_methods as methods
 import scai_utilities as util
 
@@ -88,29 +86,42 @@ def scai_Tracked(testingDataFileName, diagnosticSensitivity=0.99,
         The number of posterior samples to generate
     
     OUTPUTS
-    -------                        
-    estDict:            Dictionary of estimation results, with the following 
-                        keys:
-            impProj:    Maximizers of posterior likelihood for importer echelon
-            outProj:    Maximizers of posterior likelihood for outlet echelon
-            90upper_imp, 90lower_imp, 95upper_imp, 95lower_imp,
-            99upper_imp, 99lower_imp, 90upper_out, 90lower_out,
-            95upper_out, 95lower_out, 99upper_out, 99lower_out:
-                        Upper and lower values for the 90%, 95%, and 99% 
-                        intervals on importer and outlet aberration rates
-        
-    postSamps:          List of posterior samples, generated using the NUTS
-                        from Hoffman & Gelman, 2011   
+    -------    
+    Returns scaiDict with the following keys:
+        dataTbl: List of testing results from input file
+        importerNames, outletNames: Ordered lists of importer and outlet names
+        importerNum, outletNum: Number of unique importers and outlets from input file
+        estDict: Dictionary of estimation results, with the following keys:
+                impProj:    Maximizers of posterior likelihood for importer echelon
+                outProj:    Maximizers of posterior likelihood for outlet echelon
+                90upper_imp, 90lower_imp, 95upper_imp, 95lower_imp,
+                99upper_imp, 99lower_imp, 90upper_out, 90lower_out,
+                95upper_out, 95lower_out, 99upper_out, 99lower_out:
+                            Upper and lower values for the 90%, 95%, and 99% 
+                            intervals on importer and outlet aberration rates
+            
+        postSamps: List of posterior samples, generated using the NUTS from 
+                   Hoffman & Gelman, 2011   
     '''
-    
-    dataTbl, outNames, impNames = util.TestResultsFileToTable(testingDataFileName)
-    N, Y, _, _ = util.FormatForEstimate_TRACKED(dataTbl)
-    estDict = methods.Est_TrackedMLE(N, Y, diagnosticSensitivity, diagnosticSpecificity)
-    postSamps = methods.GeneratePostSamps_TRACKED(N, Y, diagnosticSensitivity,
-                            diagnosticSpecificity, regWt=0., M=numPostSamples,
-                            Madapt=5000, delta=0.4, usePriors=1.)
-    
-    return estDict, postSamps
+    scaiDict = {}
+    dataTblDict = util.TestResultsFileToTable(testingDataFileName)
+    TrackedDict = util.FormatForEstimate_TRACKED(dataTblDict['dataTbl'])
+    estDict = methods.Est_TrackedMLE(TrackedDict['N'], TrackedDict['Y'],
+                                     diagnosticSensitivity, diagnosticSpecificity)
+    postSamps = methods.GeneratePostSamps_TRACKED(TrackedDict['N'], TrackedDict['Y'],
+                                                  diagnosticSensitivity,
+                                                  diagnosticSpecificity,
+                                                  regWt=0., M=numPostSamples,
+                                                  Madapt=5000, delta=0.4, usePriors=1.)
+    scaiDict.update({'dataTbl':dataTblDict['dataTbl'],
+                     'importerNames':dataTblDict['importerNames'],
+                     'outletNames':dataTblDict['outletNames'],
+                     'importerNum':len(dataTblDict['importerNames']),
+                     'outletNum':len(dataTblDict['outletNames']),
+                     'estDict':estDict,
+                     'postSamps':postSamps
+                     })
+    return scaiDict #estDict, postSamps, impNames, outNames
 
 def scai_Untracked(testingDataFileName, diagnosticSensitivity=0.99,
                    diagnosticSpecificity=0.99, numPostSamples=500,
@@ -179,14 +190,11 @@ def scai_Example1():
     This example [PUT DESCRIPTION OF EXAMPLE 1 HERE WHEN DECIDED]
     '''
     
-    estDict, postSamps = scai_Tracked('example1_testData.csv',diagnosticSensitivity=0.90, 
-                                      diagnosticSpecificity=0.99, numPostSamples=500)
-    
-    numImp = len(estDict['impProj'])
-    numOut = len(estDict['outProj'])
-    
-    util.plotPostSamps(postSamps, numImp, numOut)
-    util.printEstimates(estDict)
+    scaiDict = scai_Tracked('example1_testData.csv', diagnosticSensitivity=0.90, 
+                            diagnosticSpecificity=0.99, numPostSamples=500)
+        
+    util.plotPostSamps(scaiDict['postSamps'], scaiDict['importerNum'], scaiDict['outletNum'])
+    util.printEstimates(scaiDict['estDict'], scaiDict['importerNames'], scaiDict['outletNames'])
     
     return
 
@@ -194,7 +202,7 @@ def scai_Example1():
 
 
 
-scai_Example1()
+#scai_Example1()
 
 
 
