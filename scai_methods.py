@@ -184,8 +184,16 @@ def UNTRACKED_NegLogPost_Grad(beta, nsamp, ydata, sens, spec, A):
 def UNTRACKED_NegLogPost_Hess(beta, nsamp, ydata, sens, spec, A):
     return -1*UNTRACKED_LogPost_Hess(beta, nsamp, ydata, sens, spec, A)
 
-def GeneratePostSamps_UNTRACKED(numSamples,posData,A,sens,spec,regWt,M,Madapt,delta,usePrior=1.):
-    if usePrior==1.:
+def GeneratePostSamps_UNTRACKED(dataTblDict,regWt=0.,M=500,Madapt=5000,
+                                delta=0.4,usePriors=1.):
+    '''
+    numSamples,posData,A,sens,spec,regWt,M,Madapt,delta,usePrior=1.
+    '''
+    numSamples,posData = dataTblDict['N'],dataTblDict['Y']
+    sens,spec = dataTblDict['diagSens'],dataTblDict['diagSpec']
+    A = dataTblDict['transMat']
+    
+    if usePriors==1.:
         def UNTRACKEDtargetForNUTS(beta):
             return UNTRACKED_LogPost(beta,numSamples,posData,sens,spec,A),\
                    UNTRACKED_LogPost_Grad(beta,numSamples,posData,sens,spec,A)
@@ -196,7 +204,7 @@ def GeneratePostSamps_UNTRACKED(numSamples,posData,A,sens,spec,regWt,M,Madapt,de
     
     beta0 = -2 * np.ones(A.shape[1] + A.shape[0])
     samples, lnprob, epsilon = scai_utilities.nuts6(UNTRACKEDtargetForNUTS,M,Madapt,beta0,delta)
-    
+    # CHANGE scai_utilities TO nuts if wanting to use the Gelman package
     return sps.expit(samples)
 
 ##### LIKELIHOOD FUNCTIONS ON NON-EXPIT PROBABILITIES
@@ -454,7 +462,10 @@ def TRACKED_NegLogPost_Grad(beta, N, Y, sens, spec):
 def TRACKED_NegLogPost_Hess(beta,N,Y,sens,spec):
     return -1*TRACKED_LogPost_Hess(beta,N,Y,sens,spec)
 
-def GeneratePostSamps_TRACKED(N,Y,sens,spec,regWt,M,Madapt,delta,usePriors=1.):
+def GeneratePostSamps_TRACKED(dataTblDict,regWt,M,Madapt,delta,usePriors=1.):
+    N,Y = dataTblDict['N'],dataTblDict['Y']
+    sens,spec = dataTblDict['diagSens'],dataTblDict['diagSpec']
+    
     if usePriors==1.:
         def TRACKEDtargetForNUTS(beta):
             return TRACKED_LogPost(beta,N,Y,sens,spec),\
@@ -466,7 +477,7 @@ def GeneratePostSamps_TRACKED(N,Y,sens,spec,regWt,M,Madapt,delta,usePriors=1.):
 
     beta0 = -2 * np.ones(N.shape[1] + N.shape[0])
     samples, lnprob, epsilon = scai_utilities.nuts6(TRACKEDtargetForNUTS,M,Madapt,beta0,delta)
-    
+    # CHANGE scai_utilities TO nuts if wanting to use the Gelman package
     return sps.expit(samples)
 
 ##### LIKELIHOOD FUNCTIONS ON NON-EXPIT PROBABILITIES
@@ -569,23 +580,75 @@ def TRACKED_LogPost_Probs_Hess(pVec,numVec,posVec,sens,spec):
             +TRACKED_LogPrior_Hess(sps.logit(pVec),numVec,posVec,sens,spec)
 ###### END TRACKED FUNCTIONS ######
 
-def FormEstimates(TransMat,PosData,NumSamples,Sens,Spec,RglrWt=0.1,M=500,Madapt=5000,
-                  delta=0.4,beta0_List=[],usePrior=1.):
+def FormEstimates(dataTblDict):
     '''
-    COMBINE ESTIMATE METHODS INTO ONE FUNCTION HERE
-    '''
+    Takes a data input dictionary and returns an estimate dictionary,
+    depending on the data type.
     
+    INPUTS
+    ------
+    dataTblDict should be a dictionary with the following keys:
+        type: string
+            'Tracked' or 'Untracked'
+        N, Y: Numpy array
+            If Tracked, it should be a matrix of size (outletNum, importerNum).
+            If Untracked, it should a vector of size (outletNum).
+            N is for the number of total tests conducted, Y is for the number of 
+            positive tests.
+        transMat: Numpy 2-D array
+            Matrix rows/columns should signify outlets/importers; values should
+            be between 0 and 1, and rows must sum to 1. Required for Untracked.
+        outletNames, importerNames: list of strings
+            Should correspond to the order of the transition matrix
+        diagSens, diagSpec: float
+            Diagnostic characteristics for the data compiled in dataTbl
+        numPostSamples: integer
+            The number of posterior samples to generate
+    '''
+    if dataTblDict['type'] == 'Tracked':
+        estDict = Est_TrackedMLE(dataTblDict)
+    elif dataTblDict['type'] == 'Untracked':
+        estDict = Est_UntrackedMLE(dataTblDict)
+    else:
+        print("The input dictionary does not contain an estimation method.")
+        return {}
+    
+    return estDict
 
-    return 0
+def GeneratePostSamps(dataTblDict):
+    if dataTblDict['type'] == 'Tracked':
+        postSamps = GeneratePostSamps_TRACKED(dataTblDict,regWt=0.,
+                                              M=dataTblDict['numPostSamples'],
+                                              Madapt=5000,delta=0.4,usePriors=1.)
+    elif dataTblDict['type'] == 'Untracked':
+        postSamps = GeneratePostSamps_UNTRACKED(dataTblDict,regWt=0.,
+                                                M=dataTblDict['numPostSamples'],
+                                                Madapt=5000,delta=0.4,usePriors=1.)
+    
+    return postSamps
 
 ########################### SFP ESTIMATORS FOR SIMULATION ###########################
-def Est_UntrackedMLE(A,PosData,NumSamples,Sens,Spec,RglrWt=0.1,M=500,\
+def Est_UntrackedMLE(dataTblDict):
+    '''
+        A,PosData,NumSamples,Sens,Spec,RglrWt=0.1,M=500,\
                       Madapt=5000,delta=0.4,beta0_List=[],usePrior=1.):
+    '''
     '''
     Uses the L-BFGS-B method of the SciPy Optimizer to maximize the
     log-likelihood of different SF rates for a given set of UNTRACKED testing
     data in addition to diagnostic capabilities
     '''
+    # CHECK THAT ALL NECESSARY KEYS ARE IN THE INPUT DICTIONARY
+    
+    A = dataTblDict['transMat']
+    NumSamples = dataTblDict['N']
+    PosData = dataTblDict['Y']
+    Sens = dataTblDict['diagSens']
+    Spec = dataTblDict['diagSpec']
+    beta0_List=[]
+    usePrior = 1.
+    RglrWt = 0.1
+    
     outDict = {} # Output dictionary
     PosData = np.array(PosData)
     NumSamples = np.array(NumSamples)
@@ -639,7 +702,8 @@ def Est_UntrackedMLE(A,PosData,NumSamples,Sens,Spec,RglrWt=0.1,M=500,\
     #Insert it into our hessian
     hess = UNTRACKED_LogPost_Hess(best_x,NumSamples,PosData,\
                                                        Sens,Spec,A)
-    hess_invs = [i if i >= 0 else np.nan for i in 1/np.diag(hess)] # Return 'nan' values if the diagonal is less than 0
+    #hess_invs = [i if i >= 0 else np.nan for i in 1/np.diag(hess)] # Return 'nan' values if the diagonal is less than 0
+    hess_invs = [i if i >= 0 else i*-1 for i in 1/np.diag(hess)]
     
     imp_Interval90 = z90*np.sqrt(hess_invs[:numImp])
     imp_Interval95 = z95*np.sqrt(hess_invs[:numImp])
@@ -647,58 +711,46 @@ def Est_UntrackedMLE(A,PosData,NumSamples,Sens,Spec,RglrWt=0.1,M=500,\
     out_Interval90 = z90*np.sqrt(hess_invs[numImp:])
     out_Interval95 = z95*np.sqrt(hess_invs[numImp:])
     out_Interval99 = z99*np.sqrt(hess_invs[numImp:])
-    outDict['90upper_int'] = sps.expit(best_x[:numImp] + imp_Interval90)
-    outDict['90lower_int'] = sps.expit(best_x[:numImp] - imp_Interval90)
-    outDict['95upper_int'] = sps.expit(best_x[:numImp] + imp_Interval95)
-    outDict['95lower_int'] = sps.expit(best_x[:numImp] - imp_Interval95)
-    outDict['99upper_int'] = sps.expit(best_x[:numImp] + imp_Interval99)
-    outDict['99lower_int'] = sps.expit(best_x[:numImp] - imp_Interval99)
-    outDict['90upper_end'] = sps.expit(best_x[numImp:] + out_Interval90)
-    outDict['90lower_end'] = sps.expit(best_x[numImp:] - out_Interval90)
-    outDict['95upper_end'] = sps.expit(best_x[numImp:] + out_Interval95)
-    outDict['95lower_end'] = sps.expit(best_x[numImp:] - out_Interval95)
-    outDict['99upper_end'] = sps.expit(best_x[numImp:] + out_Interval99)
-    outDict['99lower_end'] = sps.expit(best_x[numImp:] - out_Interval99)
+    outDict['90upper_imp'] = sps.expit(best_x[:numImp] + imp_Interval90)
+    outDict['90lower_imp'] = sps.expit(best_x[:numImp] - imp_Interval90)
+    outDict['95upper_imp'] = sps.expit(best_x[:numImp] + imp_Interval95)
+    outDict['95lower_imp'] = sps.expit(best_x[:numImp] - imp_Interval95)
+    outDict['99upper_imp'] = sps.expit(best_x[:numImp] + imp_Interval99)
+    outDict['99lower_imp'] = sps.expit(best_x[:numImp] - imp_Interval99)
+    outDict['90upper_out'] = sps.expit(best_x[numImp:] + out_Interval90)
+    outDict['90lower_out'] = sps.expit(best_x[numImp:] - out_Interval90)
+    outDict['95upper_out'] = sps.expit(best_x[numImp:] + out_Interval95)
+    outDict['95lower_out'] = sps.expit(best_x[numImp:] - out_Interval95)
+    outDict['99upper_out'] = sps.expit(best_x[numImp:] + out_Interval99)
+    outDict['99lower_out'] = sps.expit(best_x[numImp:] - out_Interval99)
     
-    #Generate intervals based on the non-transformed probabilities as well
-    hess_Probs = UNTRACKED_LogPost_Probs_Hess(sps.expit(best_x),NumSamples,\
-                                                    PosData,Sens,Spec,A)*-1
-    hess_invs_Probs = [i if i >= 0 else np.nan for i in 1/np.diag(hess_Probs)] # Return 'nan' values if the diagonal is less than 0
     
-    imp_Interval90_Probs = z90*np.sqrt(hess_invs_Probs[:numImp])
-    imp_Interval95_Probs = z95*np.sqrt(hess_invs_Probs[:numImp])
-    imp_Interval99_Probs = z99*np.sqrt(hess_invs_Probs[:numImp])
-    out_Interval90_Probs = z90*np.sqrt(hess_invs_Probs[numImp:])
-    out_Interval95_Probs = z95*np.sqrt(hess_invs_Probs[numImp:])
-    out_Interval99_Probs = z99*np.sqrt(hess_invs_Probs[numImp:])
-    outDict['90upper_int_Probs'] = [min(theta_hat[i] + imp_Interval90_Probs[i],1.) for i in range(numImp)]
-    outDict['90lower_int_Probs'] = [max(theta_hat[i] - imp_Interval90_Probs[i],0.) for i in range(numImp)]
-    outDict['95upper_int_Probs'] = [min(theta_hat[i] + imp_Interval95_Probs[i],1.) for i in range(numImp)]
-    outDict['95lower_int_Probs'] = [max(theta_hat[i] - imp_Interval95_Probs[i],0.) for i in range(numImp)]
-    outDict['99upper_int_Probs'] = [min(theta_hat[i] + imp_Interval99_Probs[i],1.) for i in range(numImp)]
-    outDict['99lower_int_Probs'] = [max(theta_hat[i] - imp_Interval99_Probs[i],0.) for i in range(numImp)]
-    outDict['90upper_end_Probs'] = [min(pi_hat[i] + out_Interval90_Probs[i],1.) for i in range(numOut)]
-    outDict['90lower_end_Probs'] = [max(pi_hat[i] - out_Interval90_Probs[i],0.) for i in range(numOut)]
-    outDict['95upper_end_Probs'] = [min(pi_hat[i] + out_Interval95_Probs[i],1.) for i in range(numOut)]
-    outDict['95lower_end_Probs'] = [max(pi_hat[i] - out_Interval95_Probs[i],0.) for i in range(numOut)]
-    outDict['99upper_end_Probs'] = [min(pi_hat[i] + out_Interval99_Probs[i],1.) for i in range(numOut)]
-    outDict['99lower_end_Probs'] = [max(pi_hat[i] - out_Interval99_Probs[i],0.) for i in range(numOut)]
-    
-    outDict['intProj'] = theta_hat
-    outDict['endProj'] = pi_hat
+    outDict['impProj'] = theta_hat
+    outDict['outProj'] = pi_hat
     #outDict['hess'] = hess  
     
     return outDict
-#sps.expit(best_x)[0:numImp].tolist(), sps.expit(best_x)[numImp:].tolist()
 
-def Est_TrackedMLE(N,Y,Sens,Spec,RglrWt=0.1,M=500,Madapt=5000,delta=0.4,beta0_List=[],usePrior=1.):
+
+def Est_TrackedMLE(dataTblDict):
     '''
+     Sens,Spec,RglrWt=0.1,M=500,Madapt=5000,delta=0.4,beta0_List=[],usePrior=1.
+    
     Forms MLE sample-wise - DOES NOT use the transition matrix, but instead matrices N and Y,
     which record the positives and number of tests for each (outlet,importer) combination.
     Then uses the L-BFGS-B method of the SciPy Optimizer to maximize the
     log-likelihood of different SF rates for a given set of testing data and 
     diagnostic capabilities
     '''
+    N = dataTblDict['N']
+    Y = dataTblDict['Y']
+    Sens = dataTblDict['diagSens']
+    Spec = dataTblDict['diagSpec']
+    
+    beta0_List = []
+    usePrior = 1.
+    RglrWt = 0.1
+    
     N = N.astype(int)
     Y = Y.astype(int)
     outDict = {}
@@ -738,14 +790,11 @@ def Est_TrackedMLE(N,Y,Sens,Spec,RglrWt=0.1,M=500,Madapt=5000,delta=0.4,beta0_Li
     
     best_x = solsList[np.argmin(likelihoodsList)]
     
-    
     #Generate confidence intervals
     #First we need to generate the information matrix
     #Expected positives vector at the outlets
     pi_hat = sps.expit(best_x[numImp:])
     theta_hat = sps.expit(best_x[:numImp])
-    
-    
     
     #y_Expec = (1-Spec) + (Sens+Spec-1) *(np.array([theta_hat]*numOut)+np.array([1-theta_hat]*numOut)*np.array([pi_hat]*numImp).transpose())
     #Insert it into our hessian
@@ -763,7 +812,6 @@ def Est_TrackedMLE(N,Y,Sens,Spec,RglrWt=0.1,M=500,Madapt=5000,delta=0.4,beta0_Li
     out_Interval95 = z95*np.sqrt(hess_invs[numImp:])
     out_Interval99 = z99*np.sqrt(hess_invs[numImp:])
     
-    
     outDict['90upper_imp'] = sps.expit(best_x[:numImp] + imp_Interval90)
     outDict['90lower_imp'] = sps.expit(best_x[:numImp] - imp_Interval90)
     outDict['95upper_imp'] = sps.expit(best_x[:numImp] + imp_Interval95)
@@ -776,9 +824,6 @@ def Est_TrackedMLE(N,Y,Sens,Spec,RglrWt=0.1,M=500,Madapt=5000,delta=0.4,beta0_Li
     outDict['95lower_out'] = sps.expit(best_x[numImp:] - out_Interval95)
     outDict['99upper_out'] = sps.expit(best_x[numImp:] + out_Interval99)
     outDict['99lower_out'] = sps.expit(best_x[numImp:] - out_Interval99)
-    
-    
-   
     
     outDict['impProj'] = theta_hat
     outDict['outProj'] = pi_hat
