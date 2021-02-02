@@ -55,8 +55,6 @@ Matthew Plumlee
 
 Industrial Engineering & Management Sciences, Northwestern University
 """
-
-import numpy as np
 import scai_methods as methods
 import scai_utilities as util
 
@@ -153,7 +151,8 @@ def scai_Example1():
 
 def scai_Example2():
     '''
-    This example [PUT DESCRIPTION OF EXAMPLE 2 HERE WHEN DECIDED]
+    This example provides a illustration of SCAIs capabilities, conducted on a 
+    small system of 3 importers and 12 outlets.
     '''
     dataTblDict = util.TestResultsFileToTable('example2_testData.csv')
     dataTblDict.update({'diagSens':0.90,

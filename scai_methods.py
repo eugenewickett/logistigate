@@ -2,14 +2,14 @@
 """
 This file contains the methods used for estimating SF prevalence from end node
 testing results. The inputs to these methdos are:
-    1) A:   The estimated transition matrix between m intermediate nodes and n
-            end nodes, with n rows and m columns
+    1) transMat:    The estimated transition matrix between m intermediate nodes and n
+                    end nodes, with n rows and m columns
     2) PosData: A vector of length n containing the respective positive samples
             found.
     3) NumSamples: A vector of length n containing the number of samples (not
             including stockouts) collected at each end node
-    4) Sens: Diagnostic sensitivity
-    5) Spec: Diagnostic specificity
+    4) diagSens: Diagnostic sensitivity
+    5) diagSpec: Diagnostic specificity
     6) RglrWt=0.1: Regularization weight (only used for MLE optimization)
     7) M=500, Madapt=5000, delta=0.4: Parameters only used for NUTS sampling
 """
@@ -25,7 +25,19 @@ First we define necessary prior, likelihood, and posterior functions. Then we
 define functions that use these functions in the simulation model to generate
 outputs.
 '''
-########################### LIKILIHOOD FUNCTIONS ###########################
+########################### LIKELIHOOD FUNCTIONS ###########################
+class prior_balldrop:
+    """ This defines the class instance of priors provided to the method. """
+    def lpdf(theta):
+        return np.squeeze(sps.uniform.logpdf(theta, 0.1, 0.9))
+
+    def rnd(n):
+        return np.vstack((sps.uniform.rvs(0.1, 0.9, size=n)))
+
+    #logistigate(dataframe,prior_balldrop)
+
+
+
 ###### BEGIN UNTRACKED FUNCTIONS ######
 def UNTRACKED_LogLike(betaVec,numVec,posVec,sens,spec,transMat,RglrWt):
     # betaVec should be [importers, outlets]
