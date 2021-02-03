@@ -60,13 +60,16 @@ print(pImp)
 print(pOut)
 
 
-
+beta0 = np.array([-4.5,-4.3,-4.7,-4.9,-4.1,-4.2,-4.25,-4.33,-4.55])
 beta0a,beta0b = beta0+1,beta0+2
 beta00 = np.concatenate((beta0,beta0a,beta0b)).reshape((3,-1))
 
-L0 = meth.TRACKED_LogLike(beta0b,N,Y,Sens,Spec,0)
-L0 = meth.Tracked_LogLike(beta0b,N,Y,Sens,Spec)
+L0 = meth.TRACKED_LogLike(beta0a,N,Y,Sens,Spec,0)
+L00 = meth.TRACKED_LogLike_ARR(beta0a,N,Y,Sens,Spec)
 dL0 = np.array(meth.TRACKED_NegLogLike_Jac(beta0b,N,Y,Sens,Spec,wt))
+
+meth.UNTRACKED_LogPrior(beta0a,N,Y,Sens,Spec,5)
+
 
 for k in range(m+n):
     beta1 = 1*beta0b[:]

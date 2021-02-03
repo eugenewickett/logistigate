@@ -28,41 +28,64 @@ outputs.
 ########################### PRIOR CLASSES ###########################
 class prior_laplace:
     ''' 
-    This defines the class instance of Laplace priors, with the following
-    methods: ***FILL IN LATER***
-        lpdf: the log-likelihood of a given vector
+    Defines the class instance of Laplace priors, with an associated mu (mean)
+    and scale in the logit-transfomed [0,1] range, and the following methods:
+        lpdf: log-likelihood of a given vector
+        lpdf_jac: Jacobian of the log-likelihood at the given vector
+        lpdf_hess: Hessian of the log-likelihood at the given vector
     '''
-    def __init__(self,mu=sps.logit(0.1),scale=1):
+    def __init__(self, mu=sps.logit(0.1), scale=np.sqrt(5/2)):
         self.mu = mu
         self.scale = scale
-     
     def lpdf(self,beta):
-        '''
-        beta may be a Numpy array of vectors, in 
-        '''        
-        return np.squeeze(beta)
+        if beta.ndim == 1: # reshape to 2d
+            beta = np.reshape(beta,(1,-1))
+        lik = -(1/self.scale) * np.sum(np.abs(beta - self.mu),axis=1)         
+        return np.squeeze(lik)
+    def lpdf_jac(self,beta):
+        if beta.ndim == 1: # reshape to 2d
+            beta = np.reshape(beta,(1,-1))
+        jac = -(1/self.scale) * np.squeeze(1*(beta>=self.mu) - 1*(beta<=self.mu))
+        return np.squeeze(jac)
+    def lpdf_hess(self,beta):
+        if beta.ndim == 1: # reshape to 2d
+            beta = np.reshape(beta,(1,-1))
+        k,n = len(beta[:,0]),len(beta[0])
+        hess = np.tile(np.zeros(shape=(n,n)),(k,1,1))
+        return np.squeeze(hess)
     
-
-    #logistigate(dataframe,prior_balldrop)
 class prior_normal:
     ''' 
-    This defines the class instance of Laplace priors, with the following
-    methods: ***FILL IN LATER***
-        lpdf: the log-likelihood of a given vector
+    Defines the class instance of Normal priors, with an associated mu (mean)
+    and var (variance) in the logit-transfomed [0,1] range, and the following
+    methods:
+        lpdf: log-likelihood of a given vector
+        lpdf_jac: Jacobian of the log-likelihood at the given vector
+        lpdf_hess: Hessian of the log-likelihood at the given vector
+    beta inputs may be a Numpy array of vectors
     '''
-    def __init__(self,mu=sps.logit(0.1),var=1,weight=0.1):
+    def __init__(self,mu=sps.logit(0.1),var=5):
         self.mu = mu
-        self.scale = np.sqrt(var)
-        self.weight = weight
+        self.var = var
     def lpdf(self,beta):
-        '''
-        beta may be a Numpy array of vectors
-        '''
-        np.ndarray.sum(beta-self.mu,axis=0)        
-        return - self.weight * np.sum((beta-(self.mu))**2)
+        if beta.ndim == 1: # reshape to 2d
+            beta = np.reshape(beta,(1,-1))
+        lik = -(1/(2*self.var)) * np.sum((beta - (self.mu))**2,axis=1)         
+        return np.squeeze(lik)
+    def lpdf_jac(self,beta):
+        if beta.ndim == 1: # reshape to 2d
+            beta = np.reshape(beta,(1,-1))
+        jac = -(1/self.var) * (beta - self.mu)
+        return np.squeeze(jac)
+    def lpdf_hess(self,beta):
+        if beta.ndim == 1: # reshape to 2d
+            beta = np.reshape(beta,(1,-1))
+        k,n = len(beta[:,0]),len(beta[0])
+        hess = np.tile(np.zeros(shape=(n,n)),(k,1,1))
+        for i in range(k):
+            hess[i] = np.diag( -(1/self.var) * beta[i])
+        return np.squeeze(hess)
         
-        
-        return np.squeeze(beta)
 
 
 
@@ -210,14 +233,14 @@ def UNTRACKED_NegLogLike_Jac(betaVec,numVec,posVec,sens,spec,transMat,RglrWt):
 def UNTRACKED_NegLogLike_Hess(betaVec,numVec,posVec,sens,spec,transMat):
     return -1*UNTRACKED_LogLike_Hess(betaVec,numVec,posVec,sens,spec,transMat)
 
-def UNTRACKED_LogPost(betaVec,numVec,posVec,sens,spec,transMat):
-    return UNTRACKED_LogPrior(betaVec,numVec,posVec,sens,spec,transMat)\
-           +UNTRACKED_LogLike(betaVec,numVec,posVec,sens,spec,transMat,0)
+def UNTRACKED_LogPost(beta,numVec,posVec,sens,spec,transMat):
+    return prior_normal(var=5).lpdf(beta)\
+           +UNTRACKED_LogLike(beta,numVec,posVec,sens,spec,transMat,0)
 def UNTRACKED_LogPost_Grad(beta, nsamp, ydata, sens, spec, A):
-    return UNTRACKED_LogPrior_Grad(beta, nsamp, ydata, sens, spec, A)\
+    return prior_normal(var=5).lpdf_jac(beta)\
            +UNTRACKED_LogLike_Jac(beta,nsamp,ydata,sens,spec,A,0)
 def UNTRACKED_LogPost_Hess(beta, nsamp, ydata, sens, spec, A):
-    return UNTRACKED_LogPrior_Hess(beta, nsamp, ydata, sens, spec, A)\
+    return prior_normal(var=5).lpdf_hess(beta)\
            +UNTRACKED_LogLike_Hess(beta,nsamp,ydata,sens,spec,A)           
 
 def UNTRACKED_NegLogPost(betaVec,numVec,posVec,sens,spec,transMat):
@@ -250,115 +273,10 @@ def GeneratePostSamps_UNTRACKED(dataTblDict,regWt=0.,M=500,Madapt=5000,
     # CHANGE scai_utilities TO nuts if wanting to use the Gelman package
     return sps.expit(samples)
 
-##### LIKELIHOOD FUNCTIONS ON NON-EXPIT PROBABILITIES
-def UNTRACKED_LogLike_Probs(pVec,numVec,posVec,sens,spec,transMat,RglrWt):
-    # pVec should be [importers, outlets] probabilities
-    n,m = transMat.shape
-    th = np.array(pVec[:m])
-    py = np.array(pVec[m:])
-    pInitial = 0.05*np.ones(m+n)
-    zVec = py+(1-py)*np.matmul(transMat,th)
-    zVecTilde = sens*zVec + (1-spec)*(1-zVec)
-    
-    L = np.sum(np.multiply(posVec,np.log(zVecTilde))+np.multiply(np.subtract(numVec,posVec),\
-               np.log(1-zVecTilde))) - RglrWt*np.sum(np.abs(py-pInitial[m:]))
-    return L
-
-def UNTRACKED_LogLike_Probs_Jac(pVec,numVec,posVec,sens,spec,transMat,RglrWt):
-    ### Jacobian for log-likelihood using probabilities
-    # betaVec should be [importers, outlets]
-    n,m = transMat.shape
-    th = np.array(pVec[:m])
-    py = np.array(pVec[m:])
-    pInitial = 0.05*np.ones(m+n)
-    zVec = py+(1-py)*np.matmul(transMat,th)
-    zVecTilde = sens*zVec + (1-spec)*(1-zVec)
-    
-    #Grab importers partials first, then outlets
-    impPartials = np.sum(posVec[:,None]*transMat*(sens+spec-1)*\
-                     np.array([(1-py)]*m).transpose()/zVecTilde[:,None]\
-                     - (numVec-posVec)[:,None]*transMat*(sens+spec-1)*\
-                     np.array([(1-py)]*m).transpose()/(1-zVecTilde)[:,None]\
-                     ,axis=0)
-    outletPartials = posVec*(1-np.matmul(transMat,th))*(sens+spec-1)/zVecTilde\
-                        - (numVec-posVec)*(sens+spec-1)*(1-np.matmul(transMat,th))/(1-zVecTilde)\
-                        - RglrWt*np.squeeze(1*(py >= pInitial[m:]) - 1*(py <= pInitial[m:]))
-
-    retVal = np.concatenate((impPartials,outletPartials))    
-    return retVal
-
-def UNTRACKED_LogLike_Probs_Hess(pVec,numVec,posVec,sens,spec,transMat):
-    ### Hessian for log-likelihood using probabilities
-    # betaVec should be [importers, outlets]
-    n,m = transMat.shape
-    s,r=sens,spec
-    th, py = np.array(pVec[:m]), np.array(pVec[m:])
-    zVec = py+(1-py)*np.matmul(transMat,th)
-    zVecTilde = sens*zVec+(1-spec)*(1-zVec)
-    sumVec = np.matmul(transMat,th)
-    
-    #initialize a Hessian matrix
-    hess = np.zeros((n+m,n+m))
-    # get off-diagonal entries first; importer-outlet entries
-    for outlet in range(n):
-        for imp in range(m):
-            yDat,nSam = posVec[outlet],numVec[outlet]
-            elem = transMat[outlet,imp]*((s+r-1)**2)*(1-py[outlet])*(1-sumVec[outlet])*\
-                    (-yDat/(zVecTilde[outlet]**2) - (nSam - yDat)/(1-zVecTilde[outlet])**2) -\
-                    transMat[outlet,imp]*(s+r-1)*(yDat/(zVecTilde[outlet]) -\
-                    (nSam - yDat)/(1-zVecTilde[outlet]))
-            hess[m+outlet,imp] = elem
-            hess[imp,m+outlet] = elem
-    # get off-diagonals for importer-importer entries
-    for triCol in range(m-1):
-        for triCol2 in range(triCol+1,m):
-            elem = 0
-            for outlet in range(n):
-                nextPart = ((sens+spec-1)**2)*transMat[outlet,triCol]*transMat[outlet,triCol2]*((1-py[outlet])**2)*\
-                (-posVec[outlet]/(zVecTilde[outlet]**2) - (numVec[outlet]-posVec[outlet])/((1-zVecTilde[outlet])**2))
-                elem += nextPart
-            hess[triCol,triCol2] = elem
-            hess[triCol2,triCol] = elem
-    # importer diagonals next
-    impPartials = np.zeros(m)
-    for imp in range(m):
-        currPartial = 0
-        for outlet in range(n):
-            outP = py[outlet]
-            yDat,nSam = posVec[outlet],numVec[outlet]
-            currElem = ((transMat[outlet,imp]*(s+r-1)*(1-outP))**2)*\
-                (-yDat/(zVecTilde[outlet])**2 - (nSam-yDat)/(1-zVecTilde[outlet])**2)
-            currPartial += currElem
-        impPartials[imp] = currPartial
-    
-    # outlet diagonals next
-    outletPartials = np.zeros(n)
-    for outlet in range(n):
-        outP = py[outlet]
-        yDat,nSam = posVec[outlet],numVec[outlet]
-        currPartial = ((1-sumVec[outlet])**2)*((s+r-1)**2)*(-yDat/(zVecTilde[outlet])**2\
-                       - (nSam - yDat)/(1-zVecTilde[outlet])**2)
-        outletPartials[outlet] = currPartial
-    
-    diags = np.diag(np.concatenate((impPartials,outletPartials)))
-    hess = hess + diags   
-    return hess
-
-def UNTRACKED_NegLogLike_Probs(pVec,numVec,posVec,sens,spec,transMat,RglrWt):
-    return -1*UNTRACKED_LogLike_Probs(pVec,numVec,posVec,sens,spec,transMat,RglrWt)
-def UNTRACKED_NegLogLike_Probs_Jac(pVec,numVec,posVec,sens,spec,transMat,RglrWt):
-    return -1*UNTRACKED_LogLike_Probs_Jac(pVec,numVec,posVec,sens,spec,transMat,RglrWt)
-def UNTRACKED_NegLogLike_Probs_Hess(pVec,numVec,posVec,sens,spec,transMat):
-    return -1*UNTRACKED_LogLike_Probs_Hess(pVec,numVec,posVec,sens,spec,transMat)
-
-def UNTRACKED_LogPost_Probs_Hess(pVec,numVec,posVec,sens,spec,transMat):
-    return UNTRACKED_LogLike_Probs_Hess(pVec,numVec,posVec,sens,spec,transMat)\
-            +UNTRACKED_LogPrior_Hess(sps.logit(pVec),numVec,posVec,sens,spec,transMat)
-
 
 ###### END UNTRACKED FUNCTIONS ######
     
-###### BEGIN UNTRACKED FUNCTIONS ######
+###### BEGIN TRTRACKED FUNCTIONS ######
 def TRACKED_LogLike(beta,numMat,posMat,sens,spec,RglrWt):
     # betaVec should be [importers, outlets]
     n,m = numMat.shape
@@ -381,16 +299,13 @@ def TRACKED_LogLike_ARR(beta,numMat,posMat,sens,spec):
     n,m = numMat.shape
     k = beta.shape[0]
     th = sps.expit(beta[:,:m])
-    py = sps.expit(beta[:,m:])
-    th = np.reshape(np.tile(th,(n)),(k,n,m))
-    
+    py = sps.expit(beta[:,m:])    
     pMat = np.reshape(np.tile(th,(n)),(k,n,m)) + np.reshape(np.tile(1-th,(n)),(k,n,m)) *\
-            np.array([sps.expit(py)]*m).transpose()
-    pMatTilde = sens*pMat+(1-spec)*(1-pMat)
-    
+            np.transpose(np.reshape(np.tile(py,(m)),(k,m,n)),(0,2,1))            
+    pMatTilde = sens*pMat+(1-spec)*(1-pMat)    
     L = np.sum(np.multiply(posMat,np.log(pMatTilde))+np.multiply(np.subtract(numMat,posMat),\
-               np.log(1-pMatTilde)))
-    return L
+               np.log(1-pMatTilde)),axis=(1,2))
+    return np.squeeze(L)
 
 def TRACKED_LogLike_Jac(betaVec,numMat,posMat,sens,spec,RglrWt):
     # betaVec should be [importers, outlets]
@@ -508,13 +423,15 @@ def TRACKED_LogPrior_Hess(beta, nsamp, ydata, sens, spec):
 
 ##### TRACKED POSTERIOR FUNCTIONS #####
 def TRACKED_LogPost(beta,N,Y,sens,spec):
-    return TRACKED_LogPrior(beta,N,Y,sens,spec)\
+    #TRACKED_LogPrior(beta,N,Y,sens,spec)\
+    return prior_normal(var=5).lpdf(beta)\
            +TRACKED_LogLike(beta,N,Y,sens,spec,0)
 def TRACKED_LogPost_Grad(beta, N, Y, sens, spec):
-    return TRACKED_LogPrior_Grad(beta, N, Y, sens, spec)\
+    return prior_normal(var=5).lpdf_jac(beta)\
            +TRACKED_LogLike_Jac(beta,N,Y,sens,spec,0)
 def TRACKED_LogPost_Hess(beta, N, Y, sens, spec):
-    return TRACKED_LogPrior_Hess(beta, N, Y, sens, spec)\
+    #TRACKED_LogPrior_Hess(beta, N, Y, sens, spec)\
+    return prior_normal(var=5).lpdf_hess(beta)\
            +TRACKED_LogLike_Hess(beta,N,Y,sens,spec)
            
 def TRACKED_NegLogPost(beta,N,Y,sens,spec):
@@ -542,104 +459,6 @@ def GeneratePostSamps_TRACKED(dataTblDict,regWt,M,Madapt,delta,usePriors=1.):
     # CHANGE scai_utilities TO nuts if wanting to use the Gelman package
     return sps.expit(samples)
 
-##### LIKELIHOOD FUNCTIONS ON NON-EXPIT PROBABILITIES
-def TRACKED_LogLike_Probs(pVec,numMat,posMat,sens,spec,RglrWt):
-    # betaVec should be [importers, outlets]
-    n,m = numMat.shape
-    th = np.array(pVec[:m])
-    py = np.array(pVec[m:])
-    pInitial = 0.05*np.ones(m+n)
-    zMat = np.array([th]*n)+np.array([1-th]*n)*\
-            np.array([py]*m).transpose()
-    zMatTilde = sens*zMat+(1-spec)*(1-zMat)
-    
-    L = np.sum(np.multiply(posMat,np.log(zMatTilde))+np.multiply(np.subtract(numMat,posMat),\
-               np.log(1-zMatTilde))) - RglrWt*np.sum(np.abs(py-pInitial[m:]))
-    return L
-
-def TRACKED_LogLike_Probs_Jac(pVec,numMat,posMat,sens,spec,RglrWt):
-    # betaVec should be [importers, outlets]
-    n,m = numMat.shape
-    th = np.array(pVec[:m])
-    py = np.array(pVec[m:])
-    pInitial = 0.05*np.ones(m+n)
-    zMat = np.array([th]*n)+np.array([1-th]*n)*\
-            np.array([py]*m).transpose()
-    zMatTilde = sens*zMat+(1-spec)*(1-zMat)
-    
-    #Grab importers partials first, then outlets
-    impPartials = (sens+spec-1)*np.sum(posMat*np.array([1-py]*m).transpose()/zMatTilde\
-                     -(numMat-posMat)*np.array([1-py]*m).transpose()/(1-zMatTilde),axis=0)
-    outletPartials = (sens+spec-1)*np.sum((posMat*np.array([1-th]*n)/zMatTilde\
-                     - (numMat-posMat)*np.array([1-th]*n)/(1-zMatTilde)),axis=1)\
-                     - RglrWt*np.squeeze(1*(py >= pInitial[m:]) - 1*(py <= pInitial[m:]))
-       
-    retVal = np.concatenate((impPartials,outletPartials))
-    return retVal
-
-def TRACKED_LogLike_Probs_Hess(pVec,numMat,posMat,sens,spec):
-    # betaVec should be [importers, outlets]
-    n,m = numMat.shape
-    th = np.array(pVec[:m])
-    py = np.array(pVec[m:])
-    zMat = np.array([th]*n)+np.array([1-th]*n)*np.array([py]*m).transpose()
-    zMatTilde = sens*zMat+(1-spec)*(1-zMat)
-    
-    hess = np.zeros((n+m,n+m))
-    # get off-diagonal entries first
-    for outlet in range(n):
-        for imp in range(m):            
-            outP, impP = py[outlet], th[imp]
-            s, r=sens, spec
-            z = outP + impP - outP*impP
-            zTilde = zMatTilde[outlet,imp]
-            yDat, nSam = posMat[outlet,imp], numMat[outlet,imp]
-            elem = (1-impP)*(1-outP)*((s+r-1)**2)*(-yDat/(zTilde**2)-(nSam-yDat)/((1-zTilde)**2))\
-                    -(s+r-1)*(yDat/zTilde - (nSam - yDat)/(1-zTilde))
-            hess[m+outlet,imp] = elem
-            hess[imp,m+outlet] = elem
-    
-    # importer diagonals next
-    impPartials = np.zeros(m)
-    for imp in range(m):
-        currPartial = 0
-        for outlet in range(n):        
-            outP,impP = py[outlet],th[imp]
-            s,r=sens,spec
-            z = outP + impP - outP*impP
-            zTilde = s*z + (1-r)*(1-z)
-            yDat,nSam = posMat[outlet,imp],numMat[outlet,imp]
-            currElem = (((1-outP)*(s+r-1))**2)*(-yDat/zTilde**2-(nSam-yDat)/(1-zTilde)**2)
-            currPartial += currElem
-        impPartials[imp] = currPartial
-    
-    # outlet diagonals next
-    outletPartials = np.zeros(n)
-    for outlet in range(n):
-        currPartial = 0
-        for imp in range(m):
-            outP,impP = py[outlet],th[imp]
-            s, r = sens, spec
-            z = outP + impP - outP*impP
-            zTilde = s*z + (1-r)*(1-z)
-            yDat,nSam = posMat[outlet,imp],numMat[outlet,imp]
-            currElem = (((1-impP)*(s+r-1))**2)*(-yDat/(zTilde**2)-(nSam-yDat)/(1-zTilde)**2)
-            currPartial += currElem
-        outletPartials[outlet] = currPartial
-    
-    diags = np.diag(np.concatenate((impPartials,outletPartials)))
-    return hess + diags
-
-def TRACKED_NegLogLike_Probs(pVec,numMat,posMat,sens,spec,RglrWt):
-    return -1*TRACKED_LogLike_Probs(pVec,numMat,posMat,sens,spec,RglrWt)
-def TRACKED_NegLogLike_Probs_Jac(pVec,numMat,posMat,sens,spec,RglrWt):
-    return -1*TRACKED_LogLike_Probs_Jac(pVec,numMat,posMat,sens,spec,RglrWt)
-def TRACKED_NegLogLike_Probs_Hess(pVec,numMat,posMat,sens,spec):
-    return -1*TRACKED_LogLike_Probs_Hess(pVec,numMat,posMat,sens,spec)
-
-def TRACKED_LogPost_Probs_Hess(pVec,numVec,posVec,sens,spec):
-    return TRACKED_LogLike_Probs_Hess(pVec,numVec,posVec,sens,spec)\
-            +TRACKED_LogPrior_Hess(sps.logit(pVec),numVec,posVec,sens,spec)
 ###### END TRACKED FUNCTIONS ######
 
 def FormEstimates(dataTblDict):
