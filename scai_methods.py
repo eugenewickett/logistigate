@@ -25,16 +25,57 @@ First we define necessary prior, likelihood, and posterior functions. Then we
 define functions that use these functions in the simulation model to generate
 outputs.
 '''
-########################### LIKELIHOOD FUNCTIONS ###########################
-class prior_balldrop:
-    """ This defines the class instance of priors provided to the method. """
-    def lpdf(theta):
-        return np.squeeze(sps.uniform.logpdf(theta, 0.1, 0.9))
-
-    def rnd(n):
-        return np.vstack((sps.uniform.rvs(0.1, 0.9, size=n)))
+########################### PRIOR CLASSES ###########################
+class prior_laplace:
+    ''' 
+    This defines the class instance of Laplace priors, with the following
+    methods: ***FILL IN LATER***
+        lpdf: the log-likelihood of a given vector
+    '''
+    def __init__(self,mu=sps.logit(0.1),scale=1):
+        self.mu = mu
+        self.scale = scale
+     
+    def lpdf(self,beta):
+        '''
+        beta may be a Numpy array of vectors, in 
+        '''        
+        return np.squeeze(beta)
+    
 
     #logistigate(dataframe,prior_balldrop)
+class prior_normal:
+    ''' 
+    This defines the class instance of Laplace priors, with the following
+    methods: ***FILL IN LATER***
+        lpdf: the log-likelihood of a given vector
+    '''
+    def __init__(self,mu=sps.logit(0.1),var=1,weight=0.1):
+        self.mu = mu
+        self.scale = np.sqrt(var)
+        self.weight = weight
+    def lpdf(self,beta):
+        '''
+        beta may be a Numpy array of vectors
+        '''
+        np.ndarray.sum(beta-self.mu,axis=0)        
+        return - self.weight * np.sum((beta-(self.mu))**2)
+        
+        
+        return np.squeeze(beta)
+
+
+
+########################### LIKELIHOOD FUNCTIONS ###########################
+def UNTRACKED_LogPrior(beta,numVec,posVec,sens,spec,transMat):
+    #-0.25*np.sum(np.abs(beta + 3)) - 0.001 * np.sum((beta + 3) ** 2)
+    return - 0.1 * np.sum((beta-(sps.logit(0.1)))**2)
+def UNTRACKED_LogPrior_Grad(beta,numVec,posVec,sens,spec,transMat):
+    #-0.25*np.squeeze(1*(beta >= -3) - 1*(beta <= -3)) - 0.002 * np.sum(beta + 3)
+    return -0.2 * (beta - sps.logit(0.1))
+def UNTRACKED_LogPrior_Hess(beta,numVec,posVec,sens,spec,transMat):
+    #-0.25*np.squeeze(1*(beta >= -3) - 1*(beta <= -3)) - 0.002 * np.sum(beta + 3)
+    return -0.2 * np.diag(beta)
 
 
 
@@ -168,16 +209,6 @@ def UNTRACKED_NegLogLike_Jac(betaVec,numVec,posVec,sens,spec,transMat,RglrWt):
     return -1*UNTRACKED_LogLike_Jac(betaVec,numVec,posVec,sens,spec,transMat,RglrWt)
 def UNTRACKED_NegLogLike_Hess(betaVec,numVec,posVec,sens,spec,transMat):
     return -1*UNTRACKED_LogLike_Hess(betaVec,numVec,posVec,sens,spec,transMat)
-
-def UNTRACKED_LogPrior(beta,numVec,posVec,sens,spec,transMat):
-    #-0.25*np.sum(np.abs(beta + 3)) - 0.001 * np.sum((beta + 3) ** 2)
-    return - 0.1 * np.sum((beta-(sps.logit(0.1)))**2)
-def UNTRACKED_LogPrior_Grad(beta,numVec,posVec,sens,spec,transMat):
-    #-0.25*np.squeeze(1*(beta >= -3) - 1*(beta <= -3)) - 0.002 * np.sum(beta + 3)
-    return -0.2 * (beta - sps.logit(0.1))
-def UNTRACKED_LogPrior_Hess(beta,numVec,posVec,sens,spec,transMat):
-    #-0.25*np.squeeze(1*(beta >= -3) - 1*(beta <= -3)) - 0.002 * np.sum(beta + 3)
-    return -0.2 * np.diag(beta)
 
 def UNTRACKED_LogPost(betaVec,numVec,posVec,sens,spec,transMat):
     return UNTRACKED_LogPrior(betaVec,numVec,posVec,sens,spec,transMat)\
@@ -328,11 +359,11 @@ def UNTRACKED_LogPost_Probs_Hess(pVec,numVec,posVec,sens,spec,transMat):
 ###### END UNTRACKED FUNCTIONS ######
     
 ###### BEGIN UNTRACKED FUNCTIONS ######
-def TRACKED_LogLike(betaVec,numMat,posMat,sens,spec,RglrWt):
+def TRACKED_LogLike(beta,numMat,posMat,sens,spec,RglrWt):
     # betaVec should be [importers, outlets]
     n,m = numMat.shape
-    th = betaVec[:m]
-    py = betaVec[m:]
+    th = beta[:m]
+    py = beta[m:]
     betaInitial = -6*np.ones(m+n)
     pMat = np.array([sps.expit(th)]*n)+np.array([(1-sps.expit(th))]*n)*\
             np.array([sps.expit(py)]*m).transpose()
@@ -340,6 +371,25 @@ def TRACKED_LogLike(betaVec,numMat,posMat,sens,spec,RglrWt):
     
     L = np.sum(np.multiply(posMat,np.log(pMatTilde))+np.multiply(np.subtract(numMat,posMat),\
                np.log(1-pMatTilde))) - RglrWt*np.sum(np.abs(py-betaInitial[m:]))
+    return L
+
+def TRACKED_LogLike_ARR(beta,numMat,posMat,sens,spec):
+    # for array beta
+    # betaVec should be [importers, outlets]
+    if beta.ndim == 1: # reshape to 2d
+        beta = np.reshape(beta,(1,-1))
+    n,m = numMat.shape
+    k = beta.shape[0]
+    th = sps.expit(beta[:,:m])
+    py = sps.expit(beta[:,m:])
+    th = np.reshape(np.tile(th,(n)),(k,n,m))
+    
+    pMat = np.reshape(np.tile(th,(n)),(k,n,m)) + np.reshape(np.tile(1-th,(n)),(k,n,m)) *\
+            np.array([sps.expit(py)]*m).transpose()
+    pMatTilde = sens*pMat+(1-spec)*(1-pMat)
+    
+    L = np.sum(np.multiply(posMat,np.log(pMatTilde))+np.multiply(np.subtract(numMat,posMat),\
+               np.log(1-pMatTilde)))
     return L
 
 def TRACKED_LogLike_Jac(betaVec,numMat,posMat,sens,spec,RglrWt):
@@ -438,12 +488,12 @@ def TRACKED_LogLike_Hess(betaVec,numMat,posMat,sens,spec):
      
     return hess + diags
 
-def TRACKED_NegLogLike(betaVec,numMat,posMat,sens,spec,RglrWt):
-    return -1*TRACKED_LogLike(betaVec,numMat,posMat,sens,spec,RglrWt)
-def TRACKED_NegLogLike_Jac(betaVec,numMat,posMat,sens,spec,RglrWt):
-    return -1*TRACKED_LogLike_Jac(betaVec,numMat,posMat,sens,spec,RglrWt)
-def TRACKED_NegLogLike_Hess(betaVec,numMat,posMat,sens,spec):
-    return -1*TRACKED_LogLike_Hess(betaVec,numMat,posMat,sens,spec)
+def TRACKED_NegLogLike(beta,numMat,posMat,sens,spec,RglrWt):
+    return -1*TRACKED_LogLike(beta,numMat,posMat,sens,spec,RglrWt)
+def TRACKED_NegLogLike_Jac(beta,numMat,posMat,sens,spec,RglrWt):
+    return -1*TRACKED_LogLike_Jac(beta,numMat,posMat,sens,spec,RglrWt)
+def TRACKED_NegLogLike_Hess(beta,numMat,posMat,sens,spec):
+    return -1*TRACKED_LogLike_Hess(beta,numMat,posMat,sens,spec)
 
 ##### TRACKED PRIOR FUNCTIONS #####
 def TRACKED_LogPrior(beta, numVec, posVec, sens, spec):
