@@ -1,17 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-This file contains the methods used for estimating SF prevalence from end node
-testing results. The inputs to these methdos are:
-    1) transMat:    The estimated transition matrix between m intermediate nodes and n
-                    end nodes, with n rows and m columns
-    2) PosData: A vector of length n containing the respective positive samples
-            found.
-    3) NumSamples: A vector of length n containing the number of samples (not
-            including stockouts) collected at each end node
-    4) diagSens: Diagnostic sensitivity
-    5) diagSpec: Diagnostic specificity
-    6) RglrWt=0.1: Regularization weight (only used for MLE optimization)
-    7) M=500, Madapt=5000, delta=0.4: Parameters only used for NUTS sampling
+This file contains the methods used for estimating aberration prevalence in a
+two-echelon supply chain. See descriptions for particular inputs.
 """
 
 import numpy as np
@@ -20,23 +10,23 @@ import scipy.stats as spstat
 import scipy.special as sps
 import scai_utilities
 #import nuts
-'''
-First we define necessary prior, likelihood, and posterior functions. Then we
-define functions that use these functions in the simulation model to generate
-outputs.
-'''
+
 ########################### PRIOR CLASSES ###########################
 class prior_laplace:
     ''' 
     Defines the class instance of Laplace priors, with an associated mu (mean)
     and scale in the logit-transfomed [0,1] range, and the following methods:
+        rand: generate random draws from the distribution
         lpdf: log-likelihood of a given vector
         lpdf_jac: Jacobian of the log-likelihood at the given vector
         lpdf_hess: Hessian of the log-likelihood at the given vector
+    beta inputs may be a Numpy array of vectors
     '''
     def __init__(self, mu=sps.logit(0.1), scale=np.sqrt(5/2)):
         self.mu = mu
         self.scale = scale
+    def rand(self, n=1):
+        return np.random.laplace(self.mu, self.scale,n)
     def lpdf(self,beta):
         if beta.ndim == 1: # reshape to 2d
             beta = np.reshape(beta,(1,-1))
@@ -59,6 +49,7 @@ class prior_normal:
     Defines the class instance of Normal priors, with an associated mu (mean)
     and var (variance) in the logit-transfomed [0,1] range, and the following
     methods:
+        rand: generate random draws from the distribution
         lpdf: log-likelihood of a given vector
         lpdf_jac: Jacobian of the log-likelihood at the given vector
         lpdf_hess: Hessian of the log-likelihood at the given vector
@@ -67,6 +58,8 @@ class prior_normal:
     def __init__(self,mu=sps.logit(0.1),var=5):
         self.mu = mu
         self.var = var
+    def rand(self, n=1):
+        return np.random.normal(self.mu, np.sqrt(self.var),n)
     def lpdf(self,beta):
         if beta.ndim == 1: # reshape to 2d
             beta = np.reshape(beta,(1,-1))
@@ -86,42 +79,26 @@ class prior_normal:
             hess[i] = np.diag( -(1/self.var) * beta[i])
         return np.squeeze(hess)
         
+########################### END PRIOR CLASSES ###########################
 
+########################## UNTRACKED FUNCTIONS ##########################
+def UNTRACKED_LogLike(beta,numVec,posVec,sens,spec,transMat):
+    # for array of beta; beta should be [importers, outlets]
+    if beta.ndim == 1: # reshape to 2d
+        beta = np.reshape(beta,(1,-1))
+    n,m = transMat.shape
+    th, py = sps.expit(beta[:,:m]), sps.expit(beta[:,m:])  
+    pMat = py + (1-py)*np.matmul(th,transMat.T)        
+    pMatTilde = sens*pMat+(1-spec)*(1-pMat)    
+    L = np.sum(np.multiply(posVec,np.log(pMatTilde))+np.multiply(np.subtract(numVec,posVec),\
+               np.log(1-pMatTilde)),axis=1)
+    return np.squeeze(L)
 
-
-########################### LIKELIHOOD FUNCTIONS ###########################
-def UNTRACKED_LogPrior(beta,numVec,posVec,sens,spec,transMat):
-    #-0.25*np.sum(np.abs(beta + 3)) - 0.001 * np.sum((beta + 3) ** 2)
-    return - 0.1 * np.sum((beta-(sps.logit(0.1)))**2)
-def UNTRACKED_LogPrior_Grad(beta,numVec,posVec,sens,spec,transMat):
-    #-0.25*np.squeeze(1*(beta >= -3) - 1*(beta <= -3)) - 0.002 * np.sum(beta + 3)
-    return -0.2 * (beta - sps.logit(0.1))
-def UNTRACKED_LogPrior_Hess(beta,numVec,posVec,sens,spec,transMat):
-    #-0.25*np.squeeze(1*(beta >= -3) - 1*(beta <= -3)) - 0.002 * np.sum(beta + 3)
-    return -0.2 * np.diag(beta)
-
-
-
-###### BEGIN UNTRACKED FUNCTIONS ######
-def UNTRACKED_LogLike(betaVec,numVec,posVec,sens,spec,transMat,RglrWt):
+def UNTRACKED_LogLike_Jac(betaVec,numVec,posVec,sens,spec,transMat):
     # betaVec should be [importers, outlets]
     n,m = transMat.shape
     th = betaVec[:m]
     py = betaVec[m:]
-    betaInitial = -6*np.ones(m+n)
-    pVec = sps.expit(py)+(1-sps.expit(py))*np.matmul(transMat,sps.expit(th))
-    pVecTilde = sens*pVec + (1-spec)*(1-pVec)
-    
-    L = np.sum(np.multiply(posVec,np.log(pVecTilde))+np.multiply(np.subtract(numVec,posVec),\
-               np.log(1-pVecTilde))) - RglrWt*np.sum(np.abs(py-betaInitial[m:]))
-    return L
-
-def UNTRACKED_LogLike_Jac(betaVec,numVec,posVec,sens,spec,transMat,RglrWt):
-    # betaVec should be [importers, outlets]
-    n,m = transMat.shape
-    th = betaVec[:m]
-    py = betaVec[m:]
-    betaInitial = -6*np.ones(m+n)
     pVec = sps.expit(py)+(1-sps.expit(py))*np.matmul(transMat,sps.expit(th))
     pVecTilde = sens*pVec + (1-spec)*(1-pVec)
     
@@ -133,13 +110,12 @@ def UNTRACKED_LogLike_Jac(betaVec,numVec,posVec,sens,spec,transMat,RglrWt):
                      ,axis=0)
     outletPartials = posVec*(1-np.matmul(transMat,sps.expit(th)))*(sps.expit(py)-sps.expit(py)**2)*\
                         (sens+spec-1)/pVecTilde - (numVec-posVec)*(sps.expit(py)-sps.expit(py)**2)*\
-                        (sens+spec-1)*(1-np.matmul(transMat,sps.expit(th)))/(1-pVecTilde)\
-                        - RglrWt*np.squeeze(1*(py >= betaInitial[m:]) - 1*(py <= betaInitial[m:]))
+                        (sens+spec-1)*(1-np.matmul(transMat,sps.expit(th)))/(1-pVecTilde)                        
 
     return np.concatenate((impPartials,outletPartials))
 
 def UNTRACKED_LogLike_Hess(betaVec,numVec,posVec,sens,spec,transMat):
-    # betaVec should be [importers, outlets]
+    # betaVec should be [importers, outlets]; NOT for array beta
     n,m = transMat.shape
     th = betaVec[:m]
     py = betaVec[m:]
@@ -226,80 +202,73 @@ def UNTRACKED_LogLike_Hess(betaVec,numVec,posVec,sens,spec,transMat):
     hess = (hess + diags)
     return hess
 
-def UNTRACKED_NegLogLike(betaVec,numVec,posVec,sens,spec,transMat,RglrWt):
-    return -1*UNTRACKED_LogLike(betaVec,numVec,posVec,sens,spec,transMat,RglrWt)
-def UNTRACKED_NegLogLike_Jac(betaVec,numVec,posVec,sens,spec,transMat,RglrWt):
-    return -1*UNTRACKED_LogLike_Jac(betaVec,numVec,posVec,sens,spec,transMat,RglrWt)
+def UNTRACKED_NegLogLike(betaVec,numVec,posVec,sens,spec,transMat):
+    return -1*UNTRACKED_LogLike(betaVec,numVec,posVec,sens,spec,transMat)
+def UNTRACKED_NegLogLike_Jac(betaVec,numVec,posVec,sens,spec,transMat):
+    return -1*UNTRACKED_LogLike_Jac(betaVec,numVec,posVec,sens,spec,transMat)
 def UNTRACKED_NegLogLike_Hess(betaVec,numVec,posVec,sens,spec,transMat):
     return -1*UNTRACKED_LogLike_Hess(betaVec,numVec,posVec,sens,spec,transMat)
 
-def UNTRACKED_LogPost(beta,numVec,posVec,sens,spec,transMat):
-    return prior_normal(var=5).lpdf(beta)\
-           +UNTRACKED_LogLike(beta,numVec,posVec,sens,spec,transMat,0)
-def UNTRACKED_LogPost_Grad(beta, nsamp, ydata, sens, spec, A):
-    return prior_normal(var=5).lpdf_jac(beta)\
-           +UNTRACKED_LogLike_Jac(beta,nsamp,ydata,sens,spec,A,0)
-def UNTRACKED_LogPost_Hess(beta, nsamp, ydata, sens, spec, A):
-    return prior_normal(var=5).lpdf_hess(beta)\
+def UNTRACKED_LogPost(beta,numVec,posVec,sens,spec,transMat,prior):
+    return prior.lpdf(beta)\
+           +UNTRACKED_LogLike(beta,numVec,posVec,sens,spec,transMat)
+def UNTRACKED_LogPost_Grad(beta, nsamp, ydata, sens, spec, A,prior):
+    return prior.lpdf_jac(beta)\
+           +UNTRACKED_LogLike_Jac(beta,nsamp,ydata,sens,spec,A)
+def UNTRACKED_LogPost_Hess(beta, nsamp, ydata, sens, spec, A,prior):
+    return prior.lpdf_hess(beta)\
            +UNTRACKED_LogLike_Hess(beta,nsamp,ydata,sens,spec,A)           
 
-def UNTRACKED_NegLogPost(betaVec,numVec,posVec,sens,spec,transMat):
-    return -1*UNTRACKED_LogPost(betaVec,numVec,posVec,sens,spec,transMat)
-def UNTRACKED_NegLogPost_Grad(beta, nsamp, ydata, sens, spec, A):
-    return -1*UNTRACKED_LogPost_Grad(beta, nsamp, ydata, sens, spec, A)
-def UNTRACKED_NegLogPost_Hess(beta, nsamp, ydata, sens, spec, A):
-    return -1*UNTRACKED_LogPost_Hess(beta, nsamp, ydata, sens, spec, A)
+def UNTRACKED_NegLogPost(betaVec,numVec,posVec,sens,spec,transMat,prior):
+    return -1*UNTRACKED_LogPost(betaVec,numVec,posVec,sens,spec,transMat,prior)
+def UNTRACKED_NegLogPost_Grad(beta, nsamp, ydata, sens, spec, A,prior):
+    return -1*UNTRACKED_LogPost_Grad(beta, nsamp, ydata, sens, spec, A,prior)
+def UNTRACKED_NegLogPost_Hess(beta, nsamp, ydata, sens, spec, A,prior):
+    return -1*UNTRACKED_LogPost_Hess(beta, nsamp, ydata, sens, spec, A,prior)
 
-def GeneratePostSamps_UNTRACKED(dataTblDict,regWt=0.,M=500,Madapt=5000,
-                                delta=0.4,usePriors=1.):
+def GeneratePostSamples_UNTRACKED(dataTblDict,Madapt=5000,delta=0.4):
     '''
-    numSamples,posData,A,sens,spec,regWt,M,Madapt,delta,usePrior=1.
+    Generates posterior samples of aberration rates under the Untracked
+    likelihood model and given data inputs, via the NUTS sampler (Gelman 2011).
+    INPUTS
+    ------
+    dataTblDict is an input dictionary with the following keys:
+        N,Y: Number of tests, number of positive tests at each outlet
+        diagSens,diagSpec: Diagnostic sensitivity and specificity
+        transMat: Transition matrix between importers and outlets
+        prior: Prior distribution object with lpdf,lpdf_jac methods
+        numPostSamples: Number of posterior distribution samples to generate
+    Madapt,delta: Parameters for use with NUTS
+    OUTPUTS
+    -------
+    Returns a list of posterior samples, with importers coming before outlets.
     '''
-    numSamples,posData = dataTblDict['N'],dataTblDict['Y']
+    N,Y= dataTblDict['N'],dataTblDict['Y']
     sens,spec = dataTblDict['diagSens'],dataTblDict['diagSpec']
-    A = dataTblDict['transMat']
+    transMat = dataTblDict['transMat']
+    prior = dataTblDict['prior']
+    M = dataTblDict['numPostSamples']
     
-    if usePriors==1.:
-        def UNTRACKEDtargetForNUTS(beta):
-            return UNTRACKED_LogPost(beta,numSamples,posData,sens,spec,A),\
-                   UNTRACKED_LogPost_Grad(beta,numSamples,posData,sens,spec,A)
-    else:
-        def UNTRACKEDtargetForNUTS(beta):
-            return UNTRACKED_LogLike(beta,numSamples,posData,sens,spec,A,regWt),\
-                   UNTRACKED_LogLike_Jac(beta,numSamples,posData,sens,spec,A,regWt)
-    
-    beta0 = -2 * np.ones(A.shape[1] + A.shape[0])
+    def UNTRACKEDtargetForNUTS(beta):
+        return UNTRACKED_LogPost(beta,N,Y,sens,spec,transMat,prior),\
+               UNTRACKED_LogPost_Grad(beta,N,Y,sens,spec,transMat,prior)
+
+    beta0 = -2 * np.ones(transMat.shape[1] + transMat.shape[0]) # initial point for sampler
     samples, lnprob, epsilon = scai_utilities.nuts6(UNTRACKEDtargetForNUTS,M,Madapt,beta0,delta)
     # CHANGE scai_utilities TO nuts if wanting to use the Gelman package
     return sps.expit(samples)
 
-
-###### END UNTRACKED FUNCTIONS ######
+######################## END UNTRACKED FUNCTIONS ########################
     
-###### BEGIN TRTRACKED FUNCTIONS ######
-def TRACKED_LogLike(beta,numMat,posMat,sens,spec,RglrWt):
-    # betaVec should be [importers, outlets]
-    n,m = numMat.shape
-    th = beta[:m]
-    py = beta[m:]
-    betaInitial = -6*np.ones(m+n)
-    pMat = np.array([sps.expit(th)]*n)+np.array([(1-sps.expit(th))]*n)*\
-            np.array([sps.expit(py)]*m).transpose()
-    pMatTilde = sens*pMat+(1-spec)*(1-pMat)
-    
-    L = np.sum(np.multiply(posMat,np.log(pMatTilde))+np.multiply(np.subtract(numMat,posMat),\
-               np.log(1-pMatTilde))) - RglrWt*np.sum(np.abs(py-betaInitial[m:]))
-    return L
-
-def TRACKED_LogLike_ARR(beta,numMat,posMat,sens,spec):
+########################### TRACKED FUNCTIONS ###########################
+def TRACKED_LogLike(beta,numMat,posMat,sens,spec):
     # for array beta
     # betaVec should be [importers, outlets]
     if beta.ndim == 1: # reshape to 2d
         beta = np.reshape(beta,(1,-1))
     n,m = numMat.shape
     k = beta.shape[0]
-    th = sps.expit(beta[:,:m])
-    py = sps.expit(beta[:,m:])    
+    th, py = sps.expit(beta[:,:m]), sps.expit(beta[:,m:])  
     pMat = np.reshape(np.tile(th,(n)),(k,n,m)) + np.reshape(np.tile(1-th,(n)),(k,n,m)) *\
             np.transpose(np.reshape(np.tile(py,(m)),(k,m,n)),(0,2,1))            
     pMatTilde = sens*pMat+(1-spec)*(1-pMat)    
@@ -307,12 +276,11 @@ def TRACKED_LogLike_ARR(beta,numMat,posMat,sens,spec):
                np.log(1-pMatTilde)),axis=(1,2))
     return np.squeeze(L)
 
-def TRACKED_LogLike_Jac(betaVec,numMat,posMat,sens,spec,RglrWt):
+def TRACKED_LogLike_Jac(betaVec,numMat,posMat,sens,spec):
     # betaVec should be [importers, outlets]
     n,m = numMat.shape
     th = betaVec[:m]
     py = betaVec[m:]
-    betaInitial = -6*np.ones(m+n)
     pMat = np.array([sps.expit(th)]*n)+np.array([(1-sps.expit(th))]*n)*\
             np.array([sps.expit(py)]*m).transpose()
     pMatTilde = sens*pMat+(1-spec)*(1-pMat)
@@ -327,15 +295,14 @@ def TRACKED_LogLike_Jac(betaVec,numMat,posMat,sens,spec,RglrWt):
     outletPartials = np.sum((sens+spec-1)*(posMat*(sps.expit(py)-sps.expit(py)**2)[:,None]*\
                      np.array([(1-sps.expit(th))]*n)/pMatTilde\
                      - (numMat-posMat)*(sps.expit(py)-sps.expit(py)**2)[:,None]*\
-                     np.array([(1-sps.expit(th))]*n)/(1-pMatTilde))\
-                     ,axis=1) - RglrWt*np.squeeze(1*(py >= betaInitial[m:]) - 1*(py <= betaInitial[m:]))
+                     np.array([(1-sps.expit(th))]*n)/(1-pMatTilde)),axis=1)
     
     retVal = np.concatenate((impPartials,outletPartials))
     
     return retVal
 
 def TRACKED_LogLike_Hess(betaVec,numMat,posMat,sens,spec):
-    # betaVec should be [importers, outlets]
+    # betaVec should be [importers, outlets]; NOT for array beta
     n,m = numMat.shape
     th = betaVec[:m]
     py = betaVec[m:]
@@ -403,63 +370,63 @@ def TRACKED_LogLike_Hess(betaVec,numMat,posMat,sens,spec):
      
     return hess + diags
 
-def TRACKED_NegLogLike(beta,numMat,posMat,sens,spec,RglrWt):
-    return -1*TRACKED_LogLike(beta,numMat,posMat,sens,spec,RglrWt)
-def TRACKED_NegLogLike_Jac(beta,numMat,posMat,sens,spec,RglrWt):
-    return -1*TRACKED_LogLike_Jac(beta,numMat,posMat,sens,spec,RglrWt)
+def TRACKED_NegLogLike(beta,numMat,posMat,sens,spec):
+    return -1*TRACKED_LogLike(beta,numMat,posMat,sens,spec)
+def TRACKED_NegLogLike_Jac(beta,numMat,posMat,sens,spec):
+    return -1*TRACKED_LogLike_Jac(beta,numMat,posMat,sens,spec)
 def TRACKED_NegLogLike_Hess(beta,numMat,posMat,sens,spec):
     return -1*TRACKED_LogLike_Hess(beta,numMat,posMat,sens,spec)
 
-##### TRACKED PRIOR FUNCTIONS #####
-def TRACKED_LogPrior(beta, numVec, posVec, sens, spec):
-    #-0.25*np.sum(np.abs(beta + 3)) - 0.001 * np.sum((beta + 3) ** 2)
-    return -0.1 * np.sum((beta - sps.logit(0.1))**2)
-def TRACKED_LogPrior_Grad(beta, nsamp, ydata, sens, spec):
-    #-0.25*np.squeeze(1*(beta >= -3) - 1*(beta <= -3)) - 0.002 * np.sum(beta + 3)
-    return -0.2 * (beta - sps.logit(0.1))
-def TRACKED_LogPrior_Hess(beta, nsamp, ydata, sens, spec):
-    #-0.25*np.squeeze(1*(beta >= -3) - 1*(beta <= -3)) - 0.002 * np.sum(beta + 3)
-    return -0.2 * np.diag(beta)
-
 ##### TRACKED POSTERIOR FUNCTIONS #####
-def TRACKED_LogPost(beta,N,Y,sens,spec):
-    #TRACKED_LogPrior(beta,N,Y,sens,spec)\
-    return prior_normal(var=5).lpdf(beta)\
-           +TRACKED_LogLike(beta,N,Y,sens,spec,0)
-def TRACKED_LogPost_Grad(beta, N, Y, sens, spec):
-    return prior_normal(var=5).lpdf_jac(beta)\
-           +TRACKED_LogLike_Jac(beta,N,Y,sens,spec,0)
-def TRACKED_LogPost_Hess(beta, N, Y, sens, spec):
-    #TRACKED_LogPrior_Hess(beta, N, Y, sens, spec)\
-    return prior_normal(var=5).lpdf_hess(beta)\
+def TRACKED_LogPost(beta,N,Y,sens,spec,prior):
+    return prior.lpdf(beta)\
+           +TRACKED_LogLike(beta,N,Y,sens,spec)
+def TRACKED_LogPost_Grad(beta, N, Y, sens, spec,prior):
+    return prior.lpdf_jac(beta)\
+           +TRACKED_LogLike_Jac(beta,N,Y,sens,spec)
+def TRACKED_LogPost_Hess(beta, N, Y, sens, spec,prior):
+    return prior.lpdf_hess(beta)\
            +TRACKED_LogLike_Hess(beta,N,Y,sens,spec)
            
-def TRACKED_NegLogPost(beta,N,Y,sens,spec):
-    return -1*TRACKED_LogPost(beta,N,Y,sens,spec)
-def TRACKED_NegLogPost_Grad(beta, N, Y, sens, spec):
-    return -1*TRACKED_LogPost_Grad(beta, N, Y, sens, spec)
-def TRACKED_NegLogPost_Hess(beta,N,Y,sens,spec):
-    return -1*TRACKED_LogPost_Hess(beta,N,Y,sens,spec)
+def TRACKED_NegLogPost(beta,N,Y,sens,spec,prior):
+    return -1*TRACKED_LogPost(beta,N,Y,sens,spec,prior)
+def TRACKED_NegLogPost_Grad(beta, N, Y, sens, spec,prior):
+    return -1*TRACKED_LogPost_Grad(beta, N, Y, sens, spec, prior)
+def TRACKED_NegLogPost_Hess(beta,N,Y,sens,spec,prior):
+    return -1*TRACKED_LogPost_Hess(beta,N,Y,sens,spec,prior)
 
-def GeneratePostSamps_TRACKED(dataTblDict,regWt,M,Madapt,delta,usePriors=1.):
+def GeneratePostSamples_TRACKED(dataTblDict,Madapt,delta):
+    '''
+    Generates posterior samples of aberration rates under the Tracked
+    likelihood model and given data inputs, via the NUTS sampler (Gelman 2011).
+    INPUTS
+    ------
+    dataTblDict is an input dictionary with the following keys:
+        N,Y: Number of tests, number of positive tests on each outlet-importer
+             track
+        diagSens,diagSpec: Diagnostic sensitivity and specificity
+        prior: Prior distribution object with lpdf,lpdf_jac methods
+        numPostSamples: Number of posterior distribution samples to generate
+    Madapt,delta: Parameters for use with NUTS
+    OUTPUTS
+    -------
+    Returns a list of posterior samples, with importers coming before outlets.
+    '''
     N,Y = dataTblDict['N'],dataTblDict['Y']
     sens,spec = dataTblDict['diagSens'],dataTblDict['diagSpec']
+    prior = dataTblDict['prior']
+    M = dataTblDict['numPostSamples']
     
-    if usePriors==1.:
-        def TRACKEDtargetForNUTS(beta):
-            return TRACKED_LogPost(beta,N,Y,sens,spec),\
-                   TRACKED_LogPost_Grad(beta,N,Y,sens,spec)
-    else:
-        def TRACKEDtargetForNUTS(beta):
-            return TRACKED_LogLike(beta,N,Y,sens,spec,regWt),\
-                   TRACKED_LogLike_Jac(beta,N,Y,sens,spec,regWt)
+    def TRACKEDtargetForNUTS(beta):
+        return TRACKED_LogPost(beta,N,Y,sens,spec,prior),\
+               TRACKED_LogPost_Grad(beta,N,Y,sens,spec,prior)
 
     beta0 = -2 * np.ones(N.shape[1] + N.shape[0])
     samples, lnprob, epsilon = scai_utilities.nuts6(TRACKEDtargetForNUTS,M,Madapt,beta0,delta)
     # CHANGE scai_utilities TO nuts if wanting to use the Gelman package
     return sps.expit(samples)
 
-###### END TRACKED FUNCTIONS ######
+######################### END TRACKED FUNCTIONS #########################
 
 def FormEstimates(dataTblDict):
     '''
@@ -496,77 +463,58 @@ def FormEstimates(dataTblDict):
     
     return estDict
 
-def GeneratePostSamps(dataTblDict):
+def GeneratePostSamples(dataTblDict):
+    '''
+    Retrives posterior samples under the appropriate Tracked or Untracked
+    likelihood model.
+    '''
     if dataTblDict['type'] == 'Tracked':
-        postSamps = GeneratePostSamps_TRACKED(dataTblDict,regWt=0.,
-                                              M=dataTblDict['numPostSamples'],
-                                              Madapt=5000,delta=0.4,usePriors=1.)
+        postSamples = GeneratePostSamples_TRACKED(dataTblDict,Madapt=5000,delta=0.4)
     elif dataTblDict['type'] == 'Untracked':
-        postSamps = GeneratePostSamps_UNTRACKED(dataTblDict,regWt=0.,
-                                                M=dataTblDict['numPostSamples'],
-                                                Madapt=5000,delta=0.4,usePriors=1.)
+        postSamples = GeneratePostSamples_UNTRACKED(dataTblDict,Madapt=5000,delta=0.4)
     
-    return postSamps
+    return postSamples
 
-########################### SFP ESTIMATORS FOR SIMULATION ###########################
+########################### SCAI ESTIMATORS ###########################
 def Est_UntrackedMLE(dataTblDict):
     '''
-        A,PosData,NumSamples,Sens,Spec,RglrWt=0.1,M=500,\
-                      Madapt=5000,delta=0.4,beta0_List=[],usePrior=1.):
-    '''
-    '''
     Uses the L-BFGS-B method of the SciPy Optimizer to maximize the
-    log-likelihood of different SF rates for a given set of UNTRACKED testing
-    data in addition to diagnostic capabilities
+    log-likelihood of different aberration rates under the Untracked likelihood
+    model.
     '''
     # CHECK THAT ALL NECESSARY KEYS ARE IN THE INPUT DICTIONARY
     
-    A = dataTblDict['transMat']
-    NumSamples = dataTblDict['N']
-    PosData = dataTblDict['Y']
-    Sens = dataTblDict['diagSens']
-    Spec = dataTblDict['diagSpec']
-    beta0_List=[]
-    usePrior = 1.
-    RglrWt = 0.1
+    transMat = dataTblDict['transMat']
+    NumSamples, PosData = np.array(dataTblDict['N']), np.array(dataTblDict['Y'])
+    Sens, Spec = dataTblDict['diagSens'], dataTblDict['diagSpec']
+    prior = dataTblDict['prior']
     
     outDict = {} # Output dictionary
     PosData = np.array(PosData)
     NumSamples = np.array(NumSamples)
-    numOut = A.shape[0]
-    numImp = A.shape[1]
-    if beta0_List == []: # We do not have any initial points to test; generate a generic initial point
-        beta0_List.append(-6 * np.ones(numImp+numOut) + np.random.uniform(-1,1,numImp+numOut))
+    numOut,numImp = transMat.shape[0], transMat.shape[1]
     
-    if usePrior==1.: # Use prior
-        #Loop through each possible initial point and store the optimal solution likelihood values
-        likelihoodsList = []
-        solsList = []
-        bds = spo.Bounds(np.zeros(numImp+numOut)-8, np.zeros(numImp+numOut)+8)
-        for curr_beta0 in beta0_List:
-            opVal = spo.minimize(UNTRACKED_NegLogPost,
-                                 curr_beta0,
-                                 args=(NumSamples,PosData,Sens,Spec,A),
-                                 method='L-BFGS-B',
-                                 jac = UNTRACKED_NegLogPost_Grad,
-                                 options={'disp': False},
-                                 bounds=bds)
-            likelihoodsList.append(opVal.fun)
-            solsList.append(opVal.x)
-    else: # Use regularization
-        likelihoodsList = []
-        solsList = []
-        bds = spo.Bounds(np.zeros(numImp+numOut)-8, np.zeros(numImp+numOut)+8)
-        for curr_beta0 in beta0_List:
-            opVal = spo.minimize(UNTRACKED_NegLogLike,
-                                 curr_beta0,
-                                 args=(NumSamples,PosData,Sens,Spec,A,RglrWt),
-                                 method='L-BFGS-B',
-                                 jac = UNTRACKED_NegLogLike_Jac,
-                                 options={'disp': False},
-                                 bounds=bds)
-            likelihoodsList.append(opVal.fun)
-            solsList.append(opVal.x)
+    beta0_List=[]
+    if 'postSamples' in dataTblDict.keys():
+        randInds = np.random.choice(len(dataTblDict['postSamples']),size=10,replace=False)
+        beta0_List = dataTblDict['postSamples'][randInds]
+    else:
+        beta0_List.append(-6 * np.ones(numImp+numOut) + np.random.uniform(-1,1,numImp+numOut))
+
+    #Loop through each possible initial point and store the optimal solution likelihood values
+    likelihoodsList = []
+    solsList = []
+    bds = spo.Bounds(np.zeros(numImp+numOut)-8, np.zeros(numImp+numOut)+8)
+    for curr_beta0 in beta0_List:
+        opVal = spo.minimize(UNTRACKED_NegLogPost,
+                             curr_beta0,
+                             args=(NumSamples,PosData,Sens,Spec,transMat,prior),
+                             method='L-BFGS-B',
+                             jac = UNTRACKED_NegLogPost_Grad,
+                             options={'disp': False},
+                             bounds=bds)
+        likelihoodsList.append(opVal.fun)
+        solsList.append(opVal.x)
     
     best_x = solsList[np.argmin(likelihoodsList)]
     
@@ -581,8 +529,7 @@ def Est_UntrackedMLE(dataTblDict):
     
     #y_Expec = (1-Spec) + (Sens+Spec-1) *(pi_hat + (1-pi_hat)*(A @ theta_hat))
     #Insert it into our hessian
-    hess = UNTRACKED_LogPost_Hess(best_x,NumSamples,PosData,\
-                                                       Sens,Spec,A)
+    hess = UNTRACKED_NegLogPost_Hess(best_x,NumSamples,PosData,Sens,Spec,transMat,prior)
     #hess_invs = [i if i >= 0 else np.nan for i in 1/np.diag(hess)] # Return 'nan' values if the diagonal is less than 0
     hess_invs = [i if i >= 0 else i*-1 for i in 1/np.diag(hess)]
     
@@ -605,69 +552,53 @@ def Est_UntrackedMLE(dataTblDict):
     outDict['99upper_out'] = sps.expit(best_x[numImp:] + out_Interval99)
     outDict['99lower_out'] = sps.expit(best_x[numImp:] - out_Interval99)
     
-    
     outDict['impProj'] = theta_hat
     outDict['outProj'] = pi_hat
-    #outDict['hess'] = hess  
+    outDict['hess'] = hess  
     
     return outDict
 
 
 def Est_TrackedMLE(dataTblDict):
-    '''
-     Sens,Spec,RglrWt=0.1,M=500,Madapt=5000,delta=0.4,beta0_List=[],usePrior=1.
-    
-    Forms MLE sample-wise - DOES NOT use the transition matrix, but instead matrices N and Y,
+    '''    
+    Uses the L-BFGS-B method of the SciPy Optimizer to maximize the
+    log-likelihood of different aberration rates under the Untracked likelihood
+    model.Forms MLE under the Tracked likelihood model - DOES NOT use the transition matrix, but instead matrices N and Y,
     which record the positives and number of tests for each (outlet,importer) combination.
     Then uses the L-BFGS-B method of the SciPy Optimizer to maximize the
     log-likelihood of different SF rates for a given set of testing data and 
     diagnostic capabilities
     '''
-    N = dataTblDict['N']
-    Y = dataTblDict['Y']
-    Sens = dataTblDict['diagSens']
-    Spec = dataTblDict['diagSpec']
-    
-    beta0_List = []
-    usePrior = 1.
-    RglrWt = 0.1
+    N, Y = dataTblDict['N'], dataTblDict['Y']
+    Sens, Spec = dataTblDict['diagSens'], dataTblDict['diagSpec']
+    prior = dataTblDict['prior']
     
     N = N.astype(int)
     Y = Y.astype(int)
     outDict = {}
     (numOut,numImp) = N.shape  
-    if beta0_List == []: # We do not have any initial points to test; generate a generic initial point
+    
+    beta0_List = []
+    if 'postSamples' in dataTblDict.keys():
+        randInds = np.random.choice(len(dataTblDict['postSamples']),size=10,replace=False)
+        beta0_List = dataTblDict['postSamples'][randInds]
+    else:
         beta0_List.append(-6 * np.ones(numImp+numOut) + np.random.uniform(-1,1,numImp+numOut))
     
-    if usePrior==1.: # Use prior
-        #Loop through each possible initial point and store the optimal solution likelihood values
-        likelihoodsList = []
-        solsList = []
-        bds = spo.Bounds(np.zeros(numImp+numOut)-8, np.zeros(numImp+numOut)+8)
-        for curr_beta0 in beta0_List:
-            opVal = spo.minimize(TRACKED_NegLogPost,
-                                 curr_beta0,
-                                 args=(N,Y,Sens,Spec),
-                                 method='L-BFGS-B',
-                                 jac = TRACKED_NegLogPost_Grad,
-                                 options={'disp': False},
-                                 bounds=bds)
-            likelihoodsList.append(opVal.fun)
-            solsList.append(opVal.x)
-    else: #Use regularization
-        likelihoodsList = []
-        solsList = []
-        bds = spo.Bounds(np.zeros(numImp+numOut)-8, np.zeros(numImp+numOut)+8)
-        for curr_beta0 in beta0_List:
-            opVal = spo.minimize(TRACKED_NegLogLike,
-                                 curr_beta0,
-                                 args=(N,Y,Sens,Spec,RglrWt),
-                                 method='L-BFGS-B',
-                                 jac = TRACKED_NegLogLike_Jac,
-                                 options={'disp': False},
-                                 bounds=bds)
-            likelihoodsList.append(opVal.fun)
-            solsList.append(opVal.x)
+    #Loop through each possible initial point and store the optimal solution likelihood values
+    likelihoodsList = []
+    solsList = []
+    bds = spo.Bounds(np.zeros(numImp+numOut)-8, np.zeros(numImp+numOut)+8)
+    for curr_beta0 in beta0_List:
+        opVal = spo.minimize(TRACKED_NegLogPost,
+                             curr_beta0,
+                             args=(N,Y,Sens,Spec,prior),
+                             method='L-BFGS-B',
+                             jac = TRACKED_NegLogPost_Grad,
+                             options={'disp': False},
+                             bounds=bds)
+        likelihoodsList.append(opVal.fun)
+        solsList.append(opVal.x)
     
     best_x = solsList[np.argmin(likelihoodsList)]
     
@@ -679,9 +610,10 @@ def Est_TrackedMLE(dataTblDict):
     
     #y_Expec = (1-Spec) + (Sens+Spec-1) *(np.array([theta_hat]*numOut)+np.array([1-theta_hat]*numOut)*np.array([pi_hat]*numImp).transpose())
     #Insert it into our hessian
-    hess = TRACKED_NegLogPost_Hess(best_x,N,Y,Sens,Spec)
+    hess = TRACKED_NegLogPost_Hess(best_x,N,Y,Sens,Spec,prior)
     #hess_invs = [i if i >= 0 else np.nan for i in 1/np.diag(hess)] # Return 'nan' values if the diagonal is less than 0
     hess_invs = [i if i >= 0 else i*-1 for i in 1/np.diag(hess)]
+    
     z90 = spstat.norm.ppf(0.95)
     z95 = spstat.norm.ppf(0.975)
     z99 = spstat.norm.ppf(0.995)
@@ -708,28 +640,8 @@ def Est_TrackedMLE(dataTblDict):
     
     outDict['impProj'] = theta_hat
     outDict['outProj'] = pi_hat
-    #outDict['hess'] = hess
+    outDict['hess'] = hess
     
     return outDict
     
-
-def Est_PostSamps_Untracked(A,PosData,NumSamples,Sens,Spec,RglrWt=0.1,M=500,Madapt=5000,delta=0.4):
-    '''
-    Returns the mean estimate of M NUTS samples, using the Madapt and delta
-    parameters and given testing data
-    '''
-    samples = scai_utilities.GeneratePostSamps_UNTRACKED(NumSamples,PosData,A,Sens,Spec,RglrWt,M,Madapt,delta)
-    intMeans = [sps.expit(np.mean(samples[:,i])) for i in range(A.shape[1])]
-    endMeans = [sps.expit(np.mean(samples[:,A.shape[1]+i])) for i in range(A.shape[0])]
-    return intMeans, endMeans
-
-def Est_PostSamps_Tracked(Nmat,Ymat,Sens,Spec,RglrWt=0.1,M=500,Madapt=5000,delta=0.4):
-    '''
-    Returns the mean estimate of M NUTS samples, using the Madapt and delta
-    parameters and given testing data
-    '''
-    samples = scai_utilities.GeneratePostSamps_TRACKED(Nmat,Ymat,Sens,Spec,RglrWt,M,Madapt,delta)
-    intMeans = [sps.expit(np.mean(samples[:,i])) for i in range(Nmat.shape[1])]
-    endMeans = [sps.expit(np.mean(samples[:,Nmat.shape[1]+i])) for i in range(Nmat.shape[0])]
-    return intMeans, endMeans
-########################### END SF RATE ESTIMATORS ###########################
+########################### END SCAI ESTIMATORS ###########################

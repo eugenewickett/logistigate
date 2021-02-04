@@ -65,11 +65,7 @@ beta0a,beta0b = beta0+1,beta0+2
 beta00 = np.concatenate((beta0,beta0a,beta0b)).reshape((3,-1))
 
 L0 = meth.TRACKED_LogLike(beta0a,N,Y,Sens,Spec,0)
-L00 = meth.TRACKED_LogLike_ARR(beta0a,N,Y,Sens,Spec)
 dL0 = np.array(meth.TRACKED_NegLogLike_Jac(beta0b,N,Y,Sens,Spec,wt))
-
-meth.UNTRACKED_LogPrior(beta0a,N,Y,Sens,Spec,5)
-
 
 for k in range(m+n):
     beta1 = 1*beta0b[:]
@@ -145,13 +141,22 @@ beta0 = -4.5*np.ones(n+m)
 p0 = sps.expit(beta0)
 
 '''
-import scai_methods as meth
-L0 = meth.UNTRACKED_LogLike_Probs(p0,N,Y,Sens,Spec,Q,0)
-dL0 = meth.UNTRACKED_LogLike_Probs_Jac(p0,N,Y,Sens,Spec,Q,0)
+import methods as meth
+
+beta0 = np.array([-4.5,-4.3,-4.7,-4.9,-4.1,-4.2,-4.25,-4.33,-4.55])
+beta0a,beta0b = beta0+1,beta0+2
+beta00 = np.concatenate((beta0,beta0a,beta0b)).reshape((3,-1))
+
+L0 = meth.UNTRACKED_LogLike(beta0,N,Y,Sens,Spec,Q)
+L00 = meth.UNTRACKED_LogLike_ARR(beta00,N,Y,Sens,Spec,Q)
+print(L0)
+print(L00)
+
+dL0 = meth.UNTRACKED_LogLike_Jac(beta0,N,Y,Sens,Spec,Q)
 for k in range(m+n):
-    p1 = 1*p0[:]
-    p1[k] = p1[k] + 10**(-7)
-    L1 = meth.UNTRACKED_LogLike_Probs(p1,N,Y,Sens, Spec,Q,0)
+    beta1 = 1*beta0[:]
+    beta1[k] = beta1[k] + 10**(-7)
+    L1 = meth.UNTRACKED_LogLike(beta1,N,Y,Sens, Spec,Q)
     print((L1-L0) * (10 **(7)))
     print(dL0[k])
 

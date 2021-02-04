@@ -39,14 +39,8 @@ CHANGE LANGUAGE HERE IF NOT ONLY USING TRACKED METHOD
 The estimation method uses a Python solver to find the posterior likelihood
 maximizer. [HOW MUCH DETAIL TO PUT HERE?]
 
-KEEP???
-The "linear" method fits linear-regression-type aberration estimates to the
-importers and outlets, where the estimated aberration likelihoods at the
-importer echelon are akin to the beta parameter estimates of linear regression,
-and the aberration likelihoods at the outlet echelon are akin to the fitted 
-error terms.
 
-The "untracked" method uses 
+The "untracked" method uses...
 
 Creators:
 Eugene Wickett
@@ -55,8 +49,8 @@ Matthew Plumlee
 
 Industrial Engineering & Management Sciences, Northwestern University
 """
-import scai_methods as methods
-import scai_utilities as util
+import methods
+import utilities as util
 
 def logistigate(dataTblDict):
     '''
@@ -104,8 +98,8 @@ def logistigate(dataTblDict):
                             Upper and lower values for the 90%, 95%, and 99% 
                             intervals on importer and outlet aberration rates
             
-        postSamps: List of posterior samples, generated using the NUTS from 
-                   Hoffman & Gelman, 2011   
+        postSamples: List of posterior samples, generated using the NUTS from 
+                     Hoffman & Gelman, 2011   
     '''
     # Check that all necessary keys are present
     if not all(key in dataTblDict for key in ['type','dataTbl','transMat',
@@ -118,10 +112,11 @@ def logistigate(dataTblDict):
     
     scaiDict = {} # Initialize our output dictionary
     dataTblDict = util.GetVectorForms(dataTblDict) # Add N,Y matrices
+    postSamples = methods.GeneratePostSamples(dataTblDict) # Generate and add posterior samples
+    dataTblDict.update({'postSamples':postSamples})
     estDict = methods.FormEstimates(dataTblDict) # Form point estimates and CIs
-    postSamps = methods.GeneratePostSamps(dataTblDict) # Generate posterior samples
     
-    scaiDict.update({'type':dataTblDict['type'], 
+    scaiDict.update({'type':dataTblDict['type'],
                      'dataTbl':dataTblDict['dataTbl'],
                      'transMat':dataTblDict['transMat'],
                      'outletNames':dataTblDict['outletNames'],
@@ -131,20 +126,23 @@ def logistigate(dataTblDict):
                      'diagSens':dataTblDict['diagSens'],
                      'diagSpec':dataTblDict['diagSpec'],
                      'N':dataTblDict['N'], 'Y':dataTblDict['Y'],
-                     'estDict':estDict, 'postSamps':postSamps    })
+                     'estDict':estDict, 'postSamples':postSamples,
+                     'prior':dataTblDict['prior']
+                     })
     return scaiDict
 
 def scai_Example1():
     '''
     This example [PUT DESCRIPTION OF EXAMPLE 1 HERE WHEN DECIDED]
     '''
-    dataTblDict = util.TestResultsFileToTable('example1_testData.csv')
+    dataTblDict = util.TestResultsFileToTable('data/example1_testData.csv')
     dataTblDict.update({'diagSens':0.90,
                         'diagSpec':0.99,
-                        'numPostSamples':500})
+                        'numPostSamples':500,
+                        'prior':methods.prior_normal()})
     scaiDict = logistigate(dataTblDict)
         
-    util.plotPostSamps(scaiDict)
+    util.plotPostSamples(scaiDict)
     util.printEstimates(scaiDict)
     
     return
@@ -154,13 +152,14 @@ def scai_Example2():
     This example provides a illustration of SCAIs capabilities, conducted on a 
     small system of 3 importers and 12 outlets.
     '''
-    dataTblDict = util.TestResultsFileToTable('example2_testData.csv')
+    dataTblDict = util.TestResultsFileToTable('data/example2_testData.csv') #'example2_testData.csv'
     dataTblDict.update({'diagSens':0.90,
                         'diagSpec':0.99,
-                        'numPostSamples':500})
+                        'numPostSamples':500,
+                        'prior':methods.prior_normal()})
     scaiDict = logistigate(dataTblDict)
         
-    util.plotPostSamps(scaiDict)
+    util.plotPostSamples(scaiDict)
     util.printEstimates(scaiDict)
     #util.writeToFile(scaiDict)
     
@@ -171,13 +170,14 @@ def scai_Example2b():
     This example uses the same underlying environment as example 2, but with 
     1000 testing sample point instead of 4000.
     '''
-    dataTblDict = util.TestResultsFileToTable('example2b_testData.csv')
+    dataTblDict = util.TestResultsFileToTable('data/example2b_testData.csv')
     dataTblDict.update({'diagSens':0.90,
                         'diagSpec':0.99,
-                        'numPostSamples':500})
+                        'numPostSamples':500,
+                        'prior':methods.prior_normal()})
     scaiDict = logistigate(dataTblDict)
         
-    util.plotPostSamps(scaiDict)
+    util.plotPostSamples(scaiDict)
     util.printEstimates(scaiDict)
     
     return
@@ -187,30 +187,49 @@ def scai_Example2c():
     This example uses the same underlying environment as example 2 (including
     4000 testing sample points), but with 70% sensitivity and 90% specificity
     '''
-    dataTblDict = util.TestResultsFileToTable('example2c_testData.csv')
+    dataTblDict = util.TestResultsFileToTable('data/example2c_testData.csv')
     dataTblDict.update({'diagSens':0.70,
                         'diagSpec':0.90,
-                        'numPostSamples':500})
+                        'numPostSamples':500,
+                        'prior':methods.prior_normal()})
     scaiDict = logistigate(dataTblDict)
         
-    util.plotPostSamps(scaiDict)
+    util.plotPostSamples(scaiDict)
     util.printEstimates(scaiDict)
     
     return
 
+def scai_Example2d():
+    '''
+    This example uses the same underlying environment as example 2 but with 
+    a Laplace instead of a Normal prior
+    '''
+    dataTblDict = util.TestResultsFileToTable('data/example2_testData.csv') #'example2_testData.csv'
+    dataTblDict.update({'diagSens':0.90,
+                        'diagSpec':0.99,
+                        'numPostSamples':500,
+                        'prior':methods.prior_laplace()})
+    scaiDict = logistigate(dataTblDict)
+        
+    util.plotPostSamples(scaiDict)
+    util.printEstimates(scaiDict)
+    #util.writeToFile(scaiDict)
+    
+    return
 def scai_Example3():
     '''
     Same test data as example 2, but with unknown importers (i.e., Untracked).
     Instead, the transition matrix is known.
     '''
-    dataTblDict = util.TestResultsFileToTable('example3_testData.csv',
-                                              'example3_transitionMatrix.csv')
+    dataTblDict = util.TestResultsFileToTable('data/example3_testData.csv',
+                                              'data/example3_transitionMatrix.csv')
     dataTblDict.update({'diagSens':0.90,
                         'diagSpec':0.99,
-                        'numPostSamples':500})
+                        'numPostSamples':500,
+                        'prior':methods.prior_normal()})
     scaiDict = logistigate(dataTblDict)
         
-    util.plotPostSamps(scaiDict)
+    util.plotPostSamples(scaiDict)
     util.printEstimates(scaiDict)
     
     return
@@ -220,54 +239,4 @@ def scai_Example3():
 #scai_Example2()
 #scai_Example2b()
 #scai_Example2c()
-
-
-
-
-
-'''
-# Plot testing results per outlets
-numTestsVec = np.sum(N,axis=1)
-numPositivesVec = np.sum(Y,axis=1)
-outletInds = np.arange(outletNum)
-width = 0.25
-fig = plt.figure()
-ax = fig.add_axes([0,0,3,0.5])
-ax.set_xlabel('Tested Node',fontsize=16)
-ax.set_ylabel('Result Amount',fontsize=16)
-ax.bar(outletInds, numTestsVec, color='black', width=0.25)
-ax.bar(outletInds+width, numPositivesVec, color='red', width=0.25)
-plt.legend(('Times tested','Times falsified'),loc=2)
-plt.xticks(rotation=90)
-plt.show()
-
-
-# Generate output list of estimates and intervals
-outputTrackedDict.keys()
-
-# Generate output for posterior samples
-
-
-# Generate plots of estimates and intervals
-
-
-
-# Generate plots of posterior distributions
-
-'''
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#scai_Example3()
