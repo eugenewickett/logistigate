@@ -8,7 +8,7 @@ import numpy as np
 import scipy.optimize as spo
 import scipy.stats as spstat
 import scipy.special as sps
-import scai_utilities
+import utilities
 #import nuts
 
 ########################### PRIOR CLASSES ###########################
@@ -93,7 +93,7 @@ def UNTRACKED_LogLike(beta,numVec,posVec,sens,spec,transMat):
     L = np.sum(np.multiply(posVec,np.log(pMatTilde))+np.multiply(np.subtract(numVec,posVec),\
                np.log(1-pMatTilde)),axis=1)
     return np.squeeze(L)
-
+'''
 def UNTRACKED_LogLike_Jac(betaVec,numVec,posVec,sens,spec,transMat):
     # betaVec should be [importers, outlets]
     n,m = transMat.shape
@@ -113,6 +113,46 @@ def UNTRACKED_LogLike_Jac(betaVec,numVec,posVec,sens,spec,transMat):
                         (sens+spec-1)*(1-np.matmul(transMat,sps.expit(th)))/(1-pVecTilde)                        
 
     return np.concatenate((impPartials,outletPartials))
+'''
+def UNTRACKED_LogLike_Jac(betaVec,numVec,posVec,sens,spec,transMat):
+    # betaVec should be [importers, outlets]
+    n,m = transMat.shape
+    th, py = sps.expit(betaVec[:m]),sps.expit(betaVec[m:])
+    pVec = py+(1-py)*np.matmul(transMat,th)
+    pVecTilde = sens*pVec + (1-spec)*(1-pVec)
+    
+    #Grab importers partials first, then outlets
+    impPartials = (sens+spec-1)*np.sum(transMat*(th-th**2)*np.array([(1-py)]*m).transpose()*\
+                     (posVec[:,None]/pVecTilde[:,None]-(numVec-posVec)[:,None]/(1-pVecTilde)[:,None])\
+                     ,axis=0)
+    outletPartials = (sens+spec-1)*(1-np.matmul(transMat,th))*(py-py**2)*\
+                        (posVec/pVecTilde-(numVec-posVec)/(1-pVecTilde))
+
+    return np.concatenate((impPartials,outletPartials))
+
+def UNTRACKED_LogLike_Jac_ARR(beta,numVec,posVec,sens,spec,transMat):
+    # betaVec should be [importers, outlets]; can be used with array beta
+    if beta.ndim == 1: # reshape to 2d
+        beta = np.reshape(beta,(1,-1))
+    n,m = transMat.shape
+    k = beta.shape[0]
+    thA, pyA = sps.expit(beta[:,:m]), sps.expit(beta[:,m:])
+    pMat = pyA + (1-pyA)*np.matmul(thA,transMat.T)        
+    pMatTilde = sens*pMat+(1-spec)*(1-pMat)
+    '''
+    pMat = np.reshape(np.tile(th,(n)),(k,n,m)) + np.reshape(np.tile(1-th,(n)),(k,n,m)) *\
+            np.transpose(np.reshape(np.tile(py,(m)),(k,m,n)),(0,2,1))              
+    L = np.sum(np.multiply(posMat,np.log(pMatTilde))+np.multiply(np.subtract(numMat,posMat),\
+               np.log(1-pMatTilde)),axis=(1,2))
+    '''
+    #Grab importers partials first, then outlets
+    impPartials = (sens+spec-1)*np.sum(  np.reshape([transMat]*k,(k,n,m))*\
+                   np.reshape((thA-thA**2),(k,1,m))*np.tile(np.reshape((1-pyA),(k,n,1)),(m))*\
+                   np.reshape((posVec[:,None]/pMatTilde.T-(numVec-posVec)[:,None]/(1-pMatTilde).T).T,(k,n,1)),axis=1)
+    outletPartials = (sens+spec-1)*(1-np.matmul(transMat,thA.T)).T*(pyA-pyA**2)*\
+                        (posVec/pMatTilde-(numVec-posVec)/(1-pMatTilde))             
+
+    return np.concatenate((impPartials,outletPartials),axis=1)
 
 def UNTRACKED_LogLike_Hess(betaVec,numVec,posVec,sens,spec,transMat):
     # betaVec should be [importers, outlets]; NOT for array beta
@@ -254,7 +294,7 @@ def GeneratePostSamples_UNTRACKED(dataTblDict,Madapt=5000,delta=0.4):
                UNTRACKED_LogPost_Grad(beta,N,Y,sens,spec,transMat,prior)
 
     beta0 = -2 * np.ones(transMat.shape[1] + transMat.shape[0]) # initial point for sampler
-    samples, lnprob, epsilon = scai_utilities.nuts6(UNTRACKEDtargetForNUTS,M,Madapt,beta0,delta)
+    samples, lnprob, epsilon = utilities.nuts6(UNTRACKEDtargetForNUTS,M,Madapt,beta0,delta)
     # CHANGE scai_utilities TO nuts if wanting to use the Gelman package
     return sps.expit(samples)
 
@@ -422,7 +462,7 @@ def GeneratePostSamples_TRACKED(dataTblDict,Madapt,delta):
                TRACKED_LogPost_Grad(beta,N,Y,sens,spec,prior)
 
     beta0 = -2 * np.ones(N.shape[1] + N.shape[0])
-    samples, lnprob, epsilon = scai_utilities.nuts6(TRACKEDtargetForNUTS,M,Madapt,beta0,delta)
+    samples, lnprob, epsilon = utilities.nuts6(TRACKEDtargetForNUTS,M,Madapt,beta0,delta)
     # CHANGE scai_utilities TO nuts if wanting to use the Gelman package
     return sps.expit(samples)
 
@@ -462,6 +502,92 @@ def FormEstimates(dataTblDict):
         return {}
     
     return estDict
+
+def Est_FormEstimates(dataTblDict):
+    '''    
+    Uses the L-BFGS-B method of the SciPy Optimizer to maximize the
+    log-likelihood of different aberration rates under the Untracked likelihood
+    model.Forms MLE under the Tracked likelihood model - DOES NOT use the transition matrix, but instead matrices N and Y,
+    which record the positives and number of tests for each (outlet,importer) combination.
+    Then uses the L-BFGS-B method of the SciPy Optimizer to maximize the
+    log-likelihood of different SF rates for a given set of testing data and 
+    diagnostic capabilities
+    '''
+    outDict = {}
+    N, Y = dataTblDict['N'], dataTblDict['Y']
+    Sens, Spec = dataTblDict['diagSens'], dataTblDict['diagSpec']
+    prior = dataTblDict['prior']
+    
+    N = N.astype(int)
+    Y = Y.astype(int)
+    
+    (numOut,numImp) = N.shape  
+    
+    beta0_List = []
+    if 'postSamples' in dataTblDict.keys():
+        randInds = np.random.choice(len(dataTblDict['postSamples']),size=10,replace=False)
+        beta0_List = dataTblDict['postSamples'][randInds]
+    else:
+        beta0_List.append(-6 * np.ones(numImp+numOut) + np.random.uniform(-1,1,numImp+numOut))
+    
+    #Loop through each possible initial point and store the optimal solution likelihood values
+    likelihoodsList = []
+    solsList = []
+    bds = spo.Bounds(np.zeros(numImp+numOut)-8, np.zeros(numImp+numOut)+8)
+    for curr_beta0 in beta0_List:
+        opVal = spo.minimize(TRACKED_NegLogPost,
+                             curr_beta0,
+                             args=(N,Y,Sens,Spec,prior),
+                             method='L-BFGS-B',
+                             jac = TRACKED_NegLogPost_Grad,
+                             options={'disp': False},
+                             bounds=bds)
+        likelihoodsList.append(opVal.fun)
+        solsList.append(opVal.x)
+    
+    best_x = solsList[np.argmin(likelihoodsList)]
+    
+    #Generate confidence intervals
+    #First we need to generate the information matrix
+    #Expected positives vector at the outlets
+    pi_hat = sps.expit(best_x[numImp:])
+    theta_hat = sps.expit(best_x[:numImp])
+    
+    #y_Expec = (1-Spec) + (Sens+Spec-1) *(np.array([theta_hat]*numOut)+np.array([1-theta_hat]*numOut)*np.array([pi_hat]*numImp).transpose())
+    #Insert it into our hessian
+    hess = TRACKED_NegLogPost_Hess(best_x,N,Y,Sens,Spec,prior)
+    #hess_invs = [i if i >= 0 else np.nan for i in 1/np.diag(hess)] # Return 'nan' values if the diagonal is less than 0
+    hess_invs = [i if i >= 0 else i*-1 for i in 1/np.diag(hess)]
+    
+    z90 = spstat.norm.ppf(0.95)
+    z95 = spstat.norm.ppf(0.975)
+    z99 = spstat.norm.ppf(0.995)
+    
+    imp_Interval90 = z90*np.sqrt(hess_invs[:numImp])
+    imp_Interval95 = z95*np.sqrt(hess_invs[:numImp])
+    imp_Interval99 = z99*np.sqrt(hess_invs[:numImp])
+    out_Interval90 = z90*np.sqrt(hess_invs[numImp:])
+    out_Interval95 = z95*np.sqrt(hess_invs[numImp:])
+    out_Interval99 = z99*np.sqrt(hess_invs[numImp:])
+    
+    outDict['90upper_imp'] = sps.expit(best_x[:numImp] + imp_Interval90)
+    outDict['90lower_imp'] = sps.expit(best_x[:numImp] - imp_Interval90)
+    outDict['95upper_imp'] = sps.expit(best_x[:numImp] + imp_Interval95)
+    outDict['95lower_imp'] = sps.expit(best_x[:numImp] - imp_Interval95)
+    outDict['99upper_imp'] = sps.expit(best_x[:numImp] + imp_Interval99)
+    outDict['99lower_imp'] = sps.expit(best_x[:numImp] - imp_Interval99)
+    outDict['90upper_out'] = sps.expit(best_x[numImp:] + out_Interval90)
+    outDict['90lower_out'] = sps.expit(best_x[numImp:] - out_Interval90)
+    outDict['95upper_out'] = sps.expit(best_x[numImp:] + out_Interval95)
+    outDict['95lower_out'] = sps.expit(best_x[numImp:] - out_Interval95)
+    outDict['99upper_out'] = sps.expit(best_x[numImp:] + out_Interval99)
+    outDict['99lower_out'] = sps.expit(best_x[numImp:] - out_Interval99)
+    
+    outDict['impProj'] = theta_hat
+    outDict['outProj'] = pi_hat
+    outDict['hess'] = hess
+    
+    return outDict
 
 def GeneratePostSamples(dataTblDict):
     '''

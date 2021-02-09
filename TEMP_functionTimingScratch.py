@@ -7,7 +7,7 @@ Created on Sun Nov 22 16:24:25 2020
 
 
 #import time
-import scai_methods as meth
+import methods as meth
 import scipy.optimize as spo
 import scipy.special as sps
 import numpy as np
@@ -145,9 +145,9 @@ import methods as meth
 
 beta0 = np.array([-4.5,-4.3,-4.7,-4.9,-4.1,-4.2,-4.25,-4.33,-4.55])
 beta0a,beta0b = beta0+1,beta0+2
-beta00 = np.concatenate((beta0,beta0a,beta0b)).reshape((3,-1))
+beta00 = np.concatenate((beta0,beta0a)).reshape((2,-1))
 
-L0 = meth.UNTRACKED_LogLike(beta0,N,Y,Sens,Spec,Q)
+L0 = meth.UNTRACKED_LogLike(beta00,N,Y,Sens,Spec,Q)
 L00 = meth.UNTRACKED_LogLike_ARR(beta00,N,Y,Sens,Spec,Q)
 print(L0)
 print(L00)
@@ -159,6 +159,15 @@ for k in range(m+n):
     L1 = meth.UNTRACKED_LogLike(beta1,N,Y,Sens, Spec,Q)
     print((L1-L0) * (10 **(7)))
     print(dL0[k])
+
+dL0 = meth.UNTRACKED_LogLike_Jac(beta0,N,Y,Sens,Spec,Q)
+dL0a = meth.UNTRACKED_LogLike_Jac(beta0a,N,Y,Sens,Spec,Q)
+dL0b = meth.UNTRACKED_LogLike_Jac(beta0b,N,Y,Sens,Spec,Q)
+dL00 = meth.UNTRACKED_LogLike_Jac_ARR(beta00,N,Y,Sens,Spec,Q)
+
+
+dL0:    array([23.59345175, 47.10028556, 27.45147842,  5.44251795, 14.58868768,
+               45.87621477, 11.53335201, 29.32908443,  9.39305615])
 
 bds = spo.Bounds(beta0-8, beta0+8)
 opval = spo.minimize(meth.UNTRACKED_NegLogLikeFunc, beta0,
