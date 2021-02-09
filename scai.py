@@ -1,6 +1,5 @@
 """
-This package implements the Supply Chain Aberration Inference (SCAI) methods as
-described in [MENTION PAPER IN THE WORKS?].
+This package implements the logistigate methods.
 
 Content
 -------
@@ -11,28 +10,28 @@ and the following subroutines:
     [LIST ALL SUBROUTINES HERE]
 
 
-Overview of SCAI
+Overview of logistigate
 ----------------
-Generally speaking, the SCAI methods infer aberration likelihoods at entities 
-within a two-echelon supply chain, only using testing data from sample points
-taken from entities of the lower echelon. It is assumed that products originate
-within the system at one entity of the upper echelon, and are procured by one
-entity of the lower echelon. The likelihood of a lower-echelon entity obtaining
-product from each of the upper-echelon entities is stored in what is deemed the
-"transition matrix" for that system. Testing of products at the lower echelon
-yields aberrational (recorded as "1") or acceptable ("0") results, as well as
-the upper-echelon and lower-echelon entities traversed by the tested product.
-It is further assumed that products are aberrational at their origin in the
-upper echelon with some fixed probability, and that products acceptable at the
-upper echelon become aberrational at the destination in the lower echelon with
-some other fixed probabiltiy. It is these fixed probabilities that the SCAI
-methods attempt to infer.
+Generally speaking, the logistigate methods infer aberration likelihoods at
+entities within a two-echelon supply chain, only using testing data from sample
+points taken from entities of the lower echelon. It is assumed that products
+originate within the system at one entity of the upper echelon, and are
+procured by one entity of the lower echelon. The likelihood of a lower-echelon
+entity obtaining product from each of the upper-echelon entities is stored in
+what is deemed the "transition matrix" for that system. Testing of products at
+the lower echelon yields aberrational (recorded as "1") or acceptable ("0")
+results, as well as the upper-echelon and lower-echelon entities traversed by
+the tested product. It is further assumed that products are aberrational at
+their origin in the upper echelon with some fixed probability, and that 
+products acceptable at the upper echelon become aberrational at the destination
+in the lower echelon with some other fixed probabiltiy. It is these fixed
+probabilities that the logistigate methods attempt to infer.
 
-More specifically, the SCAI methods were developed with the intent of inferring
-sources of substandard or falsified products within a pharmaceutical supply
-chain. Entities of the upper echelon are referred to as "importers," and
+More specifically, the logistigate methods were developed with the intent of 
+inferring sources of substandard or falsified products within a pharmaceutical 
+supply chain. Entities of the upper echelon are referred to as "importers," and
 entities of the lower echelon are referred to as "outlets." The example data
-sets included in the SCAI package use this terminology.
+sets included in the logistigate package use this terminology.
 
 
 CHANGE LANGUAGE HERE IF NOT ONLY USING TRACKED METHOD
@@ -85,7 +84,7 @@ def logistigate(dataTblDict):
     
     OUTPUTS
     -------
-    Returns scaiDict with the following keys:
+    Returns logistigateDict with the following keys:
         dataTbl: List of testing results from input file
         importerNames, outletNames: Ordered lists of importer and outlet names
         importerNum, outletNum: Number of unique importers and outlets from input file
@@ -110,13 +109,13 @@ def logistigate(dataTblDict):
               ' Please check and try again.')
         return {}
     
-    scaiDict = {} # Initialize our output dictionary
+    logistigateDict = {} # Initialize our output dictionary
     dataTblDict = util.GetVectorForms(dataTblDict) # Add N,Y matrices
     postSamples = methods.GeneratePostSamples(dataTblDict) # Generate and add posterior samples
     dataTblDict.update({'postSamples':postSamples})
     estDict = methods.FormEstimates(dataTblDict) # Form point estimates and CIs
     
-    scaiDict.update({'type':dataTblDict['type'],
+    logistigateDict.update({'type':dataTblDict['type'],
                      'dataTbl':dataTblDict['dataTbl'],
                      'transMat':dataTblDict['transMat'],
                      'outletNames':dataTblDict['outletNames'],
@@ -129,9 +128,9 @@ def logistigate(dataTblDict):
                      'estDict':estDict, 'postSamples':postSamples,
                      'prior':dataTblDict['prior']
                      })
-    return scaiDict
+    return logistigateDict
 
-def scai_Example1():
+def logistigate_Example1():
     '''
     This example [PUT DESCRIPTION OF EXAMPLE 1 HERE WHEN DECIDED]
     '''
@@ -140,32 +139,32 @@ def scai_Example1():
                         'diagSpec':0.99,
                         'numPostSamples':500,
                         'prior':methods.prior_normal()})
-    scaiDict = logistigate(dataTblDict)
+    logistigateDict = logistigate(dataTblDict)
         
-    util.plotPostSamples(scaiDict)
-    util.printEstimates(scaiDict)
+    util.plotPostSamples(logistigateDict)
+    util.printEstimates(logistigateDict)
     
     return
 
-def scai_Example2():
+def logistigate_Example2():
     '''
-    This example provides a illustration of SCAIs capabilities, conducted on a 
-    small system of 3 importers and 12 outlets.
+    This example provides a illustration of logistigate'ss capabilities,
+    conducted on a small system of 3 importers and 12 outlets.
     '''
     dataTblDict = util.TestResultsFileToTable('data/example2_testData.csv') #'example2_testData.csv'
     dataTblDict.update({'diagSens':0.90,
                         'diagSpec':0.99,
                         'numPostSamples':500,
                         'prior':methods.prior_normal()})
-    scaiDict = logistigate(dataTblDict)
+    logistigateDict = logistigate(dataTblDict)
         
-    util.plotPostSamples(scaiDict)
-    util.printEstimates(scaiDict)
-    #util.writeToFile(scaiDict)
+    util.plotPostSamples(logistigateDict)
+    util.printEstimates(logistigateDict)
+    #util.writeToFile(logistigateDict)
     
     return
 
-def scai_Example2b():
+def logistigate_Example2b():
     '''
     This example uses the same underlying environment as example 2, but with 
     1000 testing sample point instead of 4000.
@@ -175,14 +174,14 @@ def scai_Example2b():
                         'diagSpec':0.99,
                         'numPostSamples':500,
                         'prior':methods.prior_normal()})
-    scaiDict = logistigate(dataTblDict)
+    logistigateDict = logistigate(dataTblDict)
         
-    util.plotPostSamples(scaiDict)
-    util.printEstimates(scaiDict)
+    util.plotPostSamples(logistigateDict)
+    util.printEstimates(logistigateDict)
     
     return
 
-def scai_Example2c():
+def logistigate_Example2c():
     '''
     This example uses the same underlying environment as example 2 (including
     4000 testing sample points), but with 70% sensitivity and 90% specificity
@@ -192,14 +191,14 @@ def scai_Example2c():
                         'diagSpec':0.90,
                         'numPostSamples':500,
                         'prior':methods.prior_normal()})
-    scaiDict = logistigate(dataTblDict)
+    logistigateDict = logistigate(dataTblDict)
         
-    util.plotPostSamples(scaiDict)
-    util.printEstimates(scaiDict)
+    util.plotPostSamples(logistigateDict)
+    util.printEstimates(logistigateDict)
     
     return
 
-def scai_Example2d():
+def logistigate_Example2d():
     '''
     This example uses the same underlying environment as example 2 but with 
     a Laplace instead of a Normal prior
@@ -209,14 +208,14 @@ def scai_Example2d():
                         'diagSpec':0.99,
                         'numPostSamples':500,
                         'prior':methods.prior_laplace()})
-    scaiDict = logistigate(dataTblDict)
+    logistigateDict = logistigate(dataTblDict)
         
-    util.plotPostSamples(scaiDict)
-    util.printEstimates(scaiDict)
-    #util.writeToFile(scaiDict)
+    util.plotPostSamples(logistigateDict)
+    util.printEstimates(logistigateDict)
+    #util.writeToFile(logistigateDict)
     
     return
-def scai_Example3():
+def logistigate_Example3():
     '''
     Same test data as example 2, but with unknown importers (i.e., Untracked).
     Instead, the transition matrix is known.
@@ -227,10 +226,9 @@ def scai_Example3():
                         'diagSpec':0.99,
                         'numPostSamples':500,
                         'prior':methods.prior_normal()})
-    scaiDict = logistigate(dataTblDict)
+    logistigateDict = logistigate(dataTblDict)
         
-    util.plotPostSamples(scaiDict)
-    util.printEstimates(scaiDict)
+    util.plotPostSamples(logistigateDict)
+    util.printEstimates(logistigateDict)
     
     return
-

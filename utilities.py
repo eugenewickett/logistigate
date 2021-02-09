@@ -184,14 +184,14 @@ def GetVectorForms(dataTblDict):
     
     return dataTblDict
 
-def plotPostSamples(scaiDict):
+def plotPostSamples(logistigateDict):
     '''
     Plots the distribution of posterior aberration rate samples, with importer
     and outlet distributions plotted distinctly.
     
     INPUTS
     ------
-    scaiDict with the following keys:
+    logistigateDict with the following keys:
         postSamples: List of posterior sample lists, with importer values entered first.
         numImp:    Number of importers/upper echelon entities
         numOut:    Number of outlets/lower echelon entities        
@@ -200,7 +200,7 @@ def plotPostSamples(scaiDict):
     -------
     No values are returned
     '''
-    numImp, numOut = scaiDict['importerNum'], scaiDict['outletNum']
+    numImp, numOut = logistigateDict['importerNum'], logistigateDict['outletNum']
     
     fig = plt.figure()
     ax = fig.add_axes([0,0,2,1])
@@ -208,7 +208,7 @@ def plotPostSamples(scaiDict):
     ax.set_xlabel('Aberration rate',fontsize=14)
     ax.set_ylabel('Posterior distribution frequency',fontsize=14)
     for i in range(numImp):
-        plt.hist(scaiDict['postSamples'][:,i])
+        plt.hist(logistigateDict['postSamples'][:,i])
     
     fig = plt.figure()
     ax = fig.add_axes([0,0,2,1])
@@ -216,18 +216,18 @@ def plotPostSamples(scaiDict):
     ax.set_xlabel('Aberration rate',fontsize=14)
     ax.set_ylabel('Posterior distribution frequency',fontsize=14)
     for i in range(numOut):
-        plt.hist(scaiDict['postSamples'][:,numImp+i])
+        plt.hist(logistigateDict['postSamples'][:,numImp+i])
     
     return
 
-def printEstimates(scaiDict):
+def printEstimates(logistigateDict):
     '''
     Prints a formatted table of an estimate dictionary.
     
     INPUTS
     ------
-    estDict:  Dictionary returned from scai_methods.Est_TrackedMLE() or
-              scai_methods.Est_UntrackedMLE()
+    estDict:  Dictionary returned from methods.Est_TrackedMLE() or
+              methods.Est_UntrackedMLE()
     impNames: List of names of importers/upper echelon entities
     outNames: List of names of outlets/lower echelon entities
     
@@ -236,8 +236,8 @@ def printEstimates(scaiDict):
     No values are returned; the contents of the estimate dictionary are printed
     in a legible format.
     '''
-    outNames, impNames = scaiDict['outletNames'], scaiDict['importerNames']
-    estDict = scaiDict['estDict']
+    outNames, impNames = logistigateDict['outletNames'], logistigateDict['importerNames']
+    estDict = logistigateDict['estDict']
     
     impMLE = np.ndarray.tolist(estDict['impEst'])
     imp99lower = np.ndarray.tolist(estDict['99lower_imp'])
