@@ -67,8 +67,9 @@ beta00 = np.concatenate((beta0,beta0a,beta0b)).reshape((3,-1))
 L0 = meth.TRACKED_LogLike(beta0a,N,Y,Sens,Spec,0)
 dL0 = np.array(meth.TRACKED_NegLogLike_Jac(beta0b,N,Y,Sens,Spec,wt))
 
-L0 = meth.TRACKED_LogLike(beta0,N,Y,Sens,Spec)
-L00 = meth.TRACKED_LogLike_ARR(beta0,N,Y,Sens,Spec)
+L0 = meth.TRACKED_LogLike(beta00,N,Y,Sens,Spec)
+L00 = meth.TRACKED_LogLike_ARR(beta00,N,Y,Sens,Spec)
+
 print(L0)
 print(L00)
 

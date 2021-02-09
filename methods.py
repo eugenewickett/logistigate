@@ -224,75 +224,44 @@ def UNTRACKED_NegLogPost_Grad(beta, nsamp, ydata, sens, spec, A,prior):
 def UNTRACKED_NegLogPost_Hess(beta, nsamp, ydata, sens, spec, A,prior):
     return -1*UNTRACKED_LogPost_Hess(beta, nsamp, ydata, sens, spec, A,prior)
 
-def GeneratePostSamples_UNTRACKED(dataTblDict,Madapt=5000,delta=0.4):
-    '''
-    Generates posterior samples of aberration rates under the Untracked
-    likelihood model and given data inputs, via the NUTS sampler (Gelman 2011).
-    INPUTS
-    ------
-    dataTblDict is an input dictionary with the following keys:
-        N,Y: Number of tests, number of positive tests at each outlet
-        diagSens,diagSpec: Diagnostic sensitivity and specificity
-        transMat: Transition matrix between importers and outlets
-        prior: Prior distribution object with lpdf,lpdf_jac methods
-        numPostSamples: Number of posterior distribution samples to generate
-    Madapt,delta: Parameters for use with NUTS
-    OUTPUTS
-    -------
-    Returns a list of posterior samples, with importers coming before outlets.
-    '''
-    N,Y= dataTblDict['N'],dataTblDict['Y']
-    sens,spec = dataTblDict['diagSens'],dataTblDict['diagSpec']
-    transMat = dataTblDict['transMat']
-    prior = dataTblDict['prior']
-    M = dataTblDict['numPostSamples']
-    
-    def UNTRACKEDtargetForNUTS(beta):
-        return UNTRACKED_LogPost(beta,N,Y,sens,spec,transMat,prior),\
-               UNTRACKED_LogPost_Grad(beta,N,Y,sens,spec,transMat,prior)
-
-    beta0 = -2 * np.ones(transMat.shape[1] + transMat.shape[0]) # initial point for sampler
-    samples, lnprob, epsilon = utilities.nuts6(UNTRACKEDtargetForNUTS,M,Madapt,beta0,delta)
-    # CHANGE scai_utilities TO nuts if wanting to use the Gelman package
-    return sps.expit(samples)
-
 ######################## END UNTRACKED FUNCTIONS ########################
     
 ########################### TRACKED FUNCTIONS ###########################
 def TRACKED_LogLike(beta,numMat,posMat,sens,spec):
-    # for array beta
-    # betaVec should be [importers, outlets]
+    # betaVec should be [importers, outlets]; can be used with array beta
     if beta.ndim == 1: # reshape to 2d
         beta = np.reshape(beta,(1,-1))
     n,m = numMat.shape
     k = beta.shape[0]
-    th, py = sps.expit(beta[:,:m]), sps.expit(beta[:,m:])  
+    th, py = sps.expit(beta[:,:m]), sps.expit(beta[:,m:])
     pMat = np.reshape(np.tile(th,(n)),(k,n,m)) + np.reshape(np.tile(1-th,(n)),(k,n,m)) *\
-            np.transpose(np.reshape(np.tile(py,(m)),(k,m,n)),(0,2,1))            
+            np.transpose(np.reshape(np.tile(py,(m)),(k,m,n)),(0,2,1))
+           #each term is a k-by-n-by-m array
     pMatTilde = sens*pMat+(1-spec)*(1-pMat)    
     L = np.sum(np.multiply(posMat,np.log(pMatTilde))+np.multiply(np.subtract(numMat,posMat),\
                np.log(1-pMatTilde)),axis=(1,2))
+           #each term is a k-by-n-by-m array, with the n-by-m matrices then summed
     return np.squeeze(L)
 
-def TRACKED_LogLike_Jac(betaArr,numMat,posMat,sens,spec):
+def TRACKED_LogLike_Jac(beta,numMat,posMat,sens,spec):
     # betaVec should be [importers, outlets]; can be used with array beta
-    if betaArr.ndim == 1: # reshape to 2d
-        betaArr = np.reshape(betaArr,(1,-1))
+    if beta.ndim == 1: # reshape to 2d
+        beta = np.reshape(beta,(1,-1))
     n,m = numMat.shape
-    k = betaArr.shape[0]
-    thA, pyA = sps.expit(betaArr[:,:m]), sps.expit(betaArr[:,m:])
-    pMatA = np.reshape(np.tile(thA,(n)),(k,n,m)) + np.reshape(np.tile(1-thA,(n)),(k,n,m)) *\
-            np.transpose(np.reshape(np.tile(pyA,(m)),(k,m,n)),(0,2,1))
-    pMatTildeA = sens*pMatA+(1-spec)*(1-pMatA)
+    k = beta.shape[0]
+    th, py = sps.expit(beta[:,:m]), sps.expit(beta[:,m:])
+    pMat = np.reshape(np.tile(th,(n)),(k,n,m)) + np.reshape(np.tile(1-th,(n)),(k,n,m)) *\
+            np.transpose(np.reshape(np.tile(py,(m)),(k,m,n)),(0,2,1))
+    pMatTilde = sens*pMat+(1-spec)*(1-pMat)
     #Grab importers partials first, then outlets
-    impPartialsA = (sens+spec-1)*np.sum(np.reshape((thA-thA**2),(k,1,m))*\
-                    np.tile(np.reshape((1-pyA),(k,n,1)),(m))*(posMat/pMatTildeA\
-                     - (numMat-posMat)/(1-pMatTildeA)),axis=1)
-    outletPartialsA = (sens+spec-1)*np.sum(np.reshape((pyA-pyA**2),(k,n,1))*\
-                       np.transpose(np.tile(np.reshape((1-thA),(k,m,1)),(n)),(0,2,1))\
-                       *(posMat/pMatTildeA-(numMat-posMat)/(1-pMatTildeA)),axis=2)    
+    impPartials = (sens+spec-1)*np.sum(np.reshape((th-th**2),(k,1,m))*\
+                    np.tile(np.reshape((1-py),(k,n,1)),(m))*(posMat/pMatTilde\
+                     - (numMat-posMat)/(1-pMatTilde)),axis=1)
+    outletPartials = (sens+spec-1)*np.sum(np.reshape((py-py**2),(k,n,1))*\
+                       np.transpose(np.tile(np.reshape((1-th),(k,m,1)),(n)),(0,2,1))\
+                       *(posMat/pMatTilde-(numMat-posMat)/(1-pMatTilde)),axis=2)    
     
-    return np.squeeze(np.concatenate((impPartialsA,outletPartialsA),axis=1))
+    return np.squeeze(np.concatenate((impPartials,outletPartials),axis=1))
 
 def TRACKED_LogLike_Hess(betaVec,numMat,posMat,sens,spec):
     # betaVec should be [importers, outlets]; NOT for array beta
@@ -388,43 +357,51 @@ def TRACKED_NegLogPost_Grad(beta, N, Y, sens, spec,prior):
 def TRACKED_NegLogPost_Hess(beta,N,Y,sens,spec,prior):
     return -1*TRACKED_LogPost_Hess(beta,N,Y,sens,spec,prior)
 
-def GeneratePostSamples_TRACKED(dataTblDict,Madapt,delta):
+######################### END TRACKED FUNCTIONS #########################
+
+def GeneratePostSamples(dataTblDict):
     '''
-    Generates posterior samples of aberration rates under the Tracked
+    Retrives posterior samples under the appropriate Tracked or Untracked
     likelihood model and given data inputs, via the NUTS sampler (Gelman 2011).
     INPUTS
     ------
     dataTblDict is an input dictionary with the following keys:
         N,Y: Number of tests, number of positive tests on each outlet-importer
-             track
+             track (Tracked) or outlet (Untracked)
         diagSens,diagSpec: Diagnostic sensitivity and specificity
         prior: Prior distribution object with lpdf,lpdf_jac methods
         numPostSamples: Number of posterior distribution samples to generate
-    Madapt,delta: Parameters for use with NUTS
+        Madapt,delta: Parameters for use with NUTS
     OUTPUTS
     -------
     Returns a list of posterior samples, with importers coming before outlets.
     '''
     N,Y = dataTblDict['N'],dataTblDict['Y']
     sens,spec = dataTblDict['diagSens'],dataTblDict['diagSpec']
-    prior = dataTblDict['prior']
-    M = dataTblDict['numPostSamples']
-    
-    def TRACKEDtargetForNUTS(beta):
-        return TRACKED_LogPost(beta,N,Y,sens,spec,prior),\
-               TRACKED_LogPost_Grad(beta,N,Y,sens,spec,prior)
-
-    beta0 = -2 * np.ones(N.shape[1] + N.shape[0])
-    samples, lnprob, epsilon = utilities.nuts6(TRACKEDtargetForNUTS,M,Madapt,beta0,delta)
-    # CHANGE scai_utilities TO nuts if wanting to use the Gelman package
+    prior,M = dataTblDict['prior'],dataTblDict['numPostSamples']
+    if 'transMat' in dataTblDict.keys():
+        transMat = dataTblDict['transMat']
+    Madapt, delta = 5000, 0.4
+    if dataTblDict['type'] == 'Tracked':
+        beta0 = -2 * np.ones(N.shape[1] + N.shape[0])
+        def TargetForNUTS(beta):
+            return TRACKED_LogPost(beta,N,Y,sens,spec,prior),\
+                   TRACKED_LogPost_Grad(beta,N,Y,sens,spec,prior)     
+    elif dataTblDict['type'] == 'Untracked':
+        beta0 = -2 * np.ones(transMat.shape[1] + transMat.shape[0])
+        def TargetForNUTS(beta):
+            return UNTRACKED_LogPost(beta,N,Y,sens,spec,transMat,prior),\
+                   UNTRACKED_LogPost_Grad(beta,N,Y,sens,spec,transMat,prior)    
+    samples, lnprob, epsilon = utilities.nuts6(TargetForNUTS,M,Madapt,beta0,delta)
+    #change utilities to nuts if wanting to use the Gelman sampler
     return sps.expit(samples)
-
-######################### END TRACKED FUNCTIONS #########################
 
 def FormEstimates(dataTblDict):
     '''
     Takes a data input dictionary and returns an estimate dictionary,
-    depending on the data type.
+    depending on the data type. The L-BFGS-B method of the SciPy Optimizer is
+    used to maximize the log-likelihood, where initial points are randomly
+    chosen from 'postSamples' in dataTblDict (if provided).
     
     INPUTS
     ------
@@ -443,284 +420,87 @@ def FormEstimates(dataTblDict):
             Should correspond to the order of the transition matrix
         diagSens, diagSpec: float
             Diagnostic characteristics for the data compiled in dataTbl
-        numPostSamples: integer
-            The number of posterior samples to generate
-    '''
-    if dataTblDict['type'] == 'Tracked':
-        estDict = Est_TrackedMLE(dataTblDict)
-    elif dataTblDict['type'] == 'Untracked':
-        estDict = Est_UntrackedMLE(dataTblDict)
-    else:
-        print("The input dictionary does not contain an estimation method.")
-        return {}
-    
-    return estDict
-
-def Est_FormEstimates(dataTblDict):
-    '''    
-    Uses the L-BFGS-B method of the SciPy Optimizer to maximize the
-    log-likelihood of different aberration rates under the Untracked likelihood
-    model.Forms MLE under the Tracked likelihood model - DOES NOT use the transition matrix, but instead matrices N and Y,
-    which record the positives and number of tests for each (outlet,importer) combination.
-    Then uses the L-BFGS-B method of the SciPy Optimizer to maximize the
-    log-likelihood of different SF rates for a given set of testing data and 
-    diagnostic capabilities
-    '''
-    outDict = {}
-    N, Y = dataTblDict['N'], dataTblDict['Y']
-    Sens, Spec = dataTblDict['diagSens'], dataTblDict['diagSpec']
-    prior = dataTblDict['prior']
-    
-    N = N.astype(int)
-    Y = Y.astype(int)
-    
-    (numOut,numImp) = N.shape  
-    
-    beta0_List = []
-    if 'postSamples' in dataTblDict.keys():
-        randInds = np.random.choice(len(dataTblDict['postSamples']),size=10,replace=False)
-        beta0_List = dataTblDict['postSamples'][randInds]
-    else:
-        beta0_List.append(-6 * np.ones(numImp+numOut) + np.random.uniform(-1,1,numImp+numOut))
-    
-    #Loop through each possible initial point and store the optimal solution likelihood values
-    likelihoodsList = []
-    solsList = []
-    bds = spo.Bounds(np.zeros(numImp+numOut)-8, np.zeros(numImp+numOut)+8)
-    for curr_beta0 in beta0_List:
-        opVal = spo.minimize(TRACKED_NegLogPost,
-                             curr_beta0,
-                             args=(N,Y,Sens,Spec,prior),
-                             method='L-BFGS-B',
-                             jac = TRACKED_NegLogPost_Grad,
-                             options={'disp': False},
-                             bounds=bds)
-        likelihoodsList.append(opVal.fun)
-        solsList.append(opVal.x)
-    
-    best_x = solsList[np.argmin(likelihoodsList)]
-    
-    #Generate confidence intervals
-    #First we need to generate the information matrix
-    #Expected positives vector at the outlets
-    pi_hat = sps.expit(best_x[numImp:])
-    theta_hat = sps.expit(best_x[:numImp])
-    
-    #y_Expec = (1-Spec) + (Sens+Spec-1) *(np.array([theta_hat]*numOut)+np.array([1-theta_hat]*numOut)*np.array([pi_hat]*numImp).transpose())
-    #Insert it into our hessian
-    hess = TRACKED_NegLogPost_Hess(best_x,N,Y,Sens,Spec,prior)
-    #hess_invs = [i if i >= 0 else np.nan for i in 1/np.diag(hess)] # Return 'nan' values if the diagonal is less than 0
-    hess_invs = [i if i >= 0 else i*-1 for i in 1/np.diag(hess)]
-    
-    z90 = spstat.norm.ppf(0.95)
-    z95 = spstat.norm.ppf(0.975)
-    z99 = spstat.norm.ppf(0.995)
-    
-    imp_Interval90 = z90*np.sqrt(hess_invs[:numImp])
-    imp_Interval95 = z95*np.sqrt(hess_invs[:numImp])
-    imp_Interval99 = z99*np.sqrt(hess_invs[:numImp])
-    out_Interval90 = z90*np.sqrt(hess_invs[numImp:])
-    out_Interval95 = z95*np.sqrt(hess_invs[numImp:])
-    out_Interval99 = z99*np.sqrt(hess_invs[numImp:])
-    
-    outDict['90upper_imp'] = sps.expit(best_x[:numImp] + imp_Interval90)
-    outDict['90lower_imp'] = sps.expit(best_x[:numImp] - imp_Interval90)
-    outDict['95upper_imp'] = sps.expit(best_x[:numImp] + imp_Interval95)
-    outDict['95lower_imp'] = sps.expit(best_x[:numImp] - imp_Interval95)
-    outDict['99upper_imp'] = sps.expit(best_x[:numImp] + imp_Interval99)
-    outDict['99lower_imp'] = sps.expit(best_x[:numImp] - imp_Interval99)
-    outDict['90upper_out'] = sps.expit(best_x[numImp:] + out_Interval90)
-    outDict['90lower_out'] = sps.expit(best_x[numImp:] - out_Interval90)
-    outDict['95upper_out'] = sps.expit(best_x[numImp:] + out_Interval95)
-    outDict['95lower_out'] = sps.expit(best_x[numImp:] - out_Interval95)
-    outDict['99upper_out'] = sps.expit(best_x[numImp:] + out_Interval99)
-    outDict['99lower_out'] = sps.expit(best_x[numImp:] - out_Interval99)
-    
-    outDict['impProj'] = theta_hat
-    outDict['outProj'] = pi_hat
-    outDict['hess'] = hess
-    
-    return outDict
-
-def GeneratePostSamples(dataTblDict):
-    '''
-    Retrives posterior samples under the appropriate Tracked or Untracked
-    likelihood model.
-    '''
-    if dataTblDict['type'] == 'Tracked':
-        postSamples = GeneratePostSamples_TRACKED(dataTblDict,Madapt=5000,delta=0.4)
-    elif dataTblDict['type'] == 'Untracked':
-        postSamples = GeneratePostSamples_UNTRACKED(dataTblDict,Madapt=5000,delta=0.4)
-    
-    return postSamples
-
-########################### SCAI ESTIMATORS ###########################
-def Est_UntrackedMLE(dataTblDict):
-    '''
-    Uses the L-BFGS-B method of the SciPy Optimizer to maximize the
-    log-likelihood of different aberration rates under the Untracked likelihood
-    model.
+        prior: prior Class object
+            Prior object for use with the posterior likelihood
+        postSamples: list
+            List of posterior samples from which to choose random initial
+            points for the optimizer
+    OUTPUTS
+    -------
+    Returns an estimate dictionary containing the following keys:
+        impEst:    Maximizers of posterior likelihood for importer echelon
+        outEst:    Maximizers of posterior likelihood for outlet echelon
+        90upper_imp, 90lower_imp, 95upper_imp, 95lower_imp,
+        99upper_imp, 99lower_imp, 90upper_out, 90lower_out,
+        95upper_out, 95lower_out, 99upper_out, 99lower_out:
+                   Upper and lower values for the 90%, 95%, and 99% 
+                   intervals on importer and outlet aberration rates
+        hess:      Hessian matrix at the maximum
     '''
     # CHECK THAT ALL NECESSARY KEYS ARE IN THE INPUT DICTIONARY
     
-    transMat = dataTblDict['transMat']
-    NumSamples, PosData = np.array(dataTblDict['N']), np.array(dataTblDict['Y'])
-    Sens, Spec = dataTblDict['diagSens'], dataTblDict['diagSpec']
-    prior = dataTblDict['prior']
-    
-    outDict = {} # Output dictionary
-    PosData = np.array(PosData)
-    NumSamples = np.array(NumSamples)
-    numOut,numImp = transMat.shape[0], transMat.shape[1]
-    
-    beta0_List=[]
-    if 'postSamples' in dataTblDict.keys():
-        randInds = np.random.choice(len(dataTblDict['postSamples']),size=10,replace=False)
-        beta0_List = dataTblDict['postSamples'][randInds]
-    else:
-        beta0_List.append(-6 * np.ones(numImp+numOut) + np.random.uniform(-1,1,numImp+numOut))
-
-    #Loop through each possible initial point and store the optimal solution likelihood values
-    likelihoodsList = []
-    solsList = []
-    bds = spo.Bounds(np.zeros(numImp+numOut)-8, np.zeros(numImp+numOut)+8)
-    for curr_beta0 in beta0_List:
-        opVal = spo.minimize(UNTRACKED_NegLogPost,
-                             curr_beta0,
-                             args=(NumSamples,PosData,Sens,Spec,transMat,prior),
-                             method='L-BFGS-B',
-                             jac = UNTRACKED_NegLogPost_Grad,
-                             options={'disp': False},
-                             bounds=bds)
-        likelihoodsList.append(opVal.fun)
-        solsList.append(opVal.x)
-    
-    best_x = solsList[np.argmin(likelihoodsList)]
-    
-    #Generate confidence intervals
-    #First we need to generate the information matrix
-    #Expected positives vector at the outlets
-    pi_hat = sps.expit(best_x[numImp:])
-    theta_hat = sps.expit(best_x[:numImp])
-    z90 = spstat.norm.ppf(0.95)
-    z95 = spstat.norm.ppf(0.975)
-    z99 = spstat.norm.ppf(0.995)
-    
-    #y_Expec = (1-Spec) + (Sens+Spec-1) *(pi_hat + (1-pi_hat)*(A @ theta_hat))
-    #Insert it into our hessian
-    hess = UNTRACKED_NegLogPost_Hess(best_x,NumSamples,PosData,Sens,Spec,transMat,prior)
-    #hess_invs = [i if i >= 0 else np.nan for i in 1/np.diag(hess)] # Return 'nan' values if the diagonal is less than 0
-    hess_invs = [i if i >= 0 else i*-1 for i in 1/np.diag(hess)]
-    
-    imp_Interval90 = z90*np.sqrt(hess_invs[:numImp])
-    imp_Interval95 = z95*np.sqrt(hess_invs[:numImp])
-    imp_Interval99 = z99*np.sqrt(hess_invs[:numImp])
-    out_Interval90 = z90*np.sqrt(hess_invs[numImp:])
-    out_Interval95 = z95*np.sqrt(hess_invs[numImp:])
-    out_Interval99 = z99*np.sqrt(hess_invs[numImp:])
-    outDict['90upper_imp'] = sps.expit(best_x[:numImp] + imp_Interval90)
-    outDict['90lower_imp'] = sps.expit(best_x[:numImp] - imp_Interval90)
-    outDict['95upper_imp'] = sps.expit(best_x[:numImp] + imp_Interval95)
-    outDict['95lower_imp'] = sps.expit(best_x[:numImp] - imp_Interval95)
-    outDict['99upper_imp'] = sps.expit(best_x[:numImp] + imp_Interval99)
-    outDict['99lower_imp'] = sps.expit(best_x[:numImp] - imp_Interval99)
-    outDict['90upper_out'] = sps.expit(best_x[numImp:] + out_Interval90)
-    outDict['90lower_out'] = sps.expit(best_x[numImp:] - out_Interval90)
-    outDict['95upper_out'] = sps.expit(best_x[numImp:] + out_Interval95)
-    outDict['95lower_out'] = sps.expit(best_x[numImp:] - out_Interval95)
-    outDict['99upper_out'] = sps.expit(best_x[numImp:] + out_Interval99)
-    outDict['99lower_out'] = sps.expit(best_x[numImp:] - out_Interval99)
-    
-    outDict['impProj'] = theta_hat
-    outDict['outProj'] = pi_hat
-    outDict['hess'] = hess  
-    
-    return outDict
-
-
-def Est_TrackedMLE(dataTblDict):
-    '''    
-    Uses the L-BFGS-B method of the SciPy Optimizer to maximize the
-    log-likelihood of different aberration rates under the Untracked likelihood
-    model.Forms MLE under the Tracked likelihood model - DOES NOT use the transition matrix, but instead matrices N and Y,
-    which record the positives and number of tests for each (outlet,importer) combination.
-    Then uses the L-BFGS-B method of the SciPy Optimizer to maximize the
-    log-likelihood of different SF rates for a given set of testing data and 
-    diagnostic capabilities
-    '''
+    outDict = {}
     N, Y = dataTblDict['N'], dataTblDict['Y']
     Sens, Spec = dataTblDict['diagSens'], dataTblDict['diagSpec']
     prior = dataTblDict['prior']
+    if dataTblDict['type'] == 'Tracked':
+        (numOut,numImp) = N.shape
+    elif dataTblDict['type'] == 'Untracked':
+        transMat = dataTblDict['transMat']
+        (numOut,numImp) = transMat.shape
     
-    N = N.astype(int)
-    Y = Y.astype(int)
-    outDict = {}
-    (numOut,numImp) = N.shape  
-    
-    beta0_List = []
-    if 'postSamples' in dataTblDict.keys():
-        randInds = np.random.choice(len(dataTblDict['postSamples']),size=10,replace=False)
+    beta0_List=[]
+    if 'postSamples' in dataTblDict.keys(): # Choose 10 random posterior samples if available
+        randInds = np.random.choice(len(dataTblDict['postSamples']),
+                                    size=min(10,len(dataTblDict['postSamples'])),replace=False)
         beta0_List = dataTblDict['postSamples'][randInds]
     else:
         beta0_List.append(-6 * np.ones(numImp+numOut) + np.random.uniform(-1,1,numImp+numOut))
-    
+
     #Loop through each possible initial point and store the optimal solution likelihood values
     likelihoodsList = []
     solsList = []
     bds = spo.Bounds(np.zeros(numImp+numOut)-8, np.zeros(numImp+numOut)+8)
-    for curr_beta0 in beta0_List:
-        opVal = spo.minimize(TRACKED_NegLogPost,
-                             curr_beta0,
-                             args=(N,Y,Sens,Spec,prior),
-                             method='L-BFGS-B',
-                             jac = TRACKED_NegLogPost_Grad,
-                             options={'disp': False},
-                             bounds=bds)
-        likelihoodsList.append(opVal.fun)
-        solsList.append(opVal.x)
-    
-    best_x = solsList[np.argmin(likelihoodsList)]
-    
-    #Generate confidence intervals
-    #First we need to generate the information matrix
-    #Expected positives vector at the outlets
-    pi_hat = sps.expit(best_x[numImp:])
-    theta_hat = sps.expit(best_x[:numImp])
-    
-    #y_Expec = (1-Spec) + (Sens+Spec-1) *(np.array([theta_hat]*numOut)+np.array([1-theta_hat]*numOut)*np.array([pi_hat]*numImp).transpose())
-    #Insert it into our hessian
-    hess = TRACKED_NegLogPost_Hess(best_x,N,Y,Sens,Spec,prior)
-    #hess_invs = [i if i >= 0 else np.nan for i in 1/np.diag(hess)] # Return 'nan' values if the diagonal is less than 0
-    hess_invs = [i if i >= 0 else i*-1 for i in 1/np.diag(hess)]
-    
-    z90 = spstat.norm.ppf(0.95)
-    z95 = spstat.norm.ppf(0.975)
-    z99 = spstat.norm.ppf(0.995)
-    
-    imp_Interval90 = z90*np.sqrt(hess_invs[:numImp])
-    imp_Interval95 = z95*np.sqrt(hess_invs[:numImp])
-    imp_Interval99 = z99*np.sqrt(hess_invs[:numImp])
-    out_Interval90 = z90*np.sqrt(hess_invs[numImp:])
-    out_Interval95 = z95*np.sqrt(hess_invs[numImp:])
-    out_Interval99 = z99*np.sqrt(hess_invs[numImp:])
-    
-    outDict['90upper_imp'] = sps.expit(best_x[:numImp] + imp_Interval90)
-    outDict['90lower_imp'] = sps.expit(best_x[:numImp] - imp_Interval90)
-    outDict['95upper_imp'] = sps.expit(best_x[:numImp] + imp_Interval95)
-    outDict['95lower_imp'] = sps.expit(best_x[:numImp] - imp_Interval95)
-    outDict['99upper_imp'] = sps.expit(best_x[:numImp] + imp_Interval99)
-    outDict['99lower_imp'] = sps.expit(best_x[:numImp] - imp_Interval99)
-    outDict['90upper_out'] = sps.expit(best_x[numImp:] + out_Interval90)
-    outDict['90lower_out'] = sps.expit(best_x[numImp:] - out_Interval90)
-    outDict['95upper_out'] = sps.expit(best_x[numImp:] + out_Interval95)
-    outDict['95lower_out'] = sps.expit(best_x[numImp:] - out_Interval95)
-    outDict['99upper_out'] = sps.expit(best_x[numImp:] + out_Interval99)
-    outDict['99lower_out'] = sps.expit(best_x[numImp:] - out_Interval99)
-    
-    outDict['impProj'] = theta_hat
-    outDict['outProj'] = pi_hat
+    if dataTblDict['type'] == 'Tracked':
+        for curr_beta0 in beta0_List:
+            opVal = spo.minimize(TRACKED_NegLogPost, curr_beta0,
+                                 args=(N,Y,Sens,Spec,prior),method='L-BFGS-B',
+                                 jac = TRACKED_NegLogPost_Grad,
+                                 options={'disp': False},bounds=bds)
+            likelihoodsList.append(opVal.fun)
+            solsList.append(opVal.x)
+        best_x = solsList[np.argmin(likelihoodsList)]
+        hess = TRACKED_NegLogPost_Hess(best_x,N,Y,Sens,Spec,prior)
+    elif dataTblDict['type'] == 'Untracked':
+        for curr_beta0 in beta0_List:
+            opVal = spo.minimize(UNTRACKED_NegLogPost,curr_beta0,
+                             args=(N,Y,Sens,Spec,transMat,prior),
+                             method='L-BFGS-B', jac = UNTRACKED_NegLogPost_Grad,
+                             options={'disp': False}, bounds=bds)
+            likelihoodsList.append(opVal.fun)
+            solsList.append(opVal.x) 
+        best_x = solsList[np.argmin(likelihoodsList)]
+        hess = UNTRACKED_NegLogPost_Hess(best_x,N,Y,Sens,Spec,transMat,prior)
+    # Generate confidence intervals
+    impEst = sps.expit(best_x[:numImp])
+    outEst = sps.expit(best_x[numImp:])
+    hInvs = [i if i >= 0 else i*-1 for i in 1/np.diag(hess)]
+    z90,z95,z99 = spstat.norm.ppf(0.95),spstat.norm.ppf(0.975),spstat.norm.ppf(0.995)
+    imp_Int90,imp_Int95,imp_Int99 = z90*np.sqrt(hInvs[:numImp]),z95*np.sqrt(hInvs[:numImp]),z99*np.sqrt(hInvs[:numImp])
+    out_Int90,out_Int95,out_Int99 = z90*np.sqrt(hInvs[numImp:]),z95*np.sqrt(hInvs[numImp:]),z99*np.sqrt(hInvs[numImp:])
+    outDict['90upper_imp'] = sps.expit(best_x[:numImp] + imp_Int90)
+    outDict['90lower_imp'] = sps.expit(best_x[:numImp] - imp_Int90)
+    outDict['95upper_imp'] = sps.expit(best_x[:numImp] + imp_Int95)
+    outDict['95lower_imp'] = sps.expit(best_x[:numImp] - imp_Int95)
+    outDict['99upper_imp'] = sps.expit(best_x[:numImp] + imp_Int99)
+    outDict['99lower_imp'] = sps.expit(best_x[:numImp] - imp_Int99)
+    outDict['90upper_out'] = sps.expit(best_x[numImp:] + out_Int90)
+    outDict['90lower_out'] = sps.expit(best_x[numImp:] - out_Int90)
+    outDict['95upper_out'] = sps.expit(best_x[numImp:] + out_Int95)
+    outDict['95lower_out'] = sps.expit(best_x[numImp:] - out_Int95)
+    outDict['99upper_out'] = sps.expit(best_x[numImp:] + out_Int99)
+    outDict['99lower_out'] = sps.expit(best_x[numImp:] - out_Int99)
+    outDict['impEst'],outDict['outEst'] = impEst,outEst
     outDict['hess'] = hess
     
     return outDict
-    
-########################### END SCAI ESTIMATORS ###########################

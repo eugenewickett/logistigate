@@ -7,11 +7,6 @@ Stores modules for use with 'SC Simulator.py'
 """
 import csv
 import numpy as np
-import scipy.special as sps
-import os
-import sys
-import pickle
-import nuts
 from tabulate import tabulate
 import matplotlib.pyplot as plt
 
@@ -244,7 +239,7 @@ def printEstimates(scaiDict):
     outNames, impNames = scaiDict['outletNames'], scaiDict['importerNames']
     estDict = scaiDict['estDict']
     
-    impMLE = np.ndarray.tolist(estDict['impProj'])
+    impMLE = np.ndarray.tolist(estDict['impEst'])
     imp99lower = np.ndarray.tolist(estDict['99lower_imp'])
     imp95lower = np.ndarray.tolist(estDict['95lower_imp'])
     imp90lower = np.ndarray.tolist(estDict['90lower_imp'])
@@ -257,7 +252,7 @@ def printEstimates(scaiDict):
                  ["{0:.1%}".format(imp95upper[i])] + ["{0:.1%}".format(imp99upper[i])]
                  for i in range(len(impMLE))]
     
-    outMLE = np.ndarray.tolist(estDict['outProj'])
+    outMLE = np.ndarray.tolist(estDict['outEst'])
     out99lower = np.ndarray.tolist(estDict['99lower_out'])
     out95lower = np.ndarray.tolist(estDict['95lower_out'])
     out90lower = np.ndarray.tolist(estDict['90lower_out'])
@@ -287,65 +282,6 @@ def printEstimates(scaiDict):
 
 
 
-
-
-
-
-    
-
-
-#### Some useful functions 
-def GenerateTransitionMatrix(dynamicResultsList):
-    '''
-    Converts the dynamic sampling results list into a transition matrix between
-    outlets and importers
-    '''
-    # Results list should be in form 
-    #   [Node ID, Num Samples, Num Positive, Positive Rate, [IntNodeSourceCounts]]
-    rowNum = len(dynamicResultsList)
-    colNum = len(dynamicResultsList[0][4])
-    A = np.zeros([rowNum,colNum])
-    indRow = 0
-    for rw in dynamicResultsList:        
-        currRowTotal = np.sum(rw[4])
-        if not currRowTotal == 0:
-            transRow = rw[4]/currRowTotal
-        else:
-            transRow = np.zeros([1,colNum],np.int8).tolist()[0]
-        
-        A[indRow] = transRow
-        indRow += 1
-    
-    return A
-
-def GetUsableSampleVectors(A,PosData,NumSamples):
-    '''
-    Takes in vectors of sample amounts, sample positives, and a transition
-    matrix A, and returns the same items but suitable for manipulation. Also
-    returns a list of two lists containing the [rows],[cols] of removed indices.    
-    '''
-    n = len(NumSamples)
-    m = len(A[0])
-    # Grab the zeros lists first
-    zeroInds = [[],[]]
-    zeroInds[0] = [i for i in range(n) if (NumSamples[i]==0)]
-    zeroInds[1] = [i for i in range(m) if (np.sum(A[:,i])==0)]
-    
-    #Adjust the vectors, doing NumSamples last
-    idx = np.argwhere(np.all(A[..., :] == 0, axis=0))
-    adjA = np.delete(A, idx, axis=1)
-    adjA = np.delete(adjA,zeroInds[0],0)
-    adjPosData = [PosData[i] for i in range(n) if (NumSamples[i] > 0)]
-    adjNumSamples = [NumSamples[i] for i in range(n) if (NumSamples[i] > 0)]
-    
-    return adjA, adjPosData, adjNumSamples, zeroInds
-
-
-def invlogit(beta):
-    return sps.expit(beta)
-    
-def invlogit_grad(beta):
-    return (np.exp(beta)/((np.exp(beta)+1) ** 2))
 
 
 

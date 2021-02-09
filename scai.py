@@ -90,8 +90,8 @@ def logistigate(dataTblDict):
         importerNames, outletNames: Ordered lists of importer and outlet names
         importerNum, outletNum: Number of unique importers and outlets from input file
         estDict: Dictionary of estimation results, with the following keys:
-                impProj:    Maximizers of posterior likelihood for importer echelon
-                outProj:    Maximizers of posterior likelihood for outlet echelon
+                impEst:    Maximizers of posterior likelihood for importer echelon
+                outEst:    Maximizers of posterior likelihood for outlet echelon
                 90upper_imp, 90lower_imp, 95upper_imp, 95lower_imp,
                 99upper_imp, 99lower_imp, 90upper_out, 90lower_out,
                 95upper_out, 95lower_out, 99upper_out, 99lower_out:
@@ -234,9 +234,3 @@ def scai_Example3():
     
     return
 
-
-#scai_Example1()
-#scai_Example2()
-#scai_Example2b()
-#scai_Example2c()
-#scai_Example3()
