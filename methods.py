@@ -93,66 +93,24 @@ def UNTRACKED_LogLike(beta,numVec,posVec,sens,spec,transMat):
     L = np.sum(np.multiply(posVec,np.log(pMatTilde))+np.multiply(np.subtract(numVec,posVec),\
                np.log(1-pMatTilde)),axis=1)
     return np.squeeze(L)
-'''
-def UNTRACKED_LogLike_Jac(betaVec,numVec,posVec,sens,spec,transMat):
-    # betaVec should be [importers, outlets]
-    n,m = transMat.shape
-    th = betaVec[:m]
-    py = betaVec[m:]
-    pVec = sps.expit(py)+(1-sps.expit(py))*np.matmul(transMat,sps.expit(th))
-    pVecTilde = sens*pVec + (1-spec)*(1-pVec)
-    
-    #Grab importers partials first, then outlets
-    impPartials = np.sum(posVec[:,None]*transMat*(sps.expit(th)-sps.expit(th)**2)*(sens+spec-1)*\
-                     np.array([(1-sps.expit(py))]*m).transpose()/pVecTilde[:,None]\
-                     - (numVec-posVec)[:,None]*transMat*(sps.expit(th)-sps.expit(th)**2)*(sens+spec-1)*\
-                     np.array([(1-sps.expit(py))]*m).transpose()/(1-pVecTilde)[:,None]\
-                     ,axis=0)
-    outletPartials = posVec*(1-np.matmul(transMat,sps.expit(th)))*(sps.expit(py)-sps.expit(py)**2)*\
-                        (sens+spec-1)/pVecTilde - (numVec-posVec)*(sps.expit(py)-sps.expit(py)**2)*\
-                        (sens+spec-1)*(1-np.matmul(transMat,sps.expit(th)))/(1-pVecTilde)                        
 
-    return np.concatenate((impPartials,outletPartials))
-'''
-def UNTRACKED_LogLike_Jac(betaVec,numVec,posVec,sens,spec,transMat):
-    # betaVec should be [importers, outlets]
-    n,m = transMat.shape
-    th, py = sps.expit(betaVec[:m]),sps.expit(betaVec[m:])
-    pVec = py+(1-py)*np.matmul(transMat,th)
-    pVecTilde = sens*pVec + (1-spec)*(1-pVec)
-    
-    #Grab importers partials first, then outlets
-    impPartials = (sens+spec-1)*np.sum(transMat*(th-th**2)*np.array([(1-py)]*m).transpose()*\
-                     (posVec[:,None]/pVecTilde[:,None]-(numVec-posVec)[:,None]/(1-pVecTilde)[:,None])\
-                     ,axis=0)
-    outletPartials = (sens+spec-1)*(1-np.matmul(transMat,th))*(py-py**2)*\
-                        (posVec/pVecTilde-(numVec-posVec)/(1-pVecTilde))
-
-    return np.concatenate((impPartials,outletPartials))
-
-def UNTRACKED_LogLike_Jac_ARR(beta,numVec,posVec,sens,spec,transMat):
+def UNTRACKED_LogLike_Jac(beta,numVec,posVec,sens,spec,transMat):
     # betaVec should be [importers, outlets]; can be used with array beta
     if beta.ndim == 1: # reshape to 2d
         beta = np.reshape(beta,(1,-1))
     n,m = transMat.shape
     k = beta.shape[0]
-    thA, pyA = sps.expit(beta[:,:m]), sps.expit(beta[:,m:])
-    pMat = pyA + (1-pyA)*np.matmul(thA,transMat.T)        
+    th, py = sps.expit(beta[:,:m]), sps.expit(beta[:,m:])
+    pMat = py + (1-py)*np.matmul(th,transMat.T)        
     pMatTilde = sens*pMat+(1-spec)*(1-pMat)
-    '''
-    pMat = np.reshape(np.tile(th,(n)),(k,n,m)) + np.reshape(np.tile(1-th,(n)),(k,n,m)) *\
-            np.transpose(np.reshape(np.tile(py,(m)),(k,m,n)),(0,2,1))              
-    L = np.sum(np.multiply(posMat,np.log(pMatTilde))+np.multiply(np.subtract(numMat,posMat),\
-               np.log(1-pMatTilde)),axis=(1,2))
-    '''
     #Grab importers partials first, then outlets
     impPartials = (sens+spec-1)*np.sum(  np.reshape([transMat]*k,(k,n,m))*\
-                   np.reshape((thA-thA**2),(k,1,m))*np.tile(np.reshape((1-pyA),(k,n,1)),(m))*\
+                   np.reshape((th-th**2),(k,1,m))*np.tile(np.reshape((1-py),(k,n,1)),(m))*\
                    np.reshape((posVec[:,None]/pMatTilde.T-(numVec-posVec)[:,None]/(1-pMatTilde).T).T,(k,n,1)),axis=1)
-    outletPartials = (sens+spec-1)*(1-np.matmul(transMat,thA.T)).T*(pyA-pyA**2)*\
+    outletPartials = (sens+spec-1)*(1-np.matmul(transMat,th.T)).T*(py-py**2)*\
                         (posVec/pMatTilde-(numVec-posVec)/(1-pMatTilde))             
 
-    return np.concatenate((impPartials,outletPartials),axis=1)
+    return np.squeeze(np.concatenate((impPartials,outletPartials),axis=1))
 
 def UNTRACKED_LogLike_Hess(betaVec,numVec,posVec,sens,spec,transMat):
     # betaVec should be [importers, outlets]; NOT for array beta
@@ -316,30 +274,25 @@ def TRACKED_LogLike(beta,numMat,posMat,sens,spec):
                np.log(1-pMatTilde)),axis=(1,2))
     return np.squeeze(L)
 
-def TRACKED_LogLike_Jac(betaVec,numMat,posMat,sens,spec):
-    # betaVec should be [importers, outlets]
+def TRACKED_LogLike_Jac(betaArr,numMat,posMat,sens,spec):
+    # betaVec should be [importers, outlets]; can be used with array beta
+    if betaArr.ndim == 1: # reshape to 2d
+        betaArr = np.reshape(betaArr,(1,-1))
     n,m = numMat.shape
-    th = betaVec[:m]
-    py = betaVec[m:]
-    pMat = np.array([sps.expit(th)]*n)+np.array([(1-sps.expit(th))]*n)*\
-            np.array([sps.expit(py)]*m).transpose()
-    pMatTilde = sens*pMat+(1-spec)*(1-pMat)
-    
+    k = betaArr.shape[0]
+    thA, pyA = sps.expit(betaArr[:,:m]), sps.expit(betaArr[:,m:])
+    pMatA = np.reshape(np.tile(thA,(n)),(k,n,m)) + np.reshape(np.tile(1-thA,(n)),(k,n,m)) *\
+            np.transpose(np.reshape(np.tile(pyA,(m)),(k,m,n)),(0,2,1))
+    pMatTildeA = sens*pMatA+(1-spec)*(1-pMatA)
     #Grab importers partials first, then outlets
-    impPartials = np.sum(posMat*(sps.expit(th)-sps.expit(th)**2)*(sens+spec-1)*\
-                     np.array([(1-sps.expit(py))]*m).transpose()/pMatTilde\
-                     - (numMat-posMat)*(sps.expit(th)-sps.expit(th)**2)*(sens+spec-1)*\
-                     np.array([(1-sps.expit(py))]*m).transpose()/(1-pMatTilde)\
-                     ,axis=0)
+    impPartialsA = (sens+spec-1)*np.sum(np.reshape((thA-thA**2),(k,1,m))*\
+                    np.tile(np.reshape((1-pyA),(k,n,1)),(m))*(posMat/pMatTildeA\
+                     - (numMat-posMat)/(1-pMatTildeA)),axis=1)
+    outletPartialsA = (sens+spec-1)*np.sum(np.reshape((pyA-pyA**2),(k,n,1))*\
+                       np.transpose(np.tile(np.reshape((1-thA),(k,m,1)),(n)),(0,2,1))\
+                       *(posMat/pMatTildeA-(numMat-posMat)/(1-pMatTildeA)),axis=2)    
     
-    outletPartials = np.sum((sens+spec-1)*(posMat*(sps.expit(py)-sps.expit(py)**2)[:,None]*\
-                     np.array([(1-sps.expit(th))]*n)/pMatTilde\
-                     - (numMat-posMat)*(sps.expit(py)-sps.expit(py)**2)[:,None]*\
-                     np.array([(1-sps.expit(th))]*n)/(1-pMatTilde)),axis=1)
-    
-    retVal = np.concatenate((impPartials,outletPartials))
-    
-    return retVal
+    return np.squeeze(np.concatenate((impPartialsA,outletPartialsA),axis=1))
 
 def TRACKED_LogLike_Hess(betaVec,numMat,posMat,sens,spec):
     # betaVec should be [importers, outlets]; NOT for array beta

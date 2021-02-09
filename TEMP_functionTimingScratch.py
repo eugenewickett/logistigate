@@ -67,6 +67,39 @@ beta00 = np.concatenate((beta0,beta0a,beta0b)).reshape((3,-1))
 L0 = meth.TRACKED_LogLike(beta0a,N,Y,Sens,Spec,0)
 dL0 = np.array(meth.TRACKED_NegLogLike_Jac(beta0b,N,Y,Sens,Spec,wt))
 
+L0 = meth.TRACKED_LogLike(beta0,N,Y,Sens,Spec)
+L00 = meth.TRACKED_LogLike_ARR(beta0,N,Y,Sens,Spec)
+print(L0)
+print(L00)
+
+dL0 = meth.UNTRACKED_LogLike_Jac(beta0,N,Y,Sens,Spec,Q)
+for k in range(m+n):
+    beta1 = 1*beta0[:]
+    beta1[k] = beta1[k] + 10**(-7)
+    L1 = meth.UNTRACKED_LogLike(beta1,N,Y,Sens, Spec,Q)
+    print((L1-L0) * (10 **(7)))
+    print(dL0[k])
+
+JACOBIAN HERE
+
+import methods as meth
+
+beta0 = np.array([-4.5,-4.3,-4.7,-4.9,-4.1,-4.2,-4.25,-4.33,-4.55])
+beta0a,beta0b = beta0+1,beta0+2
+beta00 = np.concatenate((beta0,beta0a)).reshape((2,-1))
+
+dL0 = meth.TRACKED_LogLike_Jac(beta0,N,Y,Sens,Spec)
+dL0a = meth.TRACKED_LogLike_Jac(beta0a,N,Y,Sens,Spec)
+dL0b = meth.TRACKED_LogLike_Jac(beta0b,N,Y,Sens,Spec)
+dL00 = meth.TRACKED_LogLike_Jac_ARR(beta00,N,Y,Sens,Spec)
+dL00 = meth.TRACKED_LogLike_Jac_ARR(beta0a,N,Y,Sens,Spec)
+
+
+dL0:    array([ 3.1495911 , 22.5704629 ,  8.06549375,  2.36954935,  6.71897765,
+               14.82925573,  3.50188268,  8.42574976,  2.4442084 ])
+
+
+
 for k in range(m+n):
     beta1 = 1*beta0b[:]
     beta1[k] = beta1[k] + 10**(-5)
@@ -163,7 +196,7 @@ for k in range(m+n):
 dL0 = meth.UNTRACKED_LogLike_Jac(beta0,N,Y,Sens,Spec,Q)
 dL0a = meth.UNTRACKED_LogLike_Jac(beta0a,N,Y,Sens,Spec,Q)
 dL0b = meth.UNTRACKED_LogLike_Jac(beta0b,N,Y,Sens,Spec,Q)
-dL00 = meth.UNTRACKED_LogLike_Jac_ARR(beta00,N,Y,Sens,Spec,Q)
+dL00 = meth.UNTRACKED_LogLike_Jac_ARR(beta0b,N,Y,Sens,Spec,Q)
 
 
 dL0:    array([23.59345175, 47.10028556, 27.45147842,  5.44251795, 14.58868768,
