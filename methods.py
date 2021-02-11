@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 This file contains the methods used for estimating aberration prevalence in a
 two-echelon supply chain. See descriptions for particular inputs.

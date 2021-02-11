@@ -1,2 +1,4 @@
-# supply-chain-aberration-inference
-python implementation of supply-chain-aberration inference
+# logistigate
+python implementation of logistigate
+
+

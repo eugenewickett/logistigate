@@ -1,9 +1,5 @@
 """
-Created on Thu Nov 14 17:04:36 2019
-
-@author: Eugene Wickett
-
-Stores modules for use with 'SC Simulator.py'
+Stores utilities for use with logistigate.py and methods.py
 """
 import csv
 import numpy as np

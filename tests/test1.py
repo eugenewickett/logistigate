@@ -5,14 +5,14 @@ Created on Wed Feb  3 15:18:00 2021
 @author: eugen
 """
 
-from context import scai
+from context import logistigate
 
 import unittest
 
 class TestExamples(unittest.TestCase):
 
     def test_upper(self):
-        scai.scai_Example2()
+        logistigate.logistigate_Example2()
         self.assertEqual('foo'.upper(), 'FOO')
 
     def test_isupper(self):
