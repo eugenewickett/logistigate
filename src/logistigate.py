@@ -31,6 +31,8 @@ Industrial Engineering & Management Sciences, Northwestern University
 """
 import methods
 import utilities as util
+import pkg_resources
+DATA_PATH = pkg_resources.resource_filename('logistigate', 'data/')
 
 def logistigate(dataTblDict):
     '''
@@ -132,7 +134,9 @@ def logistigate_Example2():
     This example provides a illustration of logistigate'ss capabilities,
     conducted on a small system of 3 importers and 12 outlets.
     '''
-    dataTblDict = util.TestResultsFileToTable('../data/example2_testData.csv') #'example2_testData.csv'
+    DB_FILE = pkg_resources.resource_filename('logistigate', 'data/example2_testData.csv')
+
+    dataTblDict = util.TestResultsFileToTable(DB_FILE) #'../data/example2_testData.csv'
     dataTblDict.update({'diagSens':0.90,
                         'diagSpec':0.99,
                         'numPostSamples':500,
