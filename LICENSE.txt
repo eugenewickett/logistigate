@@ -1,10 +1,6 @@
 MIT License
 
-Copyright (c) 2021 Eugene Wickett
-
-Copyright (c) 2021 Matthew Plumlee
-
-Copyright (c) 2021 Karen Smilowitz
+Copyright (c) 2021 Eugene Wickett, Matthew Plumlee, Karen Smilowitz
 
 All rights reserved.
 
