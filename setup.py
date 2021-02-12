@@ -1,35 +1,51 @@
+import setuptools
 from setuptools import setup, find_packages
+from setuptools.command.test import test as TestCommand
 import pathlib
 
 here = pathlib.Path(__file__).parent.resolve()
 
+class Run_TestSuite(TestCommand):
+    def run_tests(self):
+        import os
+        import sys
+        py_version = sys.version_info[0]
+        print('Python version from setup.py is', py_version)
+        #run_string = "tests/run-tests.sh -p " + str(py_version)
+        #os.system(run_string)
+
 # Get the long description from the README file
 long_description = (here / 'README.md').read_text(encoding='utf-8')
 
-# Arguments marked as "Required" below must be included for upload to PyPI.
-# Fields marked as "Optional" may be commented out.
+'''
+setup(
+    name="surmise",
+    version="0.1.0",
+    author="Matthew Plumlee, Özge Sürer, Stefan M. Wild",
+    author_email="ozgesurer2019@u.northwestern.edu",
+    description="Surrogate model interface for calibration",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    url="https://github.com/surmising/surmise",
+    packages=setuptools.find_packages(),
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
+    ],
+    python_requires='>=3.5',
+    install_requires=[
+                      'numpy',
+                      'scipy'
+                      ],
+    cmdclass={'test': Run_TestSuite}
+)
+'''
+
 
 setup(
-    # This is the name of your project. The first time you publish this
-    # package, this name will be registered for you. It will determine how
-    # users can install this project, e.g.:
-    #
-    # $ pip install sampleproject
-    #
-    # And where it will live on PyPI: https://pypi.org/project/sampleproject/
-    #
-    # There are some restrictions on what makes a valid project name
-    # specification here:
-    # https://packaging.python.org/specifications/core-metadata/#name
-    name='logistigate',  # Required
-
-    # Versions should comply with PEP 440:
-    # https://www.python.org/dev/peps/pep-0440/
-    #
-    # For a discussion on single-sourcing the version across setup.py and the
-    # project code, see
-    # https://packaging.python.org/en/latest/single_source_version.html
-    version='1.0.0a1',  # Required
+    name='logistigate',
+    version='0.1.0',  # Required
 
     # This is a one-line description or tagline of what your project does. This
     # corresponds to the "Summary" metadata field:
@@ -105,7 +121,7 @@ setup(
 
     # When your source code is in a subdirectory under the project root, e.g.
     # `src/`, it is necessary to specify the `package_dir` argument.
-    package_dir={'logistigate': 'src/logistigate'},  # Optional
+    package_dir={'logistigate': 'logistigate'},  # Optional
 
     # You can just specify package directories manually here if your project is
     # simple. Or you can use find_packages().
