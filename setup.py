@@ -21,7 +21,7 @@ setup(
     # There are some restrictions on what makes a valid project name
     # specification here:
     # https://packaging.python.org/specifications/core-metadata/#name
-    name='SCAI',  # Required
+    name='logistigate',  # Required
 
     # Versions should comply with PEP 440:
     # https://www.python.org/dev/peps/pep-0440/
@@ -34,7 +34,7 @@ setup(
     # This is a one-line description or tagline of what your project does. This
     # corresponds to the "Summary" metadata field:
     # https://packaging.python.org/specifications/core-metadata/#summary
-    description='python implementation of supply-chain aberration inference',  # Optional
+    description='python implementation of logistigate',  # Optional
 
     # This is an optional longer description of your project that represents
     # the body of text which users will see when they visit PyPI.
@@ -62,7 +62,7 @@ setup(
     #
     # This field corresponds to the "Home-Page" metadata field:
     # https://packaging.python.org/specifications/core-metadata/#home-page-optional
-    url='https://github.com/eugenewickett/supply-chain-aberration-inference',  # Optional
+    url='https://github.com/eugenewickett/logistigate',  # Optional
 
     # This should be your name or the name of the organization which owns the
     # project.

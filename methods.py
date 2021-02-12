@@ -81,7 +81,7 @@ class prior_normal:
 ########################### END PRIOR CLASSES ###########################
 
 ########################## UNTRACKED FUNCTIONS ##########################
-def UNTRACKED_LogLike(beta,numVec,posVec,sens,spec,transMat):
+def Untracked_LogLike(beta,numVec,posVec,sens,spec,transMat):
     # for array of beta; beta should be [importers, outlets]
     if beta.ndim == 1: # reshape to 2d
         beta = np.reshape(beta,(1,-1))
@@ -93,7 +93,7 @@ def UNTRACKED_LogLike(beta,numVec,posVec,sens,spec,transMat):
                np.log(1-pMatTilde)),axis=1)
     return np.squeeze(L)
 
-def UNTRACKED_LogLike_Jac(beta,numVec,posVec,sens,spec,transMat):
+def Untracked_LogLike_Jac(beta,numVec,posVec,sens,spec,transMat):
     # betaVec should be [importers, outlets]; can be used with array beta
     if beta.ndim == 1: # reshape to 2d
         beta = np.reshape(beta,(1,-1))
@@ -111,7 +111,7 @@ def UNTRACKED_LogLike_Jac(beta,numVec,posVec,sens,spec,transMat):
 
     return np.squeeze(np.concatenate((impPartials,outletPartials),axis=1))
 
-def UNTRACKED_LogLike_Hess(betaVec,numVec,posVec,sens,spec,transMat):
+def Untracked_LogLike_Hess(betaVec,numVec,posVec,sens,spec,transMat):
     # betaVec should be [importers, outlets]; NOT for array beta
     n,m = transMat.shape
     th = betaVec[:m]
@@ -199,34 +199,34 @@ def UNTRACKED_LogLike_Hess(betaVec,numVec,posVec,sens,spec,transMat):
     hess = (hess + diags)
     return hess
 
-def UNTRACKED_NegLogLike(betaVec,numVec,posVec,sens,spec,transMat):
-    return -1*UNTRACKED_LogLike(betaVec,numVec,posVec,sens,spec,transMat)
-def UNTRACKED_NegLogLike_Jac(betaVec,numVec,posVec,sens,spec,transMat):
-    return -1*UNTRACKED_LogLike_Jac(betaVec,numVec,posVec,sens,spec,transMat)
-def UNTRACKED_NegLogLike_Hess(betaVec,numVec,posVec,sens,spec,transMat):
-    return -1*UNTRACKED_LogLike_Hess(betaVec,numVec,posVec,sens,spec,transMat)
+def Untracked_NegLogLike(betaVec,numVec,posVec,sens,spec,transMat):
+    return -1*Untracked_LogLike(betaVec,numVec,posVec,sens,spec,transMat)
+def Untracked_NegLogLike_Jac(betaVec,numVec,posVec,sens,spec,transMat):
+    return -1*Untracked_LogLike_Jac(betaVec,numVec,posVec,sens,spec,transMat)
+def Untracked_NegLogLike_Hess(betaVec,numVec,posVec,sens,spec,transMat):
+    return -1*Untracked_LogLike_Hess(betaVec,numVec,posVec,sens,spec,transMat)
 
-def UNTRACKED_LogPost(beta,numVec,posVec,sens,spec,transMat,prior):
+def Untracked_LogPost(beta,numVec,posVec,sens,spec,transMat,prior):
     return prior.lpdf(beta)\
-           +UNTRACKED_LogLike(beta,numVec,posVec,sens,spec,transMat)
-def UNTRACKED_LogPost_Grad(beta, nsamp, ydata, sens, spec, A,prior):
+           +Untracked_LogLike(beta,numVec,posVec,sens,spec,transMat)
+def Untracked_LogPost_Grad(beta, nsamp, ydata, sens, spec, A,prior):
     return prior.lpdf_jac(beta)\
-           +UNTRACKED_LogLike_Jac(beta,nsamp,ydata,sens,spec,A)
-def UNTRACKED_LogPost_Hess(beta, nsamp, ydata, sens, spec, A,prior):
+           +Untracked_LogLike_Jac(beta,nsamp,ydata,sens,spec,A)
+def Untracked_LogPost_Hess(beta, nsamp, ydata, sens, spec, A,prior):
     return prior.lpdf_hess(beta)\
-           +UNTRACKED_LogLike_Hess(beta,nsamp,ydata,sens,spec,A)           
+           +Untracked_LogLike_Hess(beta,nsamp,ydata,sens,spec,A)           
 
-def UNTRACKED_NegLogPost(betaVec,numVec,posVec,sens,spec,transMat,prior):
-    return -1*UNTRACKED_LogPost(betaVec,numVec,posVec,sens,spec,transMat,prior)
-def UNTRACKED_NegLogPost_Grad(beta, nsamp, ydata, sens, spec, A,prior):
-    return -1*UNTRACKED_LogPost_Grad(beta, nsamp, ydata, sens, spec, A,prior)
-def UNTRACKED_NegLogPost_Hess(beta, nsamp, ydata, sens, spec, A,prior):
-    return -1*UNTRACKED_LogPost_Hess(beta, nsamp, ydata, sens, spec, A,prior)
+def Untracked_NegLogPost(betaVec,numVec,posVec,sens,spec,transMat,prior):
+    return -1*Untracked_LogPost(betaVec,numVec,posVec,sens,spec,transMat,prior)
+def Untracked_NegLogPost_Grad(beta, nsamp, ydata, sens, spec, A,prior):
+    return -1*Untracked_LogPost_Grad(beta, nsamp, ydata, sens, spec, A,prior)
+def Untracked_NegLogPost_Hess(beta, nsamp, ydata, sens, spec, A,prior):
+    return -1*Untracked_LogPost_Hess(beta, nsamp, ydata, sens, spec, A,prior)
 
 ######################## END UNTRACKED FUNCTIONS ########################
     
 ########################### TRACKED FUNCTIONS ###########################
-def TRACKED_LogLike(beta,numMat,posMat,sens,spec):
+def Tracked_LogLike(beta,numMat,posMat,sens,spec):
     # betaVec should be [importers, outlets]; can be used with array beta
     if beta.ndim == 1: # reshape to 2d
         beta = np.reshape(beta,(1,-1))
@@ -242,7 +242,7 @@ def TRACKED_LogLike(beta,numMat,posMat,sens,spec):
            #each term is a k-by-n-by-m array, with the n-by-m matrices then summed
     return np.squeeze(L)
 
-def TRACKED_LogLike_Jac(beta,numMat,posMat,sens,spec):
+def Tracked_LogLike_Jac(beta,numMat,posMat,sens,spec):
     # betaVec should be [importers, outlets]; can be used with array beta
     if beta.ndim == 1: # reshape to 2d
         beta = np.reshape(beta,(1,-1))
@@ -262,7 +262,7 @@ def TRACKED_LogLike_Jac(beta,numMat,posMat,sens,spec):
     
     return np.squeeze(np.concatenate((impPartials,outletPartials),axis=1))
 
-def TRACKED_LogLike_Hess(betaVec,numMat,posMat,sens,spec):
+def Tracked_LogLike_Hess(betaVec,numMat,posMat,sens,spec):
     # betaVec should be [importers, outlets]; NOT for array beta
     n,m = numMat.shape
     th = betaVec[:m]
@@ -331,30 +331,30 @@ def TRACKED_LogLike_Hess(betaVec,numMat,posMat,sens,spec):
      
     return hess + diags
 
-def TRACKED_NegLogLike(beta,numMat,posMat,sens,spec):
-    return -1*TRACKED_LogLike(beta,numMat,posMat,sens,spec)
-def TRACKED_NegLogLike_Jac(beta,numMat,posMat,sens,spec):
-    return -1*TRACKED_LogLike_Jac(beta,numMat,posMat,sens,spec)
-def TRACKED_NegLogLike_Hess(beta,numMat,posMat,sens,spec):
-    return -1*TRACKED_LogLike_Hess(beta,numMat,posMat,sens,spec)
+def Tracked_NegLogLike(beta,numMat,posMat,sens,spec):
+    return -1*Tracked_LogLike(beta,numMat,posMat,sens,spec)
+def Tracked_NegLogLike_Jac(beta,numMat,posMat,sens,spec):
+    return -1*Tracked_LogLike_Jac(beta,numMat,posMat,sens,spec)
+def Tracked_NegLogLike_Hess(beta,numMat,posMat,sens,spec):
+    return -1*Tracked_LogLike_Hess(beta,numMat,posMat,sens,spec)
 
 ##### TRACKED POSTERIOR FUNCTIONS #####
-def TRACKED_LogPost(beta,N,Y,sens,spec,prior):
+def Tracked_LogPost(beta,N,Y,sens,spec,prior):
     return prior.lpdf(beta)\
-           +TRACKED_LogLike(beta,N,Y,sens,spec)
-def TRACKED_LogPost_Grad(beta, N, Y, sens, spec,prior):
+           +Tracked_LogLike(beta,N,Y,sens,spec)
+def Tracked_LogPost_Grad(beta, N, Y, sens, spec,prior):
     return prior.lpdf_jac(beta)\
-           +TRACKED_LogLike_Jac(beta,N,Y,sens,spec)
-def TRACKED_LogPost_Hess(beta, N, Y, sens, spec,prior):
+           +Tracked_LogLike_Jac(beta,N,Y,sens,spec)
+def Tracked_LogPost_Hess(beta, N, Y, sens, spec,prior):
     return prior.lpdf_hess(beta)\
-           +TRACKED_LogLike_Hess(beta,N,Y,sens,spec)
+           +Tracked_LogLike_Hess(beta,N,Y,sens,spec)
            
-def TRACKED_NegLogPost(beta,N,Y,sens,spec,prior):
-    return -1*TRACKED_LogPost(beta,N,Y,sens,spec,prior)
-def TRACKED_NegLogPost_Grad(beta, N, Y, sens, spec,prior):
-    return -1*TRACKED_LogPost_Grad(beta, N, Y, sens, spec, prior)
-def TRACKED_NegLogPost_Hess(beta,N,Y,sens,spec,prior):
-    return -1*TRACKED_LogPost_Hess(beta,N,Y,sens,spec,prior)
+def Tracked_NegLogPost(beta,N,Y,sens,spec,prior):
+    return -1*Tracked_LogPost(beta,N,Y,sens,spec,prior)
+def Tracked_NegLogPost_Grad(beta, N, Y, sens, spec,prior):
+    return -1*Tracked_LogPost_Grad(beta, N, Y, sens, spec, prior)
+def Tracked_NegLogPost_Hess(beta,N,Y,sens,spec,prior):
+    return -1*Tracked_LogPost_Hess(beta,N,Y,sens,spec,prior)
 
 ######################### END TRACKED FUNCTIONS #########################
 
@@ -384,13 +384,13 @@ def GeneratePostSamples(dataTblDict):
     if dataTblDict['type'] == 'Tracked':
         beta0 = -2 * np.ones(N.shape[1] + N.shape[0])
         def TargetForNUTS(beta):
-            return TRACKED_LogPost(beta,N,Y,sens,spec,prior),\
-                   TRACKED_LogPost_Grad(beta,N,Y,sens,spec,prior)     
+            return Tracked_LogPost(beta,N,Y,sens,spec,prior),\
+                   Tracked_LogPost_Grad(beta,N,Y,sens,spec,prior)     
     elif dataTblDict['type'] == 'Untracked':
         beta0 = -2 * np.ones(transMat.shape[1] + transMat.shape[0])
         def TargetForNUTS(beta):
-            return UNTRACKED_LogPost(beta,N,Y,sens,spec,transMat,prior),\
-                   UNTRACKED_LogPost_Grad(beta,N,Y,sens,spec,transMat,prior)    
+            return Untracked_LogPost(beta,N,Y,sens,spec,transMat,prior),\
+                   Untracked_LogPost_Grad(beta,N,Y,sens,spec,transMat,prior)    
     samples, lnprob, epsilon = utilities.nuts6(TargetForNUTS,M,Madapt,beta0,delta)
     #change utilities to nuts if wanting to use the Gelman sampler
     return sps.expit(samples)
@@ -462,24 +462,24 @@ def FormEstimates(dataTblDict):
     bds = spo.Bounds(np.zeros(numImp+numOut)-8, np.zeros(numImp+numOut)+8)
     if dataTblDict['type'] == 'Tracked':
         for curr_beta0 in beta0_List:
-            opVal = spo.minimize(TRACKED_NegLogPost, curr_beta0,
+            opVal = spo.minimize(Tracked_NegLogPost, curr_beta0,
                                  args=(N,Y,Sens,Spec,prior),method='L-BFGS-B',
-                                 jac = TRACKED_NegLogPost_Grad,
+                                 jac = Tracked_NegLogPost_Grad,
                                  options={'disp': False},bounds=bds)
             likelihoodsList.append(opVal.fun)
             solsList.append(opVal.x)
         best_x = solsList[np.argmin(likelihoodsList)]
-        hess = TRACKED_NegLogPost_Hess(best_x,N,Y,Sens,Spec,prior)
+        hess = Tracked_NegLogPost_Hess(best_x,N,Y,Sens,Spec,prior)
     elif dataTblDict['type'] == 'Untracked':
         for curr_beta0 in beta0_List:
-            opVal = spo.minimize(UNTRACKED_NegLogPost,curr_beta0,
+            opVal = spo.minimize(Untracked_NegLogPost,curr_beta0,
                              args=(N,Y,Sens,Spec,transMat,prior),
-                             method='L-BFGS-B', jac = UNTRACKED_NegLogPost_Grad,
+                             method='L-BFGS-B', jac = Untracked_NegLogPost_Grad,
                              options={'disp': False}, bounds=bds)
             likelihoodsList.append(opVal.fun)
             solsList.append(opVal.x) 
         best_x = solsList[np.argmin(likelihoodsList)]
-        hess = UNTRACKED_NegLogPost_Hess(best_x,N,Y,Sens,Spec,transMat,prior)
+        hess = Untracked_NegLogPost_Hess(best_x,N,Y,Sens,Spec,transMat,prior)
     # Generate confidence intervals
     impEst = sps.expit(best_x[:numImp])
     outEst = sps.expit(best_x[numImp:])
