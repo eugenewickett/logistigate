@@ -32,7 +32,6 @@ Industrial Engineering & Management Sciences, Northwestern University
 import methods
 import utilities as util
 import pkg_resources
-DATA_PATH = pkg_resources.resource_filename('logistigate', 'data/')
 
 def logistigate(dataTblDict):
     '''
