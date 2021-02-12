@@ -134,7 +134,7 @@ def logistigate_Example2():
     conducted on a small system of 3 importers and 12 outlets.
     '''
     DB_FILE = pkg_resources.resource_filename('logistigate', 'data/example2_testData.csv')
-
+    print(DB_FILE)
     dataTblDict = util.TestResultsFileToTable(DB_FILE) #'../data/example2_testData.csv'
     dataTblDict.update({'diagSens':0.90,
                         'diagSpec':0.99,
