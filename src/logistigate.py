@@ -116,7 +116,7 @@ def logistigate_Example1():
     '''
     This example [PUT DESCRIPTION OF EXAMPLE 1 HERE WHEN DECIDED]
     '''
-    dataTblDict = util.TestResultsFileToTable('../data/example1_testData.csv')
+    dataTblDict = util.TestResultsFileToTable('data/example1_testData.csv')
     dataTblDict.update({'diagSens':0.90,
                         'diagSpec':0.99,
                         'numPostSamples':500,
@@ -133,9 +133,7 @@ def logistigate_Example2():
     This example provides a illustration of logistigate'ss capabilities,
     conducted on a small system of 3 importers and 12 outlets.
     '''
-    DB_FILE = pkg_resources.resource_filename('logistigate', 'data/example2_testData.csv')
-    print(DB_FILE)
-    dataTblDict = util.TestResultsFileToTable(DB_FILE) #'../data/example2_testData.csv'
+    dataTblDict = util.TestResultsFileToTable('data/example2_testData.csv')
     dataTblDict.update({'diagSens':0.90,
                         'diagSpec':0.99,
                         'numPostSamples':500,
@@ -153,7 +151,7 @@ def logistigate_Example2b():
     This example uses the same underlying environment as example 2, but with 
     1000 testing sample point instead of 4000.
     '''
-    dataTblDict = util.TestResultsFileToTable('../data/example2b_testData.csv')
+    dataTblDict = util.TestResultsFileToTable('data/example2b_testData.csv')
     dataTblDict.update({'diagSens':0.90,
                         'diagSpec':0.99,
                         'numPostSamples':500,
@@ -170,7 +168,7 @@ def logistigate_Example2c():
     This example uses the same underlying environment as example 2 (including
     4000 testing sample points), but with 70% sensitivity and 90% specificity
     '''
-    dataTblDict = util.TestResultsFileToTable('../data/example2c_testData.csv')
+    dataTblDict = util.TestResultsFileToTable('data/example2c_testData.csv')
     dataTblDict.update({'diagSens':0.70,
                         'diagSpec':0.90,
                         'numPostSamples':500,
@@ -187,7 +185,7 @@ def logistigate_Example2d():
     This example uses the same underlying environment as example 2 but with 
     a Laplace instead of a Normal prior
     '''
-    dataTblDict = util.TestResultsFileToTable('../data/example2_testData.csv') #'example2_testData.csv'
+    dataTblDict = util.TestResultsFileToTable('data/example2_testData.csv') #'example2_testData.csv'
     dataTblDict.update({'diagSens':0.90,
                         'diagSpec':0.99,
                         'numPostSamples':500,
@@ -204,8 +202,8 @@ def logistigate_Example3():
     Same test data as example 2, but with unknown importers (i.e., Untracked).
     Instead, the transition matrix is known.
     '''
-    dataTblDict = util.TestResultsFileToTable('../data/example3_testData.csv',
-                                              '../data/example3_transitionMatrix.csv')
+    dataTblDict = util.TestResultsFileToTable('data/example3_testData.csv',
+                                              'data/example3_transitionMatrix.csv')
     dataTblDict.update({'diagSens':0.90,
                         'diagSpec':0.99,
                         'numPostSamples':500,
