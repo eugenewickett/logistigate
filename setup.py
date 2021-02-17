@@ -38,8 +38,8 @@ setup(
     install_requires=['nuts','numpy','tabulate',
                       'scipy','matplotlib'],
     #packages=['mypkg'],
-    #package_dir={'logistigate': 'src/logistigate'},
-    #package_data={'logistigate': ['data/*.csv']},
-    #include_package_data=True
+    package_dir={'logistigate': 'src/logistigate'},
+    package_data={'logistigate': ['data/*.csv']},
+    include_package_data=True
     #cmdclass={'test': Run_TestSuite}
 )
