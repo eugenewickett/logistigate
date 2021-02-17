@@ -34,7 +34,7 @@ setup(
         'Programming Language :: Python :: 3',        
     ],
     keywords='supply chains, statistical inference, pharmaceutical regulation',
-    python_requires='>=3.4',
+    python_requires='>=3',
     install_requires=['nuts','numpy','tabulate',
                       'scipy','matplotlib'],
     #packages=['mypkg'],
