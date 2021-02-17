@@ -7,7 +7,7 @@ import numpy as np
 import scipy.optimize as spo
 import scipy.stats as spstat
 import scipy.special as sps
-import utilities
+import logistigate.utilities as util
 #import nuts
 
 ########################### PRIOR CLASSES ###########################
@@ -391,7 +391,7 @@ def GeneratePostSamples(dataTblDict):
         def TargetForNUTS(beta):
             return Untracked_LogPost(beta,N,Y,sens,spec,transMat,prior),\
                    Untracked_LogPost_Grad(beta,N,Y,sens,spec,transMat,prior)    
-    samples, lnprob, epsilon = utilities.nuts6(TargetForNUTS,M,Madapt,beta0,delta)
+    samples, lnprob, epsilon = util.nuts6(TargetForNUTS,M,Madapt,beta0,delta)
     #change utilities to nuts if wanting to use the Gelman sampler
     return sps.expit(samples)
 

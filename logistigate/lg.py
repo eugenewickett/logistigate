@@ -29,10 +29,10 @@ Creators:
 
 Industrial Engineering & Management Sciences, Northwestern University
 """
-import methods
-import utilities as util
+import logistigate.methods as methods
+import logistigate.utilities as util
 
-def logistigate(dataTblDict):
+def runLogistigate(dataTblDict):
     '''
     This function reads a data input dictionary and returns an estimation
     dictionary containing 90%,95%, and 99% confidence intervals for the
@@ -121,7 +121,7 @@ def Example1():
                         'diagSpec':0.99,
                         'numPostSamples':500,
                         'prior':methods.prior_normal()})
-    logistigateDict = logistigate(dataTblDict)
+    logistigateDict = runLogistigate(dataTblDict)
         
     util.plotPostSamples(logistigateDict)
     util.printEstimates(logistigateDict)
@@ -139,7 +139,7 @@ def Example1b():
                         'diagSpec':0.99,
                         'numPostSamples':500,
                         'prior':methods.prior_normal()})
-    logistigateDict = logistigate(dataTblDict)
+    logistigateDict = runLogistigate(dataTblDict)
         
     util.plotPostSamples(logistigateDict)
     util.printEstimates(logistigateDict)
@@ -156,7 +156,7 @@ def Example1c():
                         'diagSpec':0.90,
                         'numPostSamples':500,
                         'prior':methods.prior_normal()})
-    logistigateDict = logistigate(dataTblDict)
+    logistigateDict = runLogistigate(dataTblDict)
         
     util.plotPostSamples(logistigateDict)
     util.printEstimates(logistigateDict)
@@ -173,7 +173,7 @@ def Example1d():
                         'diagSpec':0.99,
                         'numPostSamples':500,
                         'prior':methods.prior_laplace()})
-    logistigateDict = logistigate(dataTblDict)
+    logistigateDict = runLogistigate(dataTblDict)
         
     util.plotPostSamples(logistigateDict)
     util.printEstimates(logistigateDict)
@@ -190,7 +190,7 @@ def Example2():
                         'diagSpec':0.99,
                         'numPostSamples':500,
                         'prior':methods.prior_normal()})
-    logistigateDict = logistigate(dataTblDict)
+    logistigateDict = runLogistigate(dataTblDict)
         
     util.plotPostSamples(logistigateDict)
     util.printEstimates(logistigateDict)
