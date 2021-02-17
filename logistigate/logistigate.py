@@ -31,7 +31,6 @@ Industrial Engineering & Management Sciences, Northwestern University
 """
 import methods
 import utilities as util
-import pkg_resources
 
 def logistigate(dataTblDict):
     '''
@@ -112,28 +111,12 @@ def logistigate(dataTblDict):
                      })
     return logistigateDict
 
-def logistigate_Example1():
+def Example1():
     '''
-    This example [PUT DESCRIPTION OF EXAMPLE 1 HERE WHEN DECIDED]
-    '''
-    dataTblDict = util.TestResultsFileToTable('data/example1_testData.csv')
-    dataTblDict.update({'diagSens':0.90,
-                        'diagSpec':0.99,
-                        'numPostSamples':500,
-                        'prior':methods.prior_normal()})
-    logistigateDict = logistigate(dataTblDict)
-        
-    util.plotPostSamples(logistigateDict)
-    util.printEstimates(logistigateDict)
-    
-    return
-
-def logistigate_Example2():
-    '''
-    This example provides a illustration of logistigate'ss capabilities,
+    This example provides a illustration of logistigate's capabilities,
     conducted on a small system of 3 importers and 12 outlets.
     '''
-    dataTblDict = util.TestResultsFileToTable('data/example2_testData.csv')
+    dataTblDict = util.TestResultsFileToTable('data/example1TestData.csv')
     dataTblDict.update({'diagSens':0.90,
                         'diagSpec':0.99,
                         'numPostSamples':500,
@@ -146,12 +129,12 @@ def logistigate_Example2():
     
     return
 
-def logistigate_Example2b():
+def Example1b():
     '''
-    This example uses the same underlying environment as example 2, but with 
+    This example uses the same underlying environment as example 1, but with 
     1000 testing sample point instead of 4000.
     '''
-    dataTblDict = util.TestResultsFileToTable('data/example2b_testData.csv')
+    dataTblDict = util.TestResultsFileToTable('data/example1bTestData.csv')
     dataTblDict.update({'diagSens':0.90,
                         'diagSpec':0.99,
                         'numPostSamples':500,
@@ -163,12 +146,12 @@ def logistigate_Example2b():
     
     return
 
-def logistigate_Example2c():
+def Example1c():
     '''
-    This example uses the same underlying environment as example 2 (including
+    This example uses the same underlying environment as example 1 (including
     4000 testing sample points), but with 70% sensitivity and 90% specificity
     '''
-    dataTblDict = util.TestResultsFileToTable('data/example2c_testData.csv')
+    dataTblDict = util.TestResultsFileToTable('data/example1cTestData.csv')
     dataTblDict.update({'diagSens':0.70,
                         'diagSpec':0.90,
                         'numPostSamples':500,
@@ -180,12 +163,12 @@ def logistigate_Example2c():
     
     return
 
-def logistigate_Example2d():
+def Example1d():
     '''
     This example uses the same underlying environment as example 2 but with 
     a Laplace instead of a Normal prior
     '''
-    dataTblDict = util.TestResultsFileToTable('data/example2_testData.csv') #'example2_testData.csv'
+    dataTblDict = util.TestResultsFileToTable('data/example1TestData.csv') #'example2_testData.csv'
     dataTblDict.update({'diagSens':0.90,
                         'diagSpec':0.99,
                         'numPostSamples':500,
@@ -194,16 +177,15 @@ def logistigate_Example2d():
         
     util.plotPostSamples(logistigateDict)
     util.printEstimates(logistigateDict)
-    #util.writeToFile(logistigateDict)
     
     return
-def logistigate_Example3():
+def Example2():
     '''
-    Same test data as example 2, but with unknown importers (i.e., Untracked).
+    Same test data as example 1, but with unknown importers (i.e., Untracked).
     Instead, the transition matrix is known.
     '''
-    dataTblDict = util.TestResultsFileToTable('data/example3_testData.csv',
-                                              'data/example3_transitionMatrix.csv')
+    dataTblDict = util.TestResultsFileToTable('data/example2TestData.csv',
+                                              'data/example2TransitionMatrix.csv')
     dataTblDict.update({'diagSens':0.90,
                         'diagSpec':0.99,
                         'numPostSamples':500,
