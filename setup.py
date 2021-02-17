@@ -1,4 +1,5 @@
-from setuptools import setup, find_packages
+import setuptools
+from setuptools import setup
 from setuptools.command.test import test as TestCommand
 import pathlib
 
@@ -25,7 +26,7 @@ setup(
     long_description_content_type='text/plain',
     url='https://github.com/eugenewickett/logistigate',
     #package_dir={'logistigate': 'logistigate'},
-    packages=find_packages(),
+    packages=setuptools.find_packages(),
     classifiers=[
         'Development Status :: 3 - Alpha', #   3 - Alpha, 4 - Beta, 5 - Production/Stable
         'Intended Audience :: Science/Research',
@@ -38,7 +39,7 @@ setup(
     install_requires=['nuts','numpy','tabulate',
                       'scipy','matplotlib'],
     #packages=['mypkg'],
-    package_dir={'logistigate': 'src/logistigate'},
+    #package_dir={'logistigate': 'src/logistigate'},
     package_data={'logistigate': ['data/*.csv']},
     include_package_data=True
     #cmdclass={'test': Run_TestSuite}
