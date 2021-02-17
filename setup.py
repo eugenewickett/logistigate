@@ -24,7 +24,7 @@ setup(
     long_description=long_description,
     long_description_content_type='text/plain',
     url='https://github.com/eugenewickett/logistigate',
-    package_dir={'logistigate': 'logistigate'},
+    #package_dir={'logistigate': 'logistigate'},
     packages=find_packages(),
     classifiers=[
         'Development Status :: 3 - Alpha', #   3 - Alpha, 4 - Beta, 5 - Production/Stable
