@@ -61,7 +61,12 @@ def runLogistigate(dataTblDict):
         diagSens, diagSpec: float
             Diagnostic characteristics for the data compiled in dataTbl
         numPostSamples: integer
-            The number of posterior samples to generate        
+            The number of posterior samples to generate
+        MCMCdict: dictionary
+            Dictionary for the desired MCMC sampler to use for generating
+            posterior samples; requies a key 'MCMCType' that is one of
+            'Metro-Hastings', 'Langevin', 'NUTS', or 'STAN'
+        Madapt,delta: Parameters for use with NUTS
     
     OUTPUTS
     -------
@@ -107,6 +112,7 @@ def runLogistigate(dataTblDict):
                      'diagSpec':dataTblDict['diagSpec'],
                      'N':dataTblDict['N'], 'Y':dataTblDict['Y'],
                      'estDict':estDict, 'postSamples':postSamples,
+                     'MCMCmethod': dataTblDict['MCMCmethod'],
                      'prior':dataTblDict['prior']
                      })
     return logistigateDict
@@ -117,10 +123,12 @@ def Example1():
     conducted on a small system of 3 importers and 12 outlets.
     '''
     dataTblDict = util.TestResultsFileToTable('data/example1TestData.csv')
-    dataTblDict.update({'diagSens':0.90,
-                        'diagSpec':0.99,
-                        'numPostSamples':500,
-                        'prior':methods.prior_normal()})
+    MCMCdict = {'MCMCtype': 'NUTS', }
+    dataTblDict.update({'diagSens': 0.90,
+                        'diagSpec': 0.99,
+                        'numPostSamples': 500,
+                        'prior': methods.prior_normal(),
+                        'MCMCdict': MCMCdict})
     logistigateDict = runLogistigate(dataTblDict)
         
     util.plotPostSamples(logistigateDict)
@@ -138,7 +146,8 @@ def Example1b():
     dataTblDict.update({'diagSens':0.90,
                         'diagSpec':0.99,
                         'numPostSamples':500,
-                        'prior':methods.prior_normal()})
+                        'prior':methods.prior_normal(),
+                        'MCMCmethod': 'NUTS'})
     logistigateDict = runLogistigate(dataTblDict)
         
     util.plotPostSamples(logistigateDict)
@@ -155,7 +164,8 @@ def Example1c():
     dataTblDict.update({'diagSens':0.70,
                         'diagSpec':0.90,
                         'numPostSamples':500,
-                        'prior':methods.prior_normal()})
+                        'prior':methods.prior_normal(),
+                        'MCMCmethod': 'NUTS'})
     logistigateDict = runLogistigate(dataTblDict)
         
     util.plotPostSamples(logistigateDict)
@@ -172,7 +182,8 @@ def Example1d():
     dataTblDict.update({'diagSens':0.90,
                         'diagSpec':0.99,
                         'numPostSamples':500,
-                        'prior':methods.prior_laplace()})
+                        'prior':methods.prior_laplace(),
+                        'MCMCmethod': 'NUTS'})
     logistigateDict = runLogistigate(dataTblDict)
         
     util.plotPostSamples(logistigateDict)
@@ -189,7 +200,8 @@ def Example2():
     dataTblDict.update({'diagSens':0.90,
                         'diagSpec':0.99,
                         'numPostSamples':500,
-                        'prior':methods.prior_normal()})
+                        'prior':methods.prior_normal(),
+                        'MCMCmethod': 'NUTS'})
     logistigateDict = runLogistigate(dataTblDict)
         
     util.plotPostSamples(logistigateDict)

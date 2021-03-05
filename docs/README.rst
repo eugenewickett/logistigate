@@ -13,7 +13,7 @@ two categories, Tracked and Untracked:
 
 * In the Tracked case, both the upper-echelon and lower-echelon entities traversed by the tested product are known upon testing.
 
-*  In the Untracked case, only the lower-echelon entity is entirely known, in addition to the system's transition matrix.
+* In the Untracked case, only the lower-echelon entity is entirely known, in addition to the system's transition matrix.
 
 It is further assumed that products are aberrational at their origin in the
 upper echelon with some entity-specific fixed probability, and that products

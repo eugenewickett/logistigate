@@ -370,6 +370,9 @@ def GeneratePostSamples(dataTblDict):
         diagSens,diagSpec: Diagnostic sensitivity and specificity
         prior: Prior distribution object with lpdf,lpdf_jac methods
         numPostSamples: Number of posterior distribution samples to generate
+        MCMCDict: Dictionary for the desired MCMC sampler to use for generating
+        posterior samples; requies a key 'MCMCType' that is one of
+        'Metro-Hastings', 'Langevin', 'NUTS', or 'STAN'
         Madapt,delta: Parameters for use with NUTS
     OUTPUTS
     -------

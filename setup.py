@@ -9,12 +9,12 @@ long_description = (here / 'README.md').read_text(encoding='utf-8')
 
 class Run_TestSuite(TestCommand):
     def run_tests(self):
-        #import os
+        import os
         import sys
         py_version = sys.version_info[0]
         print('Python version from setup.py is', py_version)
-        #run_string = "tests/run-tests.sh -p " + str(py_version)
-        #os.system(run_string)
+        run_string = "tests/run-tests.sh -p " + str(py_version)
+        os.system(run_string)
 
 setup(
     name='logistigate',
