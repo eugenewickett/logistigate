@@ -181,12 +181,12 @@ def sampler(logpostfunc, options):
         startingv = np.random.choice(np.arange(0, Lsave.shape[0]),
                                      size=Lsave.shape[0], p=post)
         thetasave = thetasave[startingv, :]
-        covmat0 = np.cov(thetasave.T)
+        covmat0 = np.diag(np.var(thetasave.T,axis=1))) #EUGENE check if it should axis=2
 
         if covmat0.ndim > 1:
             covmat0 += (10 ** (-4)) * np.diag(np.diag(covmat0) + thetas)
             Wc, Vc = np.linalg.eigh(covmat0)
-            hc = (Vc @ np.diag(np.sqrt(Wc)) @ Vc.T)
+            hc = np.diag(np.sqrt(np.var(thetasave.T,axis=1)))
         else:
             hc = np.sqrt(covmat0 + thetas)
 
