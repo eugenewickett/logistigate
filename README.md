@@ -1,6 +1,8 @@
 # logistigate
 python implementation of logistigate
 
+https://logistigate.readthedocs.io/en/main/
+
 Overview of logistigate
 ----------------
 Generally speaking, the logistigate methods infer aberration likelihoods at
