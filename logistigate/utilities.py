@@ -3,6 +3,7 @@ Stores utilities for use with logistigate.py and methods.py
 """
 import csv
 import numpy as np
+import random
 from tabulate import tabulate
 import matplotlib.pyplot as plt
 
@@ -118,7 +119,6 @@ def TestResultsFileToTable(testDataFile, transitionMatrixFile=''):
     return dataTblDict
 
 
-
 def GetVectorForms(dataTblDict):
     '''
     Takes a dictionary that has a list of testing results and appends the N,Y
@@ -177,6 +177,101 @@ def GetVectorForms(dataTblDict):
             Y[outletNames.index(row[0])] += row[1]
         
     dataTblDict.update({'N': N, 'Y': Y})
+    
+    return dataTblDict
+
+def generateRandDataDict(numImp = 5, numOut = 50, diagSens = 0.90,
+                         diagSpec = 0.99, numSamples = 50 * 20, 
+                         dataType = 'Tracked'):
+    '''
+    Randomly generates an example input data dicionary for the entered inputs.
+    SFP rates are generated according to a beta(2,9) distribution, while
+    transition rates are distributed according to an expo(100) distribution.
+    
+    INPUTS
+    ------
+    Takes the following arguments:
+        numImp, numOut: integer
+            Number of importers and outlets
+        diagSens, diagSpec: float
+            Diagnostic sensitivity, specificity
+        numSamples: integer
+            Total number of data points to generate
+        dataType: string
+            'Tracked' or 'Untracked'
+    
+    OUTPUTS
+    -------
+    Returns dataTblDict dictionary with the following keys:
+        dataTbl: list
+            If Tracked, each list entry should have three elements, as follows:
+                Element 1: string; Name of outlet/lower echelon entity
+                Element 2: string; Name of importer/upper echelon entity
+                Element 3: integer; 0 or 1, where 1 signifies aberration detection
+            If Untracked, each list entry should have two elements, as follows:
+                Element 1: string; Name of outlet/lower echelon entity
+                Element 2: integer; 0 or 1, where 1 signifies aberration detection
+        outletNames/importerNames: list of strings
+        transMat: Numpy matrix
+            Matrix of transition probabilities between importers and outlets
+        diagSens, diagSpec, type
+            From inputs, where 'type' = 'dataType'
+    '''
+    dataTblDict = {}
+    
+    impNames = ['Importer ' + str(i+1) for i in range(numImp)]
+    outNames = ['Outlet ' + str(i+1) for i in range(numOut)]
+    
+    # Generate true SFP rates
+    trueRates = np.zeros(numImp+numOut) #importers first, outlets second
+    random.seed(55)
+    trueRates[:numImp] = [random.betavariate(2,9) for i in range(numImp)]  
+    trueRates[numImp:] = [random.betavariate(2,9) for i in range(numOut)]
+    
+    # Generate random transition matrix
+    transMat = np.zeros(shape=(numOut,numImp))
+    random.seed(59)
+    for outInd in range(numOut):        
+        rowRands = [random.expovariate(100) for i in range(numImp)]
+        transMat[outInd,:] = [rowRands[i] / sum(rowRands) for i in range(numImp)]
+    
+    # np.linalg.det(transMat.T @ transMat) / numOut
+    # 1.297
+    
+    # Generate testing data    
+    testingDataList = []
+    if dataType == 'Tracked':
+        random.seed(22)
+        for currSamp in range(numSamples):
+            currOutlet = random.sample(outNames,1)[0]
+            currImporter = random.choices(impNames,weights=transMat[outNames.index(currOutlet)],k=1)[0]
+            currOutRate = trueRates[numImp+outNames.index(currOutlet)]
+            currImpRate = trueRates[impNames.index(currImporter)]
+            realRate = currOutRate + currImpRate - currOutRate*currImpRate
+            realResult = np.random.binomial(1,p=realRate)
+            if realResult == 1:
+                result = np.random.binomial(1,p=diagSens)
+            if realResult == 0:
+                result = np.random.binomial(1,p=1-diagSpec)
+            testingDataList.append([currOutlet,currImporter,result])
+    elif dataType == 'Untracked':
+        random.seed(24)
+        for currSamp in range(numSamples):
+            currOutlet = random.sample(outNames,1)[0]
+            currImporter = random.choices(impNames,weights=transMat[outNames.index(currOutlet)],k=1)[0]
+            currOutRate = trueRates[numImp+outNames.index(currOutlet)]
+            currImpRate = trueRates[impNames.index(currImporter)]
+            realRate = currOutRate + currImpRate - currOutRate*currImpRate
+            realResult = np.random.binomial(1,p=realRate)
+            if realResult == 1:
+                result = np.random.binomial(1,p=diagSens)
+            if realResult == 0:
+                result = np.random.binomial(1,p=1-diagSpec)
+            testingDataList.append([currOutlet,result])
+    
+    dataTblDict.update({'outletNames': outNames, 'importerNames': impNames,
+                        'diagSens': 0.90, 'diagSpec': 0.99, 'type': dataType,
+                        'dataTbl': testingDataList, 'transMat': transMat})
     
     return dataTblDict
 

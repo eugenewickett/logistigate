@@ -7,7 +7,7 @@ import numpy as np
 import scipy.optimize as spo
 import scipy.stats as spstat
 import scipy.special as sps
-import logistigate.utilities as util
+import utilities as util #logistigate.utilities as util
 #import nuts
 
 ########################### PRIOR CLASSES ###########################

@@ -29,8 +29,8 @@ Creators:
 
 Industrial Engineering & Management Sciences, Northwestern University
 """
-import logistigate.methods as methods
-import logistigate.utilities as util
+import methods #logistigate.methods as methods
+import utilities as util #logistigate.utilities as util
 
 def runLogistigate(dataTblDict):
     '''
@@ -122,7 +122,8 @@ def Example1():
     This example provides a illustration of logistigate's capabilities,
     conducted on a small system of 3 importers and 12 outlets.
     '''
-    dataTblDict = util.TestResultsFileToTable('data/example1TestData.csv')
+    
+    dataTblDict = util.TestResultsFileToTable('data/example1bTestData.csv')
     MCMCdict = {'MCMCtype': 'NUTS', }
     dataTblDict.update({'diagSens': 0.90,
                         'diagSpec': 0.99,
