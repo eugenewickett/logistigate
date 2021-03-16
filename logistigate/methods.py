@@ -8,6 +8,10 @@ import scipy.optimize as spo
 import scipy.stats as spstat
 import scipy.special as sps
 import utilities as util #logistigate.utilities as util
+import time
+import mcmcsamplers.adjustedNUTS as adjnuts
+import mcmcsamplers.lmc as langevinMC
+
 #import nuts
 
 ########################### PRIOR CLASSES ###########################
@@ -361,7 +365,8 @@ def Tracked_NegLogPost_Hess(beta,N,Y,sens,spec,prior):
 def GeneratePostSamples(dataTblDict):
     '''
     Retrives posterior samples under the appropriate Tracked or Untracked
-    likelihood model and given data inputs, via the NUTS sampler (Gelman 2011).
+    likelihood model, given data inputs, and entered posterior sampler.
+    
     INPUTS
     ------
     dataTblDict is an input dictionary with the following keys:
@@ -372,31 +377,82 @@ def GeneratePostSamples(dataTblDict):
         numPostSamples: Number of posterior distribution samples to generate
         MCMCDict: Dictionary for the desired MCMC sampler to use for generating
         posterior samples; requies a key 'MCMCType' that is one of
-        'Metro-Hastings', 'Langevin', 'NUTS', or 'STAN'
-        Madapt,delta: Parameters for use with NUTS
+        'Metro-Hastings', 'Langevin', 'NUTS', or 'STAN'; necessary arguments
+        for the sampler should be contained as keys within MCMCDict
     OUTPUTS
     -------
-    Returns a list of posterior samples, with importers coming before outlets.
+    Returns dataTblDict with key 'postSamples' that contains the non-transformed
+    poor-quality likelihoods.    
     '''
+    #change utilities to nuts if wanting to use the Gelman sampler
+    print('Generating posterior samples...')
+    
     N,Y = dataTblDict['N'],dataTblDict['Y']
     sens,spec = dataTblDict['diagSens'],dataTblDict['diagSpec']
-    prior,M = dataTblDict['prior'],dataTblDict['numPostSamples']
-    if 'transMat' in dataTblDict.keys():
-        transMat = dataTblDict['transMat']
-    Madapt, delta = 5000, 0.4
-    if dataTblDict['type'] == 'Tracked':
-        beta0 = -2 * np.ones(N.shape[1] + N.shape[0])
-        def TargetForNUTS(beta):
-            return Tracked_LogPost(beta,N,Y,sens,spec,prior),\
-                   Tracked_LogPost_Grad(beta,N,Y,sens,spec,prior)     
-    elif dataTblDict['type'] == 'Untracked':
-        beta0 = -2 * np.ones(transMat.shape[1] + transMat.shape[0])
-        def TargetForNUTS(beta):
-            return Untracked_LogPost(beta,N,Y,sens,spec,transMat,prior),\
-                   Untracked_LogPost_Grad(beta,N,Y,sens,spec,transMat,prior)    
-    samples, lnprob, epsilon = util.nuts6(TargetForNUTS,M,Madapt,beta0,delta)
-    #change utilities to nuts if wanting to use the Gelman sampler
-    return sps.expit(samples)
+    
+    MCMCdict = dataTblDict['MCMCdict']
+    
+    startTime = time.time()
+    # Run NUTS (Hoffman & Gelman, 2011)
+    if MCMCdict['MCMCtype'] == 'NUTS':
+        prior, M = dataTblDict['prior'], dataTblDict['numPostSamples']    
+        Madapt, delta = MCMCdict['Madapt'], MCMCdict['delta']
+        if dataTblDict['type'] == 'Tracked':
+            beta0 = -2 * np.ones(N.shape[1] + N.shape[0])
+            def TargetForNUTS(beta):
+                return Tracked_LogPost(beta,N,Y,sens,spec,prior),\
+                       Tracked_LogPost_Grad(beta,N,Y,sens,spec,prior)     
+        elif dataTblDict['type'] == 'Untracked':
+            transMat = dataTblDict['transMat']
+            beta0 = -2 * np.ones(transMat.shape[1] + transMat.shape[0])
+            def TargetForNUTS(beta):
+                return Untracked_LogPost(beta,N,Y,sens,spec,transMat,prior),\
+                       Untracked_LogPost_Grad(beta,N,Y,sens,spec,transMat,prior) 
+        
+        samples, lnprob, epsilon = adjnuts.nuts6(TargetForNUTS,M,Madapt,beta0,delta)
+    # Run Langevin MC
+    elif MCMCdict['MCMCtype'] == 'Langevin':
+        prior = dataTblDict['prior']
+        if dataTblDict['type'] == 'Tracked':
+            dimens = N.shape[1] + N.shape[0]
+            theta0 = np.empty((100, dimens), dtype=float)
+            for ind in range(100):
+                theta0[ind,:] = prior.rand(n=dimens)
+            LMCoptions = {'theta0': theta0,
+                          'numsamp':dataTblDict['numPostSamples']}
+            def TargetForLMC(beta):
+                return Tracked_LogPost(beta,N,Y,sens,spec,prior),\
+                       Tracked_LogPost_Grad(beta,N,Y,sens,spec,prior)            
+        elif dataTblDict['type'] == 'Untracked':
+            transMat = dataTblDict['transMat']
+            dimens = transMat.shape[1] + transMat.shape[0]
+            theta0 = np.empty((100, dimens), dtype=float)
+            for ind in range(100):
+                theta0[ind,:] = prior.rand(n=dimens)
+            LMCoptions = {'theta0': theta0,
+                          'numsamp':dataTblDict['numPostSamples']}
+            def TargetForLMC(beta):
+                return Untracked_LogPost(beta,N,Y,sens,spec,transMat,prior),\
+                       Untracked_LogPost_Grad(beta,N,Y,sens,spec,transMat,prior)
+        # Run LangevinMC
+        samplerDict = langevinMC.sampler(TargetForLMC,LMCoptions)
+        samples = samplerDict['theta']
+        
+        
+        
+    # Run Metropolis-Hastings
+    elif MCMCdict['MCMCtype'] == 'MetroHastings':
+        pass
+    
+    postSamples = sps.expit(samples)
+    
+    # Record generation time
+    endTime = time.time()
+    
+    dataTblDict.update({'postSamples': postSamples,
+                        'postSamplesGenTime': endTime-startTime})
+    print('Posterior samples generated')
+    return dataTblDict
 
 def FormEstimates(dataTblDict):
     '''
@@ -440,6 +496,7 @@ def FormEstimates(dataTblDict):
         hess:      Hessian matrix at the maximum
     '''
     # CHECK THAT ALL NECESSARY KEYS ARE IN THE INPUT DICTIONARY
+    print('Generating estimates and confidence intervals...')
     
     outDict = {}
     N, Y = dataTblDict['N'], dataTblDict['Y']
@@ -504,5 +561,7 @@ def FormEstimates(dataTblDict):
     outDict['99lower_out'] = sps.expit(best_x[numImp:] - out_Int99)
     outDict['impEst'],outDict['outEst'] = impEst,outEst
     outDict['hess'] = hess
+    
+    print('Estimates and confidence intervals generated')
     
     return outDict

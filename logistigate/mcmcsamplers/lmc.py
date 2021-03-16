@@ -104,7 +104,8 @@ def sampler(logpostfunc, options):
 
     def neglogpostf_nograd(thetap):
         theta = thetac + thetas * thetap
-        return -logpostf_nograd(theta.reshape((1, len(theta))))[0]
+        return -logpostf_nograd(theta.reshape((1, len(theta)))) #EUGENE REMOVED THE [0] INDEX RETRIEVAL HERE
+                                                                #-logpostf_nograd(theta.reshape((1, len(theta))))[0]
 
     if logpostf_grad is not None:
         def neglogpostf_grad(thetap):
@@ -181,7 +182,7 @@ def sampler(logpostfunc, options):
         startingv = np.random.choice(np.arange(0, Lsave.shape[0]),
                                      size=Lsave.shape[0], p=post)
         thetasave = thetasave[startingv, :]
-        covmat0 = np.diag(np.var(thetasave.T,axis=1))) #EUGENE check if it should axis=2
+        covmat0 = np.diag(np.var(thetasave.T,axis=1)) #axis=1 gives correct covmat dimensions
 
         if covmat0.ndim > 1:
             covmat0 += (10 ** (-4)) * np.diag(np.diag(covmat0) + thetas)

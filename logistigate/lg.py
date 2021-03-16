@@ -97,8 +97,7 @@ def runLogistigate(dataTblDict):
     
     logistigateDict = {} # Initialize our output dictionary
     dataTblDict = util.GetVectorForms(dataTblDict) # Add N,Y matrices
-    postSamples = methods.GeneratePostSamples(dataTblDict) # Generate and add posterior samples
-    dataTblDict.update({'postSamples':postSamples})
+    dataTblDict = methods.GeneratePostSamples(dataTblDict) # Generate and add posterior samples
     estDict = methods.FormEstimates(dataTblDict) # Form point estimates and CIs
     
     logistigateDict.update({'type':dataTblDict['type'],
@@ -111,11 +110,48 @@ def runLogistigate(dataTblDict):
                      'diagSens':dataTblDict['diagSens'],
                      'diagSpec':dataTblDict['diagSpec'],
                      'N':dataTblDict['N'], 'Y':dataTblDict['Y'],
-                     'estDict':estDict, 'postSamples':postSamples,
-                     'MCMCmethod': dataTblDict['MCMCmethod'],
-                     'prior':dataTblDict['prior']
+                     'estDict':estDict, 'postSamples':dataTblDict['postSamples'],
+                     'MCMCdict': dataTblDict['MCMCdict'],
+                     'prior':dataTblDict['prior'],
+                     'postSamplesGenTime': dataTblDict['postSamplesGenTime'],
+                     'trueRates': dataTblDict['trueRates'] # NEW ARGUMENT THAT ISNT IN OLD LG VERSION
                      })
     return logistigateDict
+
+def MCMCtest():
+    '''
+    Uses some randomly generated supply chains to test different MCMC samplers.
+    '''
+    dataDict_1 = util.generateRandDataDict()
+    #dataDict_2 = util.generateRandDataDict(numImp = 50, numOut = 500, numSamples = 500*20)
+    #dataDict_3 = util.generateRandDataDict(numImp = 500, numOut = 5000, numSamples = 5000*20)
+    
+    #import numpy as np
+    #np.linalg.det(dataDict_1['transMat'].T @ dataDict_1['transMat'])/len(dataDict_1['importerNames'])
+    #np.linalg.det(dataDict_2['transMat'].T @ dataDict_2['transMat'])/len(dataDict_2['importerNames'])
+    
+    MCMCdict_NUTS = {'MCMCtype': 'NUTS', 'Madapt': 5000, 'delta': 0.4}
+    dataDict_1.update({'numPostSamples': 500,
+                        'prior': methods.prior_normal(),
+                        'MCMCdict': MCMCdict_NUTS})
+    
+    lgDict_1 = runLogistigate(dataDict_1)
+    lgDict_1 = util.scorePostSamplesIntervals(lgDict_1) 
+    util.plotPostSamples(lgDict_1)
+    
+    # Langevin MC
+    MCMCdict_LMC = {'MCMCtype': 'Langevin'}
+    dataDict_1b = util.generateRandDataDict()
+    dataDict_1b.update({'numPostSamples': 500,
+                        'prior': methods.prior_normal(),
+                        'MCMCdict': MCMCdict_LMC})
+    lgDict_1b = runLogistigate(dataDict_1b)
+    lgDict_1b = util.scorePostSamplesIntervals(lgDict_1b)
+    util.plotPostSamples(lgDict_1b)
+    
+    
+    
+    return
 
 def Example1():
     '''

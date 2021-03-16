@@ -186,7 +186,7 @@ def generateRandDataDict(numImp = 5, numOut = 50, diagSens = 0.90,
     '''
     Randomly generates an example input data dicionary for the entered inputs.
     SFP rates are generated according to a beta(2,9) distribution, while
-    transition rates are distributed according to an expo(100) distribution.
+    transition rates are distributed according to a scaled expo(100) distribution.
     
     INPUTS
     ------
@@ -232,11 +232,16 @@ def generateRandDataDict(numImp = 5, numOut = 50, diagSens = 0.90,
     transMat = np.zeros(shape=(numOut,numImp))
     random.seed(59)
     for outInd in range(numOut):        
-        rowRands = [random.expovariate(100) for i in range(numImp)]
-        transMat[outInd,:] = [rowRands[i] / sum(rowRands) for i in range(numImp)]
-    
+        rowRands = [random.paretovariate(1.1) for i in range(numImp)]
+        normalizedRands = [rowRands[i] / sum(rowRands) for i in range(numImp)]
+        #only keep transition probabilities above 2%
+        normalizedRands = [normalizedRands[i] if normalizedRands[i]>0.02 else 0.0 for i in range(numImp)]
+        
+        normalizedRands = [normalizedRands[i] / sum(normalizedRands) for i in range(numImp)]
+        transMat[outInd,:] = normalizedRands
+           
     # np.linalg.det(transMat.T @ transMat) / numOut
-    # 1.297
+    # 1.297 for n=50
     
     # Generate testing data    
     testingDataList = []
@@ -271,9 +276,54 @@ def generateRandDataDict(numImp = 5, numOut = 50, diagSens = 0.90,
     
     dataTblDict.update({'outletNames': outNames, 'importerNames': impNames,
                         'diagSens': 0.90, 'diagSpec': 0.99, 'type': dataType,
-                        'dataTbl': testingDataList, 'transMat': transMat})
+                        'dataTbl': testingDataList, 'transMat': transMat,
+                        'trueRates': trueRates})
     
     return dataTblDict
+
+def scorePostSamplesIntervals(logistigateDict):
+    '''
+    Checks if posterior aberration rate sample intervals contain the underlying
+    generative aberration rates    
+    INPUTS
+    ------
+    logistigateDict with the following keys:
+        postSamples: List of posterior sample lists, with importer values entered first.
+        trueRates:   List of true underlying poor-quality rates
+        
+    OUTPUTS
+    -------
+    logistigateDict with the the following keys added:
+        TRinInt_90, TRinInt_95, TRinInt_99: Number of true rates in the 90%,
+                                            95%, and 99% intervals
+    '''
+    trueRates = logistigateDict['trueRates']
+    samples = logistigateDict['postSamples']
+    # trueRates and samples need to be ordered with importers first
+    numInInt90 = 0
+    numInInt95 = 0
+    numInInt99 = 0
+    for entityInd in range(len(trueRates)):
+        currInt90 = [np.quantile(samples[:,entityInd],0.05),
+                     np.quantile(samples[:,entityInd],0.95)]
+        currInt95 = [np.quantile(samples[:,entityInd],0.025),
+                     np.quantile(samples[:,entityInd],0.975)]
+        currInt99 = [np.quantile(samples[:,entityInd],0.005),
+                     np.quantile(samples[:,entityInd],0.995)]
+        currTR = trueRates[entityInd]
+        if currTR >= currInt90[0] and currTR <= currInt90[1]:
+            numInInt90 += 1
+        if currTR >= currInt95[0] and currTR <= currInt95[1]:
+            numInInt95 += 1
+        if currTR >= currInt99[0] and currTR <= currInt99[1]:
+            numInInt99 += 1
+    
+    logistigateDict.update({'numInInt90': numInInt90, 'numInInt95': numInInt95,
+                            'numInInt99': numInInt99})
+    
+    return logistigateDict
+        
+    
 
 def plotPostSamples(logistigateDict):
     '''
