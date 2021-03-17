@@ -11,6 +11,7 @@ import utilities as util #logistigate.utilities as util
 import time
 import mcmcsamplers.adjustedNUTS as adjnuts
 import mcmcsamplers.lmc as langevinMC
+import mcmcsamplers.metrohastings as mh
 
 #import nuts
 
@@ -377,7 +378,7 @@ def GeneratePostSamples(dataTblDict):
         numPostSamples: Number of posterior distribution samples to generate
         MCMCDict: Dictionary for the desired MCMC sampler to use for generating
         posterior samples; requies a key 'MCMCType' that is one of
-        'Metro-Hastings', 'Langevin', 'NUTS', or 'STAN'; necessary arguments
+        'MetropolisHastings', 'Langevin', 'NUTS', or 'STAN'; necessary arguments
         for the sampler should be contained as keys within MCMCDict
     OUTPUTS
     -------
@@ -418,8 +419,7 @@ def GeneratePostSamples(dataTblDict):
             theta0 = np.empty((100, dimens), dtype=float)
             for ind in range(100):
                 theta0[ind,:] = prior.rand(n=dimens)
-            LMCoptions = {'theta0': theta0,
-                          'numsamp':dataTblDict['numPostSamples']}
+            LMCoptions = {'theta0': theta0, 'numsamp':dataTblDict['numPostSamples']}
             def TargetForLMC(beta):
                 return Tracked_LogPost(beta,N,Y,sens,spec,prior),\
                        Tracked_LogPost_Grad(beta,N,Y,sens,spec,prior)            
@@ -429,21 +429,45 @@ def GeneratePostSamples(dataTblDict):
             theta0 = np.empty((100, dimens), dtype=float)
             for ind in range(100):
                 theta0[ind,:] = prior.rand(n=dimens)
-            LMCoptions = {'theta0': theta0,
-                          'numsamp':dataTblDict['numPostSamples']}
+            LMCoptions = {'theta0': theta0, 'numsamp':dataTblDict['numPostSamples']}
             def TargetForLMC(beta):
                 return Untracked_LogPost(beta,N,Y,sens,spec,transMat,prior),\
                        Untracked_LogPost_Grad(beta,N,Y,sens,spec,transMat,prior)
-        # Run LangevinMC
+        # Call LangevinMC
         samplerDict = langevinMC.sampler(TargetForLMC,LMCoptions)
         samples = samplerDict['theta']
-        
-        
-        
     # Run Metropolis-Hastings
-    elif MCMCdict['MCMCtype'] == 'MetroHastings':
-        pass
+    elif MCMCdict['MCMCtype'] == 'MetropolisHastings':
+        prior = dataTblDict['prior']
+        if dataTblDict['type'] == 'Tracked':
+            dimens = N.shape[1] + N.shape[0]
+            theta0 = np.empty((100, dimens), dtype=float)
+            for ind in range(100):
+                theta0[ind,:] = prior.rand(n=dimens)
+            MHoptions = {'theta0': theta0, 'numsamp':dataTblDict['numPostSamples'],
+                         'stepType': 'normal','covMat':MCMCdict['covMat'],
+                         'stepParam': MCMCdict['stepParam'],
+                         'adaptNum': MCMCdict['adaptNum']}
+            def TargetForMH(beta):
+                return Tracked_LogPost(beta,N,Y,sens,spec,prior)
+        elif dataTblDict['type'] == 'Untracked':
+            transMat = dataTblDict['transMat']
+            dimens = transMat.shape[1] + transMat.shape[0]
+            theta0 = np.empty((100, dimens), dtype=float)
+            for ind in range(100):
+                theta0[ind,:] = prior.rand(n=dimens)
+            MHoptions = {'theta0': theta0, 'numsamp':dataTblDict['numPostSamples'],
+                         'stepType': 'normal','covMat':MCMCdict['covMat'],
+                         'stepParam': MCMCdict['stepParam'],
+                         'adaptNum': MCMCdict['adaptNum']}
+            def TargetForMH(beta):
+                return Untracked_LogPost(beta,N,Y,sens,spec,transMat,prior)
+        # Call Metropolis-Hastings
+        samplerDict = mh.sampler(TargetForMH,MHoptions)
+        print(samplerDict['acc_rate'])
+        samples = samplerDict['theta']
     
+    #Transform samples back
     postSamples = sps.expit(samples)
     
     # Record generation time

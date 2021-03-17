@@ -138,6 +138,7 @@ def MCMCtest():
     lgDict_1 = runLogistigate(dataDict_1)
     lgDict_1 = util.scorePostSamplesIntervals(lgDict_1) 
     util.plotPostSamples(lgDict_1)
+    lgDict_1['postSamplesGenTime']
     
     # Langevin MC
     MCMCdict_LMC = {'MCMCtype': 'Langevin'}
@@ -148,6 +149,24 @@ def MCMCtest():
     lgDict_1b = runLogistigate(dataDict_1b)
     lgDict_1b = util.scorePostSamplesIntervals(lgDict_1b)
     util.plotPostSamples(lgDict_1b)
+    lgDict_1b['postSamplesGenTime']
+    
+    # Metropolis-Hastings
+    import numpy as np
+    import scipy.special as sps
+    covMat_NUTS = np.cov(sps.logit(lgDict_1['postSamples']),rowvar=False)
+    stepEps = 0.12
+    MCMCdict_MH = {'MCMCtype': 'MetropolisHastings', 'covMat': covMat_NUTS,
+                   'stepParam': stepEps*np.ones(shape=covMat_NUTS.shape[0]),
+                   'adaptNum': 8000}
+    dataDict_1c = util.generateRandDataDict()
+    dataDict_1c.update({'numPostSamples': 3000,
+                        'prior': methods.prior_normal(),
+                        'MCMCdict': MCMCdict_MH})
+    lgDict_1c = runLogistigate(dataDict_1c)
+    lgDict_1c = util.scorePostSamplesIntervals(lgDict_1c)
+    util.plotPostSamples(lgDict_1c)
+    lgDict_1c['postSamplesGenTime']
     
     
     
