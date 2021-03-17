@@ -118,57 +118,201 @@ def runLogistigate(dataTblDict):
                      })
     return logistigateDict
 
-def MCMCtest():
+def MCMCtest_5_50():
     '''
-    Uses some randomly generated supply chains to test different MCMC samplers.
+    Uses some randomly generated supply chains to test different MCMC samplers,
+    for systems of 5 importers and 50 outlets.
     '''
-    dataDict_1 = util.generateRandDataDict()
-    #dataDict_2 = util.generateRandDataDict(numImp = 50, numOut = 500, numSamples = 500*20)
-    #dataDict_3 = util.generateRandDataDict(numImp = 500, numOut = 5000, numSamples = 5000*20)
+    # Store generation run times, interval containment, and Gneiting loss scores
+    REPS_GenTime_NUTS = []
+    REPS_90IntCoverage_NUTS = []
+    REPS_95IntCoverage_NUTS = []
+    REPS_99IntCoverage_NUTS = []
+    REPS_90gnLoss_NUTS = []
+    REPS_95gnLoss_NUTS = []
+    REPS_99gnLoss_NUTS = []
     
-    #import numpy as np
-    #np.linalg.det(dataDict_1['transMat'].T @ dataDict_1['transMat'])/len(dataDict_1['importerNames'])
-    #np.linalg.det(dataDict_2['transMat'].T @ dataDict_2['transMat'])/len(dataDict_2['importerNames'])
+    REPS_GenTime_LMC = []
+    REPS_90IntCoverage_LMC = []
+    REPS_95IntCoverage_LMC = []
+    REPS_99IntCoverage_LMC = []
+    REPS_90gnLoss_LMC = []
+    REPS_95gnLoss_LMC = []
+    REPS_99gnLoss_LMC = []
     
-    MCMCdict_NUTS = {'MCMCtype': 'NUTS', 'Madapt': 5000, 'delta': 0.4}
-    dataDict_1.update({'numPostSamples': 500,
-                        'prior': methods.prior_normal(),
-                        'MCMCdict': MCMCdict_NUTS})
+    REPS_GenTime_MH = []
+    REPS_90IntCoverage_MH = []
+    REPS_95IntCoverage_MH = []
+    REPS_99IntCoverage_MH = []
+    REPS_90gnLoss_MH = []
+    REPS_95gnLoss_MH = []
+    REPS_99gnLoss_MH = []
     
-    lgDict_1 = runLogistigate(dataDict_1)
-    lgDict_1 = util.scorePostSamplesIntervals(lgDict_1) 
-    util.plotPostSamples(lgDict_1)
-    lgDict_1['postSamplesGenTime']
+    for reps in range(100):
+        dataDict_1 = util.generateRandDataDict(numImp=5, numOut=50, numSamples=50*20)
+        numEntities = len(dataDict_1['trueRates'])
+        # NUTS
+        MCMCdict_NUTS = {'MCMCtype': 'NUTS', 'Madapt': 5000, 'delta': 0.4}
+        dataDict_1_NUTS = dataDict_1.copy()
+        dataDict_1_NUTS.update({'numPostSamples': 500,
+                            'prior': methods.prior_normal(),
+                            'MCMCdict': MCMCdict_NUTS})
+        
+        lgDict_1_NUTS = runLogistigate(dataDict_1_NUTS)
+        lgDict_1_NUTS = util.scorePostSamplesIntervals(lgDict_1_NUTS) 
+        #util.plotPostSamples(lgDict_1_NUTS)
+        REPS_GenTime_NUTS.append(lgDict_1_NUTS['postSamplesGenTime'])
+        REPS_90IntCoverage_NUTS.append(lgDict_1_NUTS['numInInt90']/numEntities)
+        REPS_95IntCoverage_NUTS.append(lgDict_1_NUTS['numInInt95']/numEntities)
+        REPS_99IntCoverage_NUTS.append(lgDict_1_NUTS['numInInt99']/numEntities)
+        REPS_90gnLoss_NUTS.append(lgDict_1_NUTS['gnLoss_90'])
+        REPS_95gnLoss_NUTS.append(lgDict_1_NUTS['gnLoss_95'])
+        REPS_99gnLoss_NUTS.append(lgDict_1_NUTS['gnLoss_99'])
     
-    # Langevin MC
-    MCMCdict_LMC = {'MCMCtype': 'Langevin'}
-    dataDict_1b = util.generateRandDataDict()
-    dataDict_1b.update({'numPostSamples': 500,
-                        'prior': methods.prior_normal(),
-                        'MCMCdict': MCMCdict_LMC})
-    lgDict_1b = runLogistigate(dataDict_1b)
-    lgDict_1b = util.scorePostSamplesIntervals(lgDict_1b)
-    util.plotPostSamples(lgDict_1b)
-    lgDict_1b['postSamplesGenTime']
+        # Langevin MC
+        MCMCdict_LMC = {'MCMCtype': 'Langevin'}
+        dataDict_1_LMC = dataDict_1.copy()
+        dataDict_1_LMC.update({'numPostSamples': 500,
+                            'prior': methods.prior_normal(),
+                            'MCMCdict': MCMCdict_LMC})
+        lgDict_1_LMC = runLogistigate(dataDict_1_LMC)
+        lgDict_1_LMC = util.scorePostSamplesIntervals(lgDict_1_LMC)
+        #util.plotPostSamples(lgDict_1_LMC)
+        REPS_GenTime_LMC.append(lgDict_1_LMC['postSamplesGenTime'])
+        REPS_90IntCoverage_LMC.append(lgDict_1_LMC['numInInt90']/numEntities)
+        REPS_95IntCoverage_LMC.append(lgDict_1_LMC['numInInt95']/numEntities)
+        REPS_99IntCoverage_LMC.append(lgDict_1_LMC['numInInt99']/numEntities)
+        REPS_90gnLoss_LMC.append(lgDict_1_LMC['gnLoss_90'])
+        REPS_95gnLoss_LMC.append(lgDict_1_LMC['gnLoss_95'])
+        REPS_99gnLoss_LMC.append(lgDict_1_LMC['gnLoss_99'])
+        
+        # Metropolis-Hastings
+        import numpy as np
+        import scipy.special as sps
+        covMat_NUTS = np.cov(sps.logit(lgDict_1_NUTS['postSamples']),rowvar=False)
+        stepEps = 0.13
+        MCMCdict_MH = {'MCMCtype': 'MetropolisHastings', 'covMat': covMat_NUTS,
+                       'stepParam': stepEps*np.ones(shape=covMat_NUTS.shape[0]),
+                       'adaptNum': 8000}
+        dataDict_1_MH = dataDict_1.copy()
+        dataDict_1_MH.update({'numPostSamples': 3000,
+                            'prior': methods.prior_normal(),
+                            'MCMCdict': MCMCdict_MH})
+        lgDict_1_MH = runLogistigate(dataDict_1_MH)
+        lgDict_1_MH = util.scorePostSamplesIntervals(lgDict_1_MH)
+        #util.plotPostSamples(lgDict_1_MH)
+        REPS_GenTime_MH.append(lgDict_1_MH['postSamplesGenTime'])
+        REPS_90IntCoverage_MH.append(lgDict_1_MH['numInInt90']/numEntities)
+        REPS_95IntCoverage_MH.append(lgDict_1_MH['numInInt95']/numEntities)
+        REPS_99IntCoverage_MH.append(lgDict_1_MH['numInInt99']/numEntities)
+        REPS_90gnLoss_MH.append(lgDict_1_MH['gnLoss_90'])
+        REPS_95gnLoss_MH.append(lgDict_1_MH['gnLoss_95'])
+        REPS_99gnLoss_MH.append(lgDict_1_MH['gnLoss_99'])
+        
+        print('***********FINISHED REP ' + str(reps)+'***********')
+    ###### END OF REPLICATIONS LOOP
+   
+    import matplotlib.pyplot as plt
+    # Prnit histograms of run times
+    fig = plt.figure()
+    ax = fig.add_axes([0,0,2.5,1])
+    ax.set_title('Run Times for NUTS, LMC, and MH',fontsize=18)
+    ax.set_xlabel('Run Time',fontsize=14)
+    ax.set_ylabel('Frequency',fontsize=14)
+    plt.hist(REPS_GenTime_NUTS,label='NUTS',alpha=0.3)
+    plt.hist(REPS_GenTime_LMC,label='LMC',alpha=0.3)
+    plt.hist(REPS_GenTime_MH,label='MH',alpha=0.3)
+    _ = ax.legend(loc='upper right')
     
-    # Metropolis-Hastings
-    import numpy as np
-    import scipy.special as sps
-    covMat_NUTS = np.cov(sps.logit(lgDict_1['postSamples']),rowvar=False)
-    stepEps = 0.12
-    MCMCdict_MH = {'MCMCtype': 'MetropolisHastings', 'covMat': covMat_NUTS,
-                   'stepParam': stepEps*np.ones(shape=covMat_NUTS.shape[0]),
-                   'adaptNum': 8000}
-    dataDict_1c = util.generateRandDataDict()
-    dataDict_1c.update({'numPostSamples': 3000,
-                        'prior': methods.prior_normal(),
-                        'MCMCdict': MCMCdict_MH})
-    lgDict_1c = runLogistigate(dataDict_1c)
-    lgDict_1c = util.scorePostSamplesIntervals(lgDict_1c)
-    util.plotPostSamples(lgDict_1c)
-    lgDict_1c['postSamplesGenTime']
+    # Prnit histograms of interval coverages
+    fig = plt.figure()
+    ax = fig.add_axes([0,0,2.5,1])
+    ax.set_title('90% Interval Coverage for NUTS, LMC, and MH',fontsize=18)
+    ax.set_xlabel('Interval Coverage',fontsize=14)
+    ax.set_ylabel('Frequency',fontsize=14)
+    plt.hist(REPS_90IntCoverage_NUTS,label='NUTS',alpha=0.3)
+    plt.hist(REPS_90IntCoverage_LMC,label='LMC',alpha=0.3)
+    plt.hist(REPS_90IntCoverage_MH,label='MH',alpha=0.3)
+    _ = ax.legend(loc='upper right')
     
+    fig = plt.figure()
+    ax = fig.add_axes([0,0,2.5,1])
+    ax.set_title('95% Interval Coverage for NUTS, LMC, and MH',fontsize=18)
+    ax.set_xlabel('Interval Coverage',fontsize=14)
+    ax.set_ylabel('Frequency',fontsize=14)
+    plt.hist(REPS_95IntCoverage_NUTS,label='NUTS',alpha=0.3)
+    plt.hist(REPS_95IntCoverage_LMC,label='LMC',alpha=0.3)
+    plt.hist(REPS_95IntCoverage_MH,label='MH',alpha=0.3)
+    _ = ax.legend(loc='upper right')
     
+    fig = plt.figure()
+    ax = fig.add_axes([0,0,2.5,1])
+    ax.set_title('99% Interval Coverage for NUTS, LMC, and MH',fontsize=18)
+    ax.set_xlabel('Interval Coverage',fontsize=14)
+    ax.set_ylabel('Frequency',fontsize=14)
+    plt.hist(REPS_99IntCoverage_NUTS,label='NUTS',alpha=0.3)
+    plt.hist(REPS_99IntCoverage_LMC,label='LMC',alpha=0.3)
+    plt.hist(REPS_99IntCoverage_MH,label='MH',alpha=0.3)
+    _ = ax.legend(loc='upper right')
+    
+    # Prnit histograms of Gneiting loss
+    fig = plt.figure()
+    ax = fig.add_axes([0,0,2,1])
+    ax.set_title('Gneiting Loss for NUTS',fontsize=18)
+    ax.set_xlabel('Gneiting Loss',fontsize=14)
+    ax.set_ylabel('Frequency',fontsize=14)
+    plt.xlim([0,200])
+    plt.hist(REPS_90gnLoss_NUTS,label='90%',alpha=0.3)
+    plt.hist(REPS_95gnLoss_NUTS,label='95%',alpha=0.3)
+    plt.hist(REPS_99gnLoss_NUTS,label='99%',alpha=0.3)
+    _ = ax.legend(loc='upper right')
+    
+    fig = plt.figure()
+    ax = fig.add_axes([0,0,2,1])
+    ax.set_title('Gneiting Loss for LMC',fontsize=18)
+    ax.set_xlabel('Gneiting Loss',fontsize=14)
+    ax.set_ylabel('Frequency',fontsize=14)
+    plt.xlim([0,200])
+    plt.hist(REPS_90gnLoss_LMC,label='90%',alpha=0.3)
+    plt.hist(REPS_95gnLoss_LMC,label='95%',alpha=0.3)
+    plt.hist(REPS_99gnLoss_LMC,label='99%',alpha=0.3)
+    _ = ax.legend(loc='upper right')
+    
+    fig = plt.figure()
+    ax = fig.add_axes([0,0,2,1])
+    ax.set_title('Gneiting Loss for MH',fontsize=18)
+    ax.set_xlabel('Gneiting Loss',fontsize=14)
+    ax.set_ylabel('Frequency',fontsize=14)
+    plt.xlim([0,200])
+    plt.hist(REPS_90gnLoss_MH,label='90%',alpha=0.3)
+    plt.hist(REPS_95gnLoss_MH,label='95%',alpha=0.3)
+    plt.hist(REPS_99gnLoss_MH,label='99%',alpha=0.3)
+    _ = ax.legend(loc='upper right')
+    
+    # write vectors to csv
+    import csv
+    # run times
+    data = [REPS_GenTime_NUTS,REPS_GenTime_LMC,REPS_GenTime_MH]
+    file = open('output_RunTimes.csv', 'a+',newline='')
+    with file:
+        write = csv.writer(file)
+        write.writerows(data)
+    # interval coverages
+    data = [REPS_90IntCoverage_NUTS,REPS_95IntCoverage_NUTS,REPS_99IntCoverage_NUTS,
+            REPS_90IntCoverage_LMC,REPS_95IntCoverage_LMC,REPS_99IntCoverage_LMC,
+            REPS_90IntCoverage_MH,REPS_95IntCoverage_MH,REPS_99IntCoverage_MH]
+    file = open('output_IntervalCoverages.csv', 'a+',newline='')
+    with file:
+        write = csv.writer(file)
+        write.writerows(data)
+    # Gneiting loss
+    data = [REPS_90gnLoss_NUTS,REPS_95gnLoss_NUTS,REPS_99gnLoss_NUTS,
+            REPS_90gnLoss_LMC,REPS_95gnLoss_LMC,REPS_99gnLoss_LMC,
+            REPS_90gnLoss_MH,REPS_95gnLoss_MH,REPS_99gnLoss_MH]
+    file = open('output_GneitingLoss.csv', 'a+',newline='')
+    with file:
+        write = csv.writer(file)
+        write.writerows(data)
     
     return
 

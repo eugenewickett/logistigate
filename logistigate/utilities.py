@@ -224,20 +224,24 @@ def generateRandDataDict(numImp = 5, numOut = 50, diagSens = 0.90,
     
     # Generate true SFP rates
     trueRates = np.zeros(numImp+numOut) #importers first, outlets second
-    random.seed(55)
+    #random.seed(55)
     trueRates[:numImp] = [random.betavariate(2,9) for i in range(numImp)]  
     trueRates[numImp:] = [random.betavariate(2,9) for i in range(numOut)]
     
     # Generate random transition matrix
     transMat = np.zeros(shape=(numOut,numImp))
-    random.seed(59)
+    #random.seed(59)
     for outInd in range(numOut):        
         rowRands = [random.paretovariate(1.1) for i in range(numImp)]
+        if numImp > 10: #Only keep 10 randomly chosen importers, if numImp > 10
+            rowRands[10:] = [0.0 for i in range(numImp-10)]
+            random.shuffle(rowRands)
+            
         normalizedRands = [rowRands[i] / sum(rowRands) for i in range(numImp)]
         #only keep transition probabilities above 2%
-        normalizedRands = [normalizedRands[i] if normalizedRands[i]>0.02 else 0.0 for i in range(numImp)]
+        #normalizedRands = [normalizedRands[i] if normalizedRands[i]>0.02 else 0.0 for i in range(numImp)]
         
-        normalizedRands = [normalizedRands[i] / sum(normalizedRands) for i in range(numImp)]
+        #normalizedRands = [normalizedRands[i] / sum(normalizedRands) for i in range(numImp)]
         transMat[outInd,:] = normalizedRands
            
     # np.linalg.det(transMat.T @ transMat) / numOut
@@ -246,7 +250,7 @@ def generateRandDataDict(numImp = 5, numOut = 50, diagSens = 0.90,
     # Generate testing data    
     testingDataList = []
     if dataType == 'Tracked':
-        random.seed(22)
+        #random.seed(22)
         for currSamp in range(numSamples):
             currOutlet = random.sample(outNames,1)[0]
             currImporter = random.choices(impNames,weights=transMat[outNames.index(currOutlet)],k=1)[0]
@@ -260,7 +264,7 @@ def generateRandDataDict(numImp = 5, numOut = 50, diagSens = 0.90,
                 result = np.random.binomial(1,p=1-diagSpec)
             testingDataList.append([currOutlet,currImporter,result])
     elif dataType == 'Untracked':
-        random.seed(24)
+        #random.seed(24)
         for currSamp in range(numSamples):
             currOutlet = random.sample(outNames,1)[0]
             currImporter = random.choices(impNames,weights=transMat[outNames.index(currOutlet)],k=1)[0]
@@ -303,6 +307,9 @@ def scorePostSamplesIntervals(logistigateDict):
     numInInt90 = 0
     numInInt95 = 0
     numInInt99 = 0
+    gnLoss_90 = 0 # Gneiting loss
+    gnLoss_95 = 0
+    gnLoss_99 = 0
     for entityInd in range(len(trueRates)):
         currInt90 = [np.quantile(samples[:,entityInd],0.05),
                      np.quantile(samples[:,entityInd],0.95)]
@@ -313,13 +320,26 @@ def scorePostSamplesIntervals(logistigateDict):
         currTR = trueRates[entityInd]
         if currTR >= currInt90[0] and currTR <= currInt90[1]:
             numInInt90 += 1
+            gnLoss_90 += (currInt90[1]-currInt90[0])
+        else:
+            gnLoss_90 += (currInt90[1]-currInt90[0]) + (2/0.1)*\
+                         min(np.abs(currTR-currInt90[1]),np.abs(currTR-currInt90[0]))
         if currTR >= currInt95[0] and currTR <= currInt95[1]:
             numInInt95 += 1
+            gnLoss_95 += (currInt95[1]-currInt95[0])
+        else:
+            gnLoss_95 += (currInt95[1]-currInt95[0]) + (2/0.1)*\
+                         min(np.abs(currTR-currInt95[1]),np.abs(currTR-currInt95[0]))
         if currTR >= currInt99[0] and currTR <= currInt99[1]:
             numInInt99 += 1
-    
+            gnLoss_99 += (currInt99[1]-currInt99[0])
+        else:
+            gnLoss_99 += (currInt99[1]-currInt99[0]) + (2/0.1)*\
+                         min(np.abs(currTR-currInt99[1]),np.abs(currTR-currInt99[0]))
+            
     logistigateDict.update({'numInInt90': numInInt90, 'numInInt95': numInInt95,
-                            'numInInt99': numInInt99})
+                            'numInInt99': numInInt99, 'gnLoss_90': gnLoss_90,
+                            'gnLoss_95': gnLoss_95, 'gnLoss_99': gnLoss_99})
     
     return logistigateDict
         
