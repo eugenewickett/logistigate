@@ -411,6 +411,8 @@ def GeneratePostSamples(dataTblDict):
                        Untracked_LogPost_Grad(beta,N,Y,sens,spec,transMat,prior) 
         
         samples, lnprob, epsilon = adjnuts.nuts6(TargetForNUTS,M,Madapt,beta0,delta)
+        
+        dataTblDict.update({'acc_rate':'NA'}) # FIX LATER
     # Run Langevin MC
     elif MCMCdict['MCMCtype'] == 'Langevin':
         prior = dataTblDict['prior']
@@ -436,6 +438,9 @@ def GeneratePostSamples(dataTblDict):
         # Call LangevinMC
         samplerDict = langevinMC.sampler(TargetForLMC,LMCoptions)
         samples = samplerDict['theta']
+        
+        dataTblDict.update({'acc_rate':'NA'}) # FIX LATER
+        
     # Run Metropolis-Hastings
     elif MCMCdict['MCMCtype'] == 'MetropolisHastings':
         prior = dataTblDict['prior']
@@ -465,6 +470,7 @@ def GeneratePostSamples(dataTblDict):
         # Call Metropolis-Hastings
         samplerDict = mh.sampler(TargetForMH,MHoptions)
         print(samplerDict['acc_rate'])
+        dataTblDict.update({'acc_rate':samplerDict['acc_rate']})
         samples = samplerDict['theta']
     
     #Transform samples back

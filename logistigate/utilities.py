@@ -182,7 +182,7 @@ def GetVectorForms(dataTblDict):
 
 def generateRandDataDict(numImp = 5, numOut = 50, diagSens = 0.90,
                          diagSpec = 0.99, numSamples = 50 * 20, 
-                         dataType = 'Tracked'):
+                         dataType = 'Tracked', randSeed = -1):
     '''
     Randomly generates an example input data dicionary for the entered inputs.
     SFP rates are generated according to a beta(2,9) distribution, while
@@ -224,13 +224,15 @@ def generateRandDataDict(numImp = 5, numOut = 50, diagSens = 0.90,
     
     # Generate true SFP rates
     trueRates = np.zeros(numImp+numOut) #importers first, outlets second
-    #random.seed(55)
+    if randSeed >= 0:
+        random.seed(randSeed)
     trueRates[:numImp] = [random.betavariate(2,9) for i in range(numImp)]  
     trueRates[numImp:] = [random.betavariate(2,9) for i in range(numOut)]
     
     # Generate random transition matrix
     transMat = np.zeros(shape=(numOut,numImp))
-    #random.seed(59)
+    if randSeed >= 0:
+        random.seed(randSeed+1)
     for outInd in range(numOut):        
         rowRands = [random.paretovariate(1.1) for i in range(numImp)]
         if numImp > 10: #Only keep 10 randomly chosen importers, if numImp > 10
@@ -250,7 +252,8 @@ def generateRandDataDict(numImp = 5, numOut = 50, diagSens = 0.90,
     # Generate testing data    
     testingDataList = []
     if dataType == 'Tracked':
-        #random.seed(22)
+        if randSeed >= 0:
+            random.seed(randSeed+2)
         for currSamp in range(numSamples):
             currOutlet = random.sample(outNames,1)[0]
             currImporter = random.choices(impNames,weights=transMat[outNames.index(currOutlet)],k=1)[0]
@@ -264,7 +267,8 @@ def generateRandDataDict(numImp = 5, numOut = 50, diagSens = 0.90,
                 result = np.random.binomial(1,p=1-diagSpec)
             testingDataList.append([currOutlet,currImporter,result])
     elif dataType == 'Untracked':
-        #random.seed(24)
+        if randSeed >= 0:
+            random.seed(randSeed+3)
         for currSamp in range(numSamples):
             currOutlet = random.sample(outNames,1)[0]
             currImporter = random.choices(impNames,weights=transMat[outNames.index(currOutlet)],k=1)[0]
@@ -369,7 +373,7 @@ def plotPostSamples(logistigateDict):
     ax.set_xlabel('Aberration rate',fontsize=14)
     ax.set_ylabel('Posterior distribution frequency',fontsize=14)
     for i in range(numImp):
-        plt.hist(logistigateDict['postSamples'][:,i])
+        plt.hist(logistigateDict['postSamples'][:,i],alpha=0.3)
     
     fig = plt.figure()
     ax = fig.add_axes([0,0,2,1])
@@ -377,7 +381,7 @@ def plotPostSamples(logistigateDict):
     ax.set_xlabel('Aberration rate',fontsize=14)
     ax.set_ylabel('Posterior distribution frequency',fontsize=14)
     for i in range(numOut):
-        plt.hist(logistigateDict['postSamples'][:,numImp+i])
+        plt.hist(logistigateDict['postSamples'][:,numImp+i],alpha=0.3)
     
     return
 
