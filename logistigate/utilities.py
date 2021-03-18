@@ -222,7 +222,7 @@ def generateRandDataDict(numImp = 5, numOut = 50, diagSens = 0.90,
     impNames = ['Importer ' + str(i+1) for i in range(numImp)]
     outNames = ['Outlet ' + str(i+1) for i in range(numOut)]
     
-    # Generate true SFP rates
+    # Generate random true SFP rates
     trueRates = np.zeros(numImp+numOut) #importers first, outlets second
     if randSeed >= 0:
         random.seed(randSeed)
