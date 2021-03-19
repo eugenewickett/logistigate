@@ -29,8 +29,8 @@ Creators:
 
 Industrial Engineering & Management Sciences, Northwestern University
 """
-import methods #logistigate.methods as methods
-import utilities as util #logistigate.utilities as util
+import logistigate.methods as methods
+import logistigate.utilities as util
 
 def runLogistigate(dataTblDict):
     '''
