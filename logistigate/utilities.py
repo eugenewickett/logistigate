@@ -1,5 +1,5 @@
 """
-Stores utilities for use with logistigate.py and methods.py
+Stores utilities for use with lg.py and methods.py
 """
 import csv
 import numpy as np
@@ -7,17 +7,18 @@ import random
 from tabulate import tabulate
 import matplotlib.pyplot as plt
 
-def TestResultsFileToTable(testDataFile, transitionMatrixFile=''):
-    '''
+
+def testresultsfiletotable(testDataFile, transitionMatrixFile=''):
+    """
     Takes a CSV file name as input and returns a usable Python dictionary of
-    testing results, in addition to lists of the outlet names and importer names, 
+    testing results, in addition to lists of the outlet names and importer names,
     depending on whether tracked or untracked data was entered.
-    
+
     INPUTS
     ------
     testDataFile: CSV file name string
         CSV file must be located within the current working directory when
-        TestResultsFileToTable() is called. There should not be a header row.
+        testresultsfiletotable() is called. There should not be a header row.
         Each row of the file should signify a single sample point.
         For tracked data, each row should have three columns, as follows:
             column 1: string; Name of outlet/lower echelon entity
@@ -29,14 +30,14 @@ def TestResultsFileToTable(testDataFile, transitionMatrixFile=''):
     transitionMatrixFile: CSV file name string
         If using tracked data, leave transitionMatrixFile=''.
         CSV file must be located within the current working directory when
-        TestResultsFileToTable() is called. Columns and rows should be named,
+        testresultsfiletotable() is called. Columns and rows should be named,
         with rows correspodning to the outlets (lower echelon), and columns
         corresponding to the importers (upper echelon). It will be checked
         that no entity occurring in testDataFile is not accounted for in
         transitionMatrixFile. Each outlet's row should correspond to the
         likelihood of procurement from the corresponding importer, and should
         sum to 1. No negative values are permitted.
-        
+
     OUTPUTS
     -------
     Returns dataTblDict with the following keys:
@@ -47,87 +48,86 @@ def TestResultsFileToTable(testDataFile, transitionMatrixFile=''):
         transMat: Numpy matrix of the transition like
         outletNames: Sorted list of unique outlet names
         importerNames: Sorted list of unique importer names
-    '''
-    
+    """
+
     dataTblDict = {}
-    dataTbl = [] #Initialize list for raw data
+    dataTbl = []  # Initialize list for raw data
     try:
         with open(testDataFile, newline='') as file:
             reader = csv.reader(file)
             for row in reader:
-                row[-1] = int(row[-1]) #Convert results to integers
+                row[-1] = int(row[-1])  # Convert results to integers
                 dataTbl.append(row)
     except FileNotFoundError:
-        print('Unable to locate file '+str(testDataFile)+' in the current directory.'+\
+        print('Unable to locate file ' + str(testDataFile) + ' in the current directory.' + \
               ' Make sure the directory is set to the location of the CSV file.')
         return
     except ValueError:
-        print('There seems to be something wrong with your data. Check that'+\
-              ' your CSV file is correctly formatted, with each row having'+\
-              ' entries [OUTLETNAME,IMPORTERNAME,TESTRESULT], and that the'+\
+        print('There seems to be something wrong with your data. Check that' + \
+              ' your CSV file is correctly formatted, with each row having' + \
+              ' entries [OUTLETNAME,IMPORTERNAME,TESTRESULT], and that the' + \
               ' test results are all either 0 or 1.')
         return
-    
+
     # Grab list of unique outlet and importer names
     outletNames = []
     importerNames = []
     for row in dataTbl:
         if row[0] not in outletNames:
             outletNames.append(row[0])
-        if transitionMatrixFile=='':
+        if transitionMatrixFile == '':
             if row[1] not in importerNames:
                 importerNames.append(row[1])
     outletNames.sort()
     importerNames.sort()
-    
-    
-    if not transitionMatrixFile=='':
+
+    if not transitionMatrixFile == '':
         dataTblDict['type'] = 'Untracked'
         try:
             with open(transitionMatrixFile, newline='') as file:
                 reader = csv.reader(file)
-                counter=0
+                counter = 0
                 for row in reader:
                     if counter == 0:
                         importerNames = row[1:]
-                        transitionMatrix = np.zeros(shape=(len(outletNames),len(importerNames)))
+                        transitionMatrix = np.zeros(shape=(len(outletNames), len(importerNames)))
                     else:
-                        transitionMatrix[counter-1]= np.array([float(row[i]) \
-                                        for i in range(1,len(importerNames)+1)])
+                        transitionMatrix[counter - 1] = np.array([float(row[i]) \
+                                                                  for i in range(1, len(importerNames) + 1)])
                     counter += 1
             dataTblDict['transMat'] = transitionMatrix
         except FileNotFoundError:
-            print('Unable to locate file '+str(testDataFile)+' in the current directory.'+\
+            print('Unable to locate file ' + str(testDataFile) + ' in the current directory.' + \
                   ' Make sure the directory is set to the location of the CSV file.')
             return
         except ValueError:
-            print('There seems to be something wrong with your transition matrix. Check that'+\
-                  ' your CSV file is correctly formatted, with only values between'+\
+            print('There seems to be something wrong with your transition matrix. Check that' + \
+                  ' your CSV file is correctly formatted, with only values between' + \
                   ' 0 and 1 included.')
             return
     else:
         dataTblDict['type'] = 'Tracked'
-        dataTblDict['transMat'] = np.zeros(shape=(len(outletNames),len(importerNames)))
-    
-    dataTblDict['dataTbl'] = dataTbl    
+        dataTblDict['transMat'] = np.zeros(shape=(len(outletNames), len(importerNames)))
+
+    dataTblDict['dataTbl'] = dataTbl
     dataTblDict['outletNames'] = outletNames
     dataTblDict['importerNames'] = importerNames
-    
+
     # Generate necessary Tracked/Untracked matrices necessary for different methods
     dataTblDict = GetVectorForms(dataTblDict)
-       
+
     return dataTblDict
 
 
 def GetVectorForms(dataTblDict):
-    '''
+    """
     Takes a dictionary that has a list of testing results and appends the N,Y
     matrices/vectors necessary for the Tracked/Untracked methods.
     For Tracked, element (i,j) of N/Y signifies the number of samples/aberrations
     collected from each (outlet i, importer j) track.
     For Untracked, element i of N/Y signifies the number of samples/aberrations
     collected from each outlet i.
-    
+
     INPUTS
     ------
     Takes dataTblDict with the following keys:
@@ -142,7 +142,7 @@ def GetVectorForms(dataTblDict):
             Element 1: string; Name of outlet/lower echelon entity
             Element 2: integer; 0 or 1, where 1 signifies aberration detection
     outletNames/importerNames: list of strings
-    
+
     OUTPUTS
     -------
     Appends the following keys to dataTblDict:
@@ -152,13 +152,13 @@ def GetVectorForms(dataTblDict):
         Y: Numpy matrix/vector where element (i,j)/i corresponds to the number
            of test positives from the (outlet i, importer j) path/from outlet i,
            for Tracked/Untracked
-    '''
-    if not all(key in dataTblDict for key in ['type','dataTbl','outletNames',
+    """
+    if not all(key in dataTblDict for key in ['type', 'dataTbl', 'outletNames',
                                               'importerNames']):
         print('The input dictionary does not contain all required information.' +
               ' Please check and try again.')
         return {}
-    
+
     outletNames = dataTblDict['outletNames']
     importerNames = dataTblDict['importerNames']
     dataTbl = dataTblDict['dataTbl']
@@ -175,19 +175,20 @@ def GetVectorForms(dataTblDict):
         for row in dataTbl:
             N[outletNames.index(row[0])] += 1
             Y[outletNames.index(row[0])] += row[1]
-        
+
     dataTblDict.update({'N': N, 'Y': Y})
-    
+
     return dataTblDict
 
-def generateRandDataDict(numImp = 5, numOut = 50, diagSens = 0.90,
-                         diagSpec = 0.99, numSamples = 50 * 20, 
-                         dataType = 'Tracked', randSeed = -1):
-    '''
+
+def generateRandDataDict(numImp=5, numOut=50, diagSens=0.90,
+                         diagSpec=0.99, numSamples=50 * 20,
+                         dataType='Tracked', randSeed=-1):
+    """
     Randomly generates an example input data dicionary for the entered inputs.
     SFP rates are generated according to a beta(2,9) distribution, while
     transition rates are distributed according to a scaled expo(100) distribution.
-    
+
     INPUTS
     ------
     Takes the following arguments:
@@ -199,7 +200,7 @@ def generateRandDataDict(numImp = 5, numOut = 50, diagSens = 0.90,
             Total number of data points to generate
         dataType: string
             'Tracked' or 'Untracked'
-    
+
     OUTPUTS
     -------
     Returns dataTblDict dictionary with the following keys:
@@ -216,138 +217,138 @@ def generateRandDataDict(numImp = 5, numOut = 50, diagSens = 0.90,
             Matrix of transition probabilities between importers and outlets
         diagSens, diagSpec, type
             From inputs, where 'type' = 'dataType'
-    '''
+    """
     dataTblDict = {}
-    
-    impNames = ['Importer ' + str(i+1) for i in range(numImp)]
-    outNames = ['Outlet ' + str(i+1) for i in range(numOut)]
-    
+
+    impNames = ['Importer ' + str(i + 1) for i in range(numImp)]
+    outNames = ['Outlet ' + str(i + 1) for i in range(numOut)]
+
     # Generate random true SFP rates
-    trueRates = np.zeros(numImp+numOut) #importers first, outlets second
+    trueRates = np.zeros(numImp + numOut)  # importers first, outlets second
     if randSeed >= 0:
         random.seed(randSeed)
-    trueRates[:numImp] = [random.betavariate(2,9) for i in range(numImp)]  
-    trueRates[numImp:] = [random.betavariate(2,9) for i in range(numOut)]
-    
+    trueRates[:numImp] = [random.betavariate(2, 9) for i in range(numImp)]
+    trueRates[numImp:] = [random.betavariate(2, 9) for i in range(numOut)]
+
     # Generate random transition matrix
-    transMat = np.zeros(shape=(numOut,numImp))
+    transMat = np.zeros(shape=(numOut, numImp))
     if randSeed >= 0:
-        random.seed(randSeed+1)
-    for outInd in range(numOut):        
+        random.seed(randSeed + 1)
+    for outInd in range(numOut):
         rowRands = [random.paretovariate(1.1) for i in range(numImp)]
-        if numImp > 10: #Only keep 10 randomly chosen importers, if numImp > 10
-            rowRands[10:] = [0.0 for i in range(numImp-10)]
+        if numImp > 10:  # Only keep 10 randomly chosen importers, if numImp > 10
+            rowRands[10:] = [0.0 for i in range(numImp - 10)]
             random.shuffle(rowRands)
-            
+
         normalizedRands = [rowRands[i] / sum(rowRands) for i in range(numImp)]
-        #only keep transition probabilities above 2%
-        #normalizedRands = [normalizedRands[i] if normalizedRands[i]>0.02 else 0.0 for i in range(numImp)]
-        
-        #normalizedRands = [normalizedRands[i] / sum(normalizedRands) for i in range(numImp)]
-        transMat[outInd,:] = normalizedRands
-           
+        # only keep transition probabilities above 2%
+        # normalizedRands = [normalizedRands[i] if normalizedRands[i]>0.02 else 0.0 for i in range(numImp)]
+
+        # normalizedRands = [normalizedRands[i] / sum(normalizedRands) for i in range(numImp)]
+        transMat[outInd, :] = normalizedRands
+
     # np.linalg.det(transMat.T @ transMat) / numOut
     # 1.297 for n=50
-    
+
     # Generate testing data    
     testingDataList = []
     if dataType == 'Tracked':
         if randSeed >= 0:
-            random.seed(randSeed+2)
+            random.seed(randSeed + 2)
         for currSamp in range(numSamples):
-            currOutlet = random.sample(outNames,1)[0]
-            currImporter = random.choices(impNames,weights=transMat[outNames.index(currOutlet)],k=1)[0]
-            currOutRate = trueRates[numImp+outNames.index(currOutlet)]
+            currOutlet = random.sample(outNames, 1)[0]
+            currImporter = random.choices(impNames, weights=transMat[outNames.index(currOutlet)], k=1)[0]
+            currOutRate = trueRates[numImp + outNames.index(currOutlet)]
             currImpRate = trueRates[impNames.index(currImporter)]
-            realRate = currOutRate + currImpRate - currOutRate*currImpRate
-            realResult = np.random.binomial(1,p=realRate)
+            realRate = currOutRate + currImpRate - currOutRate * currImpRate
+            realResult = np.random.binomial(1, p=realRate)
             if realResult == 1:
-                result = np.random.binomial(1,p=diagSens)
+                result = np.random.binomial(1, p=diagSens)
             if realResult == 0:
-                result = np.random.binomial(1,p=1-diagSpec)
-            testingDataList.append([currOutlet,currImporter,result])
+                result = np.random.binomial(1, p=1 - diagSpec)
+            testingDataList.append([currOutlet, currImporter, result])
     elif dataType == 'Untracked':
         if randSeed >= 0:
-            random.seed(randSeed+3)
+            random.seed(randSeed + 3)
         for currSamp in range(numSamples):
-            currOutlet = random.sample(outNames,1)[0]
-            currImporter = random.choices(impNames,weights=transMat[outNames.index(currOutlet)],k=1)[0]
-            currOutRate = trueRates[numImp+outNames.index(currOutlet)]
+            currOutlet = random.sample(outNames, 1)[0]
+            currImporter = random.choices(impNames, weights=transMat[outNames.index(currOutlet)], k=1)[0]
+            currOutRate = trueRates[numImp + outNames.index(currOutlet)]
             currImpRate = trueRates[impNames.index(currImporter)]
-            realRate = currOutRate + currImpRate - currOutRate*currImpRate
-            realResult = np.random.binomial(1,p=realRate)
+            realRate = currOutRate + currImpRate - currOutRate * currImpRate
+            realResult = np.random.binomial(1, p=realRate)
             if realResult == 1:
-                result = np.random.binomial(1,p=diagSens)
+                result = np.random.binomial(1, p=diagSens)
             if realResult == 0:
-                result = np.random.binomial(1,p=1-diagSpec)
-            testingDataList.append([currOutlet,result])
-    
+                result = np.random.binomial(1, p=1 - diagSpec)
+            testingDataList.append([currOutlet, result])
+
     dataTblDict.update({'outletNames': outNames, 'importerNames': impNames,
                         'diagSens': 0.90, 'diagSpec': 0.99, 'type': dataType,
                         'dataTbl': testingDataList, 'transMat': transMat,
                         'trueRates': trueRates})
-    
+
     return dataTblDict
 
+
 def scorePostSamplesIntervals(logistigateDict):
-    '''
+    """
     Checks if posterior aberration rate sample intervals contain the underlying
-    generative aberration rates    
+    generative aberration rates
     INPUTS
     ------
     logistigateDict with the following keys:
         postSamples: List of posterior sample lists, with importer values entered first.
         trueRates:   List of true underlying poor-quality rates
-        
+
     OUTPUTS
     -------
     logistigateDict with the the following keys added:
         TRinInt_90, TRinInt_95, TRinInt_99: Number of true rates in the 90%,
                                             95%, and 99% intervals
-    '''
+    """
     trueRates = logistigateDict['trueRates']
     samples = logistigateDict['postSamples']
     # trueRates and samples need to be ordered with importers first
     numInInt90 = 0
     numInInt95 = 0
     numInInt99 = 0
-    gnLoss_90 = 0 # Gneiting loss
+    gnLoss_90 = 0  # Gneiting loss
     gnLoss_95 = 0
     gnLoss_99 = 0
     for entityInd in range(len(trueRates)):
-        currInt90 = [np.quantile(samples[:,entityInd],0.05),
-                     np.quantile(samples[:,entityInd],0.95)]
-        currInt95 = [np.quantile(samples[:,entityInd],0.025),
-                     np.quantile(samples[:,entityInd],0.975)]
-        currInt99 = [np.quantile(samples[:,entityInd],0.005),
-                     np.quantile(samples[:,entityInd],0.995)]
+        currInt90 = [np.quantile(samples[:, entityInd], 0.05),
+                     np.quantile(samples[:, entityInd], 0.95)]
+        currInt95 = [np.quantile(samples[:, entityInd], 0.025),
+                     np.quantile(samples[:, entityInd], 0.975)]
+        currInt99 = [np.quantile(samples[:, entityInd], 0.005),
+                     np.quantile(samples[:, entityInd], 0.995)]
         currTR = trueRates[entityInd]
         if currTR >= currInt90[0] and currTR <= currInt90[1]:
             numInInt90 += 1
-            gnLoss_90 += (currInt90[1]-currInt90[0])
+            gnLoss_90 += (currInt90[1] - currInt90[0])
         else:
-            gnLoss_90 += (currInt90[1]-currInt90[0]) + (2/0.1)*\
-                         min(np.abs(currTR-currInt90[1]),np.abs(currTR-currInt90[0]))
+            gnLoss_90 += (currInt90[1] - currInt90[0]) + (2 / 0.1) * \
+                         min(np.abs(currTR - currInt90[1]), np.abs(currTR - currInt90[0]))
         if currTR >= currInt95[0] and currTR <= currInt95[1]:
             numInInt95 += 1
-            gnLoss_95 += (currInt95[1]-currInt95[0])
+            gnLoss_95 += (currInt95[1] - currInt95[0])
         else:
-            gnLoss_95 += (currInt95[1]-currInt95[0]) + (2/0.1)*\
-                         min(np.abs(currTR-currInt95[1]),np.abs(currTR-currInt95[0]))
+            gnLoss_95 += (currInt95[1] - currInt95[0]) + (2 / 0.1) * \
+                         min(np.abs(currTR - currInt95[1]), np.abs(currTR - currInt95[0]))
         if currTR >= currInt99[0] and currTR <= currInt99[1]:
             numInInt99 += 1
-            gnLoss_99 += (currInt99[1]-currInt99[0])
+            gnLoss_99 += (currInt99[1] - currInt99[0])
         else:
-            gnLoss_99 += (currInt99[1]-currInt99[0]) + (2/0.1)*\
-                         min(np.abs(currTR-currInt99[1]),np.abs(currTR-currInt99[0]))
-            
+            gnLoss_99 += (currInt99[1] - currInt99[0]) + (2 / 0.1) * \
+                         min(np.abs(currTR - currInt99[1]), np.abs(currTR - currInt99[0]))
+
     logistigateDict.update({'numInInt90': numInInt90, 'numInInt95': numInInt95,
                             'numInInt99': numInInt99, 'gnLoss_90': gnLoss_90,
                             'gnLoss_95': gnLoss_95, 'gnLoss_99': gnLoss_99})
-    
+
     return logistigateDict
-        
-    
+
 
 def plotPostSamples(logistigateDict):
     '''
@@ -366,24 +367,29 @@ def plotPostSamples(logistigateDict):
     No values are returned
     '''
     numImp, numOut = logistigateDict['importerNum'], logistigateDict['outletNum']
-    
+
     fig = plt.figure()
-    ax = fig.add_axes([0,0,2,1])
-    ax.set_title('Importers',fontsize=18)
-    ax.set_xlabel('Aberration rate',fontsize=14)
-    ax.set_ylabel('Posterior distribution frequency',fontsize=14)
+    ax = fig.add_axes([0, 0, 2, 1])
+    ax.set_title('Importers', fontsize=18)
+    ax.set_xlabel('Aberration rate', fontsize=14)
+    ax.set_ylabel('Posterior distribution frequency', fontsize=14)
+    ax.set_xlim([0., 1.])
     for i in range(numImp):
-        plt.hist(logistigateDict['postSamples'][:,i],alpha=0.3)
-    
+        plt.hist(logistigateDict['postSamples'][:, i], alpha=0.3)
+    plt.show()
+
     fig = plt.figure()
-    ax = fig.add_axes([0,0,2,1])
-    ax.set_title('Outlets',fontsize=18)
-    ax.set_xlabel('Aberration rate',fontsize=14)
-    ax.set_ylabel('Posterior distribution frequency',fontsize=14)
+    ax = fig.add_axes([0, 0, 2, 1])
+    ax.set_title('Outlets', fontsize=18)
+    ax.set_xlabel('Aberration rate', fontsize=14)
+    ax.set_ylabel('Posterior distribution frequency', fontsize=14)
+    ax.set_xlim([0.,1.])
     for i in range(numOut):
-        plt.hist(logistigateDict['postSamples'][:,numImp+i],alpha=0.3)
-    
+        plt.hist(logistigateDict['postSamples'][:, numImp + i], alpha=0.3)
+    plt.show()
+
     return
+
 
 def printEstimates(logistigateDict):
     '''
@@ -403,7 +409,7 @@ def printEstimates(logistigateDict):
     '''
     outNames, impNames = logistigateDict['outletNames'], logistigateDict['importerNames']
     estDict = logistigateDict['estDict']
-    
+
     impMLE = np.ndarray.tolist(estDict['impEst'])
     imp99lower = np.ndarray.tolist(estDict['99lower_imp'])
     imp95lower = np.ndarray.tolist(estDict['95lower_imp'])
@@ -411,12 +417,12 @@ def printEstimates(logistigateDict):
     imp99upper = np.ndarray.tolist(estDict['99upper_imp'])
     imp95upper = np.ndarray.tolist(estDict['95upper_imp'])
     imp90upper = np.ndarray.tolist(estDict['90upper_imp'])
-    impReport = [[impNames[i]]+["{0:.1%}".format(impMLE[i])] +
+    impReport = [[impNames[i]] + ["{0:.1%}".format(impMLE[i])] +
                  ["{0:.1%}".format(imp99lower[i])] + ["{0:.1%}".format(imp95lower[i])] +
                  ["{0:.1%}".format(imp90lower[i])] + ["{0:.1%}".format(imp90upper[i])] +
                  ["{0:.1%}".format(imp95upper[i])] + ["{0:.1%}".format(imp99upper[i])]
                  for i in range(len(impMLE))]
-    
+
     outMLE = np.ndarray.tolist(estDict['outEst'])
     out99lower = np.ndarray.tolist(estDict['99lower_out'])
     out95lower = np.ndarray.tolist(estDict['95lower_out'])
@@ -424,31 +430,25 @@ def printEstimates(logistigateDict):
     out99upper = np.ndarray.tolist(estDict['99upper_out'])
     out95upper = np.ndarray.tolist(estDict['95upper_out'])
     out90upper = np.ndarray.tolist(estDict['90upper_out'])
-    outReport = [[outNames[i]]+["{0:.1%}".format(outMLE[i])] +
+    outReport = [[outNames[i]] + ["{0:.1%}".format(outMLE[i])] +
                  ["{0:.1%}".format(out99lower[i])] + ["{0:.1%}".format(out95lower[i])] +
                  ["{0:.1%}".format(out90lower[i])] + ["{0:.1%}".format(out90upper[i])] +
                  ["{0:.1%}".format(out95upper[i])] + ["{0:.1%}".format(out99upper[i])]
                  for i in range(len(outMLE))]
-    
-    print('*'*120)
+
+    print('*' * 120)
     print('ESTIMATE DICTIONARY VALUES')
-    print('*'*120)
-    print(tabulate(impReport,headers=['Importer Name','Max. Lklhd. Est.',
-                                      '99% Lower', '95% Lower', '90% Lower',
-                                      '90% Upper', '95% Upper', '99% Upper']))
-    print('*'*120)
-    print('*'*120)
-    print(tabulate(outReport,headers=['Outlet Name','Max. Lklhd. Est.',
-                                      '99% Lower', '95% Lower', '90% Lower',
-                                      '90% Upper', '95% Upper', '99% Upper']))
-    
+    print('*' * 120)
+    print(tabulate(impReport, headers=['Importer Name', 'Max. Lklhd. Est.',
+                                       '99% Lower', '95% Lower', '90% Lower',
+                                       '90% Upper', '95% Upper', '99% Upper']))
+    print('*' * 120)
+    print('*' * 120)
+    print(tabulate(outReport, headers=['Outlet Name', 'Max. Lklhd. Est.',
+                                       '99% Lower', '95% Lower', '90% Lower',
+                                       '90% Upper', '95% Upper', '99% Upper']))
+
     return
-
-
-
-
-
-
 
 
 #### Necessary NUTS functions ####
@@ -510,6 +510,7 @@ Carlo", Matthew D. Hoffman & Andrew Gelman
 
 from numpy import log, exp, sqrt
 
+
 def leapfrog(theta, r, grad, epsilon, f):
     """ Perfom a leapfrog jump in the Hamiltonian space
     INPUTS
@@ -545,15 +546,14 @@ def leapfrog(theta, r, grad, epsilon, f):
     rprime = r + 0.5 * epsilon * grad
     # make new step in theta
     thetaprime = theta + epsilon * rprime
-    #compute new gradient
+    # compute new gradient
     logpprime, gradprime = f(thetaprime)
     # make half step in r again
     rprime = rprime + 0.5 * epsilon * gradprime
     return thetaprime, rprime, gradprime, logpprime
 
 
-
-def find_reasonable_epsilon(theta0, grad0, logp0, f, epsilonLB = 0.005, epsilonUB = 0.5):
+def find_reasonable_epsilon(theta0, grad0, logp0, f, epsilonLB=0.005, epsilonUB=0.5):
     """ Heuristic for choosing an initial value of epsilon """
     epsilon = (1)
     r0 = np.random.normal(0., 1., len(theta0))
@@ -568,10 +568,10 @@ def find_reasonable_epsilon(theta0, grad0, logp0, f, epsilonLB = 0.005, epsilonU
         k *= 0.5
         _, rprime, _, logpprime = leapfrog(theta0, r0, grad0, epsilon * k, f)
 
-    epsilon = np.minimum(np.maximum(0.5 * k * epsilon, 2.*epsilonLB),epsilonUB/(2.))
+    epsilon = np.minimum(np.maximum(0.5 * k * epsilon, 2. * epsilonLB), epsilonUB / (2.))
     # acceptprob = np.exp(logpprime - logp0 - 0.5 * (np.dot(rprime, rprime.T) - np.dot(r0, r0.T)))
     # a = 2. * float((acceptprob > 0.5)) - 1.
-    logacceptprob = logpprime-logp0-0.5*(np.dot(rprime, rprime)-np.dot(r0,r0))
+    logacceptprob = logpprime - logp0 - 0.5 * (np.dot(rprime, rprime) - np.dot(r0, r0))
     a = 1. if logacceptprob > np.log(0.5) else -1.
     # Keep moving epsilon in that direction until acceptprob crosses 0.5.
     # while ( (acceptprob ** a) > (2. ** (-a))):
@@ -581,9 +581,9 @@ def find_reasonable_epsilon(theta0, grad0, logp0, f, epsilonLB = 0.005, epsilonU
             break
         _, rprime, _, logpprime = leapfrog(theta0, r0, grad0, epsilon, f)
         # acceptprob = np.exp(logpprime - logp0 - 0.5 * ( np.dot(rprime, rprime.T) - np.dot(r0, r0.T)))
-        logacceptprob = logpprime-logp0-0.5*(np.dot(rprime, rprime)-np.dot(r0,r0))
+        logacceptprob = logpprime - logp0 - 0.5 * (np.dot(rprime, rprime) - np.dot(r0, r0))
 
-    #print("find_reasonable_epsilon=", epsilon) EOW commented out
+    # print("find_reasonable_epsilon=", epsilon) EOW commented out
 
     return epsilon
 
@@ -628,17 +628,20 @@ def build_tree(theta, r, grad, logu, v, j, epsilon, f, joint0):
         gradplus = gradprime[:]
         # Compute the acceptance probability.
         alphaprime = min(1., np.exp(joint - joint0))
-        #alphaprime = min(1., np.exp(logpprime - 0.5 * np.dot(rprime, rprime.T) - joint0))
+        # alphaprime = min(1., np.exp(logpprime - 0.5 * np.dot(rprime, rprime.T) - joint0))
         nalphaprime = 1
     else:
         # Recursion: Implicitly build the height j-1 left and right subtrees.
-        thetaminus, rminus, gradminus, thetaplus, rplus, gradplus, thetaprime, gradprime, logpprime, nprime, sprime, alphaprime, nalphaprime = build_tree(theta, r, grad, logu, v, j - 1, epsilon, f, joint0)
+        thetaminus, rminus, gradminus, thetaplus, rplus, gradplus, thetaprime, gradprime, logpprime, nprime, sprime, alphaprime, nalphaprime = build_tree(
+            theta, r, grad, logu, v, j - 1, epsilon, f, joint0)
         # No need to keep going if the stopping criteria were met in the first subtree.
         if (sprime == 1):
             if (v == -1):
-                thetaminus, rminus, gradminus, _, _, _, thetaprime2, gradprime2, logpprime2, nprime2, sprime2, alphaprime2, nalphaprime2 = build_tree(thetaminus, rminus, gradminus, logu, v, j - 1, epsilon, f, joint0)
+                thetaminus, rminus, gradminus, _, _, _, thetaprime2, gradprime2, logpprime2, nprime2, sprime2, alphaprime2, nalphaprime2 = build_tree(
+                    thetaminus, rminus, gradminus, logu, v, j - 1, epsilon, f, joint0)
             else:
-                _, _, _, thetaplus, rplus, gradplus, thetaprime2, gradprime2, logpprime2, nprime2, sprime2, alphaprime2, nalphaprime2 = build_tree(thetaplus, rplus, gradplus, logu, v, j - 1, epsilon, f, joint0)
+                _, _, _, thetaplus, rplus, gradplus, thetaprime2, gradprime2, logpprime2, nprime2, sprime2, alphaprime2, nalphaprime2 = build_tree(
+                    thetaplus, rplus, gradplus, logu, v, j - 1, epsilon, f, joint0)
             # Choose which subtree to propagate a sample up from.
             if (np.random.uniform() < (float(nprime2) / max(float(int(nprime) + int(nprime2)), 1.))):
                 thetaprime = thetaprime2[:]
@@ -698,7 +701,7 @@ def nuts6(f, M, Madapt, theta0, delta=0.25):
     M x D matrix of samples generated by NUTS.
     note: samples[0, :] = theta0
     """
-        
+
     if len(np.shape(theta0)) > 1:
         raise ValueError('theta0 is expected to be a 1-D array')
 
@@ -727,7 +730,7 @@ def nuts6(f, M, Madapt, theta0, delta=0.25):
         # Resample momenta.
         r0 = np.random.normal(0, 1, D)
 
-        #joint lnp of theta and momentum r
+        # joint lnp of theta and momentum r
         joint = logp - 0.5 * np.dot(r0, r0.T)
 
         # Resample u ~ uniform([0, exp(joint)]).
@@ -749,16 +752,18 @@ def nuts6(f, M, Madapt, theta0, delta=0.25):
         j = 0  # initial heigth j = 0
         n = 1  # Initially the only valid point is the initial point.
         s = 1  # Main loop: will keep going until s == 0.
-        
+
         while (s == 1):
             # Choose a direction. -1 = backwards, 1 = forwards.
             v = int(2 * (np.random.uniform() < 0.5) - 1)
 
             # Double the size of the tree.
             if (v == -1):
-                thetaminus, rminus, gradminus, _, _, _, thetaprime, gradprime, logpprime, nprime, sprime, alpha, nalpha = build_tree(thetaminus, rminus, gradminus, logu, v, j, epsilon, f, joint)
+                thetaminus, rminus, gradminus, _, _, _, thetaprime, gradprime, logpprime, nprime, sprime, alpha, nalpha = build_tree(
+                    thetaminus, rminus, gradminus, logu, v, j, epsilon, f, joint)
             else:
-                _, _, _, thetaplus, rplus, gradplus, thetaprime, gradprime, logpprime, nprime, sprime, alpha, nalpha = build_tree(thetaplus, rplus, gradplus, logu, v, j, epsilon, f, joint)
+                _, _, _, thetaplus, rplus, gradplus, thetaprime, gradprime, logpprime, nprime, sprime, alpha, nalpha = build_tree(
+                    thetaplus, rplus, gradplus, logu, v, j, epsilon, f, joint)
 
             # Use Metropolis-Hastings to decide whether or not to move to a
             # point from the half-tree we just generated.
@@ -770,10 +775,10 @@ def nuts6(f, M, Madapt, theta0, delta=0.25):
                 grad = gradprime[:]
             # Update number of valid points we've seen.
             n += nprime
-            
+
             # Decide if it's time to stop.
-            s = sprime and stop_criterion(thetaminus, thetaplus, rminus, rplus) and (n < 50) # (n<50) EOW EDIT
-                
+            s = sprime and stop_criterion(thetaminus, thetaplus, rminus, rplus) and (n < 50)  # (n<50) EOW EDIT
+
             # Increment depth.
             j += 1
 
@@ -782,12 +787,12 @@ def nuts6(f, M, Madapt, theta0, delta=0.25):
         Hbar = (1. - eta) * Hbar + eta * (delta - alpha / float(nalpha))
         if (m <= Madapt):
             epsilon = exp(mu - sqrt(m) / gamma * Hbar)
-            epsilon = np.minimum(np.maximum(epsilon, 0.001),1)
+            epsilon = np.minimum(np.maximum(epsilon, 0.001), 1)
             eta = m ** -kappa
             epsilonbar = exp((1. - eta) * log(epsilonbar) + eta * log(epsilon))
         else:
             epsilon = epsilonbar
-                
+
     samples = samples[Madapt:, :]
     lnprob = lnprob[Madapt:]
     return samples, lnprob, epsilon

@@ -14,7 +14,7 @@ methods.py contains the following secondary functions and classes:
     prior_laplace, prior_normal classes
     
 utilities.py contains the following secondary functions:
-    TestResultsFileToTable()
+    testresultsfiletotable()
     GetVectorForms()
     plotPostSamples()
     printEstimates()
@@ -29,23 +29,25 @@ Creators:
 
 Industrial Engineering & Management Sciences, Northwestern University
 """
-import logistigate.methods as methods
-import logistigate.utilities as util
+import methods
+import utilities as util # THESE IMPORTS ARE FOR DEVELOPING NEW CODE, ETC.
+#import logistigate.methods as methods
+#import logistigate.utilities as util
 
-def runLogistigate(dataTblDict):
-    '''
+def runlogistigate(dataTblDict):
+    """
     This function reads a data input dictionary and returns an estimation
     dictionary containing 90%,95%, and 99% confidence intervals for the
     aberration proportions at the importer and outlet echelons, in addition to
     posterior samples of the aberration rates.
-        
+
     INPUTS
     ------
     dataTblDict should be a dictionary with the following keys:
         type: string
             'Tracked' or 'Untracked'
-        dataTbl: list            
-            Each row of the list should signify a single sample point. 
+        dataTbl: list
+            Each row of the list should signify a single sample point.
             For Tracked, each row should have three entries:
                 column 1: string; Name of outlet/lower echelon entity
                 column 2: string; Name of importer/upper echelon entity
@@ -67,7 +69,7 @@ def runLogistigate(dataTblDict):
             posterior samples; requies a key 'MCMCType' that is one of
             'Metro-Hastings', 'Langevin', 'NUTS', or 'STAN'
         Madapt,delta: Parameters for use with NUTS
-    
+
     OUTPUTS
     -------
     Returns logistigateDict with the following keys:
@@ -80,16 +82,16 @@ def runLogistigate(dataTblDict):
                 90upper_imp, 90lower_imp, 95upper_imp, 95lower_imp,
                 99upper_imp, 99lower_imp, 90upper_out, 90lower_out,
                 95upper_out, 95lower_out, 99upper_out, 99lower_out:
-                            Upper and lower values for the 90%, 95%, and 99% 
+                            Upper and lower values for the 90%, 95%, and 99%
                             intervals on importer and outlet aberration rates
-            
-        postSamples: List of posterior samples, generated using the NUTS from 
-                     Hoffman & Gelman, 2011   
-    '''
+
+        postSamples: List of posterior samples, generated using the desired
+        sampler
+    """
     # Check that all necessary keys are present
-    if not all(key in dataTblDict for key in ['type','dataTbl','transMat',
-                                              'outletNames','importerNames',
-                                              'diagSens','diagSpec',
+    if not all(key in dataTblDict for key in ['type', 'dataTbl', 'transMat',
+                                              'outletNames', 'importerNames',
+                                              'diagSens', 'diagSpec',
                                               'numPostSamples']):
         print('The input dictionary does not contain all required information.' +
               ' Please check and try again.')
@@ -99,6 +101,11 @@ def runLogistigate(dataTblDict):
     dataTblDict = util.GetVectorForms(dataTblDict) # Add N,Y matrices
     dataTblDict = methods.GeneratePostSamples(dataTblDict) # Generate and add posterior samples
     estDict = methods.FormEstimates(dataTblDict) # Form point estimates and CIs
+
+    if not 'trueRates' in dataTblDict:
+        dataTblDict.update({'trueRates':[]})
+    if not 'acc_rate' in dataTblDict:
+        dataTblDict.update({'acc_rate':-1.0})
     
     logistigateDict.update({'type':dataTblDict['type'],
                      'dataTbl':dataTblDict['dataTbl'],
@@ -115,16 +122,17 @@ def runLogistigate(dataTblDict):
                      'prior':dataTblDict['prior'],
                      'postSamplesGenTime': dataTblDict['postSamplesGenTime'],
                      'trueRates': dataTblDict['trueRates'], # NEW ARGUMENT THAT ISNT IN OLD LG VERSION
-                     'acc_rate':dataTblDict['acc_rate']})
+                     'acc_rate':dataTblDict['acc_rate']}) # NEW ARGUMENT THAT ISNT IN OLD LG VERSION
     return logistigateDict
 
-def MCMCtest_LMC_issue():
-    '''
+
+def mcmctest_lmc_issue():
+    """
     Sometimes LMC works well and sometimes it doesn't, why might this be?
     -- When running LMC with the same data set ~10 times, sometimes its fine,
         and sometimes its completely off
-    
-    ''' 
+
+    """
     dataDict_1 = util.generateRandDataDict(numImp=5, numOut=50, numSamples=50*20,
                                            randSeed = 9) # CHANGE SEED HERE FOR SYSTEM AND TESTING DATA
     numEntities = len(dataDict_1['trueRates'])
@@ -135,7 +143,7 @@ def MCMCtest_LMC_issue():
                         'prior': methods.prior_normal(),
                         'MCMCdict': MCMCdict_NUTS})
     
-    lgDict_1_NUTS = runLogistigate(dataDict_1_NUTS)
+    lgDict_1_NUTS = runlogistigate(dataDict_1_NUTS)
     lgDict_1_NUTS = util.scorePostSamplesIntervals(lgDict_1_NUTS) 
         
     import numpy as np
@@ -147,7 +155,7 @@ def MCMCtest_LMC_issue():
         dataDict_1_LMC.update({'numPostSamples': 500,
                             'prior': methods.prior_normal(),
                             'MCMCdict': MCMCdict_LMC})
-        lgDict_1_LMC = runLogistigate(dataDict_1_LMC)
+        lgDict_1_LMC = runlogistigate(dataDict_1_LMC)
         lgDict_1_LMC = util.scorePostSamplesIntervals(lgDict_1_LMC)
         # Look at 95% CI coverage
         print(lgDict_1_NUTS['numInInt95']/numEntities)
@@ -155,18 +163,18 @@ def MCMCtest_LMC_issue():
         util.plotPostSamples(lgDict_1_LMC)
         print('******TESTING ITERATION ' + str(iteration) + '******')
         print('TRUE RATES:      '+str([round(dataDict_1['trueRates'][i],3) for i in range(5)]))
-        print('NUTS MEAN RATES: '+str([round(np.mean(lgDict_1_NUTS['postSamples'][:,i]),3) for i in range(5)]))
-        print('LMC MEAN RATES:  '+str([round(np.mean(lgDict_1_LMC['postSamples'][:,i]),3) for i in range(5)]))
+        print('NUTS MEAN RATES: '+str([round(np.mean(lgDict_1_NUTS['postSamples'][:, i]), 3) for i in range(5)]))
+        print('LMC MEAN RATES:  '+str([round(np.mean(lgDict_1_LMC['postSamples'][:, i]), 3) for i in range(5)]))
     
     util.plotPostSamples(lgDict_1_NUTS)
     
     return
 
 def MCMCtest_5_50():
-    '''
+    """
     Uses some randomly generated supply chains to test different MCMC samplers,
     for systems of 5 importers and 50 outlets.
-    '''
+    """
     # Store generation run times, interval containment, and Gneiting loss scores
     REPS_GenTime_NUTS = []
     REPS_90IntCoverage_NUTS = []
@@ -193,7 +201,7 @@ def MCMCtest_5_50():
     REPS_99gnLoss_MH = []
     REPS_n_acc_MH = []
     
-    for reps in range(100):
+    for reps in range(20):
         dataDict_1 = util.generateRandDataDict(numImp=5, numOut=50, numSamples=50*20)
         numEntities = len(dataDict_1['trueRates'])
         # NUTS
@@ -203,7 +211,7 @@ def MCMCtest_5_50():
                             'prior': methods.prior_normal(),
                             'MCMCdict': MCMCdict_NUTS})
         
-        lgDict_1_NUTS = runLogistigate(dataDict_1_NUTS)
+        lgDict_1_NUTS = runlogistigate(dataDict_1_NUTS)
         lgDict_1_NUTS = util.scorePostSamplesIntervals(lgDict_1_NUTS) 
         #util.plotPostSamples(lgDict_1_NUTS)
         REPS_GenTime_NUTS.append(lgDict_1_NUTS['postSamplesGenTime'])
@@ -220,7 +228,7 @@ def MCMCtest_5_50():
         dataDict_1_LMC.update({'numPostSamples': 500,
                             'prior': methods.prior_normal(),
                             'MCMCdict': MCMCdict_LMC})
-        lgDict_1_LMC = runLogistigate(dataDict_1_LMC)
+        lgDict_1_LMC = runlogistigate(dataDict_1_LMC)
         lgDict_1_LMC = util.scorePostSamplesIntervals(lgDict_1_LMC)
         #util.plotPostSamples(lgDict_1_LMC)
         REPS_GenTime_LMC.append(lgDict_1_LMC['postSamplesGenTime'])
@@ -243,7 +251,7 @@ def MCMCtest_5_50():
         dataDict_1_MH.update({'numPostSamples': 3000,
                             'prior': methods.prior_normal(),
                             'MCMCdict': MCMCdict_MH})
-        lgDict_1_MH = runLogistigate(dataDict_1_MH)
+        lgDict_1_MH = runlogistigate(dataDict_1_MH)
         lgDict_1_MH = util.scorePostSamplesIntervals(lgDict_1_MH)
         #util.plotPostSamples(lgDict_1_MH)
         REPS_GenTime_MH.append(lgDict_1_MH['postSamplesGenTime'])
@@ -255,9 +263,14 @@ def MCMCtest_5_50():
         REPS_99gnLoss_MH.append(lgDict_1_MH['gnLoss_99'])
         REPS_n_acc_MH.append(lgDict_1_MH['acc_rate'])
         
+        #import pystan
+
         print('***********FINISHED REP ' + str(reps)+'***********')
     ###### END OF REPLICATIONS LOOP
-   
+    print(REPS_95IntCoverage_NUTS)
+    print(REPS_95IntCoverage_LMC)
+
+
     import matplotlib.pyplot as plt
     # Prnit histograms of run times
     fig = plt.figure()
@@ -269,6 +282,7 @@ def MCMCtest_5_50():
     plt.hist(REPS_GenTime_LMC,label='LMC',alpha=0.3)
     plt.hist(REPS_GenTime_MH,label='MH',alpha=0.3)
     _ = ax.legend(loc='upper right')
+    plt.show()
     
     # Prnit histograms of interval coverages
     fig = plt.figure()
@@ -342,8 +356,11 @@ def MCMCtest_5_50():
     ax.set_xlabel('Acceptance Ratio',fontsize=14)
     ax.set_ylabel('Frequency',fontsize=14)
     plt.hist(REPS_n_acc_MH,alpha=0.3)
-    
+
+    return
+
     # write vectors to csv
+    '''
     import csv
     # run times
     data = [REPS_GenTime_NUTS,REPS_GenTime_LMC,REPS_GenTime_MH]
@@ -373,8 +390,11 @@ def MCMCtest_5_50():
     with file:
         write = csv.writer(file)
         write.writerows(data)
-    
-    return
+    '''
+
+
+
+
 
 def MCMCtest_10_100():
     '''
@@ -420,7 +440,7 @@ def MCMCtest_10_100():
                             'prior': methods.prior_normal(),
                             'MCMCdict': MCMCdict_NUTS})
         
-        lgDict_1_NUTS = runLogistigate(dataDict_1_NUTS)
+        lgDict_1_NUTS = runlogistigate(dataDict_1_NUTS)
         lgDict_1_NUTS = util.scorePostSamplesIntervals(lgDict_1_NUTS) 
         #util.plotPostSamples(lgDict_1_NUTS)
         REPS_GenTime_NUTS.append(lgDict_1_NUTS['postSamplesGenTime'])
@@ -437,7 +457,7 @@ def MCMCtest_10_100():
         dataDict_1_LMC.update({'numPostSamples': 500,
                             'prior': methods.prior_normal(),
                             'MCMCdict': MCMCdict_LMC})
-        lgDict_1_LMC = runLogistigate(dataDict_1_LMC)
+        lgDict_1_LMC = runlogistigate(dataDict_1_LMC)
         lgDict_1_LMC = util.scorePostSamplesIntervals(lgDict_1_LMC)
         #util.plotPostSamples(lgDict_1_LMC)
         REPS_GenTime_LMC.append(lgDict_1_LMC['postSamplesGenTime'])
@@ -458,7 +478,7 @@ def MCMCtest_10_100():
         dataDict_1_MH.update({'numPostSamples': 500,
                             'prior': methods.prior_normal(),
                             'MCMCdict': MCMCdict_MH})
-        lgDict_1_MH = runLogistigate(dataDict_1_MH)
+        lgDict_1_MH = runlogistigate(dataDict_1_MH)
         lgDict_1_MH = util.scorePostSamplesIntervals(lgDict_1_MH)
         #util.plotPostSamples(lgDict_1_MH)
         REPS_GenTime_MH.append(lgDict_1_MH['postSamplesGenTime'])
@@ -627,7 +647,7 @@ def MCMCtest_20_200():
                             'prior': methods.prior_normal(),
                             'MCMCdict': MCMCdict_NUTS})
         
-        lgDict_1_NUTS = runLogistigate(dataDict_1_NUTS)
+        lgDict_1_NUTS = runlogistigate(dataDict_1_NUTS)
         lgDict_1_NUTS = util.scorePostSamplesIntervals(lgDict_1_NUTS) 
         #util.plotPostSamples(lgDict_1_NUTS)
         REPS_GenTime_NUTS.append(lgDict_1_NUTS['postSamplesGenTime'])
@@ -644,7 +664,7 @@ def MCMCtest_20_200():
         dataDict_1_LMC.update({'numPostSamples': 500,
                             'prior': methods.prior_normal(),
                             'MCMCdict': MCMCdict_LMC})
-        lgDict_1_LMC = runLogistigate(dataDict_1_LMC)
+        lgDict_1_LMC = runlogistigate(dataDict_1_LMC)
         lgDict_1_LMC = util.scorePostSamplesIntervals(lgDict_1_LMC)
         #util.plotPostSamples(lgDict_1_LMC)
         REPS_GenTime_LMC.append(lgDict_1_LMC['postSamplesGenTime'])
@@ -665,7 +685,7 @@ def MCMCtest_20_200():
         dataDict_1_MH.update({'numPostSamples': 500,
                             'prior': methods.prior_normal(),
                             'MCMCdict': MCMCdict_MH})
-        lgDict_1_MH = runLogistigate(dataDict_1_MH)
+        lgDict_1_MH = runlogistigate(dataDict_1_MH)
         lgDict_1_MH = util.scorePostSamplesIntervals(lgDict_1_MH)
         #util.plotPostSamples(lgDict_1_MH)
         REPS_GenTime_MH.append(lgDict_1_MH['postSamplesGenTime'])
@@ -794,8 +814,6 @@ def summaryStuff():
     
     import numpy as np
     import matplotlib.pyplot as plt
-    import matplotlib
-    
     
     # RUN TIMES PLOT
     REPS_GenTime_NUTS_50 = [17.4324688911438,27.652849912643433,24.558904886245728,31.787153244018555,25.427921056747437,23.22526788711548,24.60091209411621,26.51968550682068,82.54500651359558,20.38126039505005,23.35594129562378,19.29293966293335,20.004937648773193,16.493035078048706,16.584779500961304,17.356764316558838,17.90741276741028,16.953646421432495,20.280070304870605,17.379323959350586,15.694935321807861,18.13005828857422,20.479472637176514,17.55196738243103,22.810191869735718,17.751220226287842,16.10685110092163,19.47283172607422,26.68065619468689,19.755380630493164,17.77476143836975,20.155140161514282,16.993707180023193,16.926015377044678,17.56483769416809,18.830747604370117,17.12893033027649,16.79606556892395,17.634807348251343,18.58240842819214,16.733969926834106,21.09491276741028,16.054513931274414,19.97562074661255,18.078826904296875,18.26251530647278,19.0461266040802,16.330905199050903,18.940914392471313,18.22935199737549,15.262452840805054,23.1614351272583,21.300337553024292,23.797934532165527,21.36046028137207,23.583614349365234,20.8350350856781,22.930057764053345,21.374842405319214,23.36602282524109,25.551031827926636,25.22164249420166,22.38640260696411,29.477259159088135,25.824058532714844,26.003357887268066,23.82796287536621,20.695466995239258,25.939990043640137,29.812110900878906,29.22086215019226,24.11897897720337,30.900166273117065,22.791510581970215,26.797872066497803,26.20002055168152,24.23213529586792,27.732811212539673,24.24715280532837,28.866475105285645,24.4813973903656,28.90434432029724,23.549165725708008,25.153828144073486,35.13047218322754,22.304199934005737,26.22801160812378,27.480393409729004,25.594860553741455,18.041944980621338,21.72701859474182,22.627782344818115,30.337313890457153,17.57150936126709,15.471498966217041,16.549348831176758,18.397835731506348,15.594923257827759,17.591680765151978,20.2025785446167]
@@ -971,7 +989,7 @@ def MCMCtest_40_400():
                             'prior': methods.prior_normal(),
                             'MCMCdict': MCMCdict_NUTS})
         
-        lgDict_1_NUTS = runLogistigate(dataDict_1_NUTS)
+        lgDict_1_NUTS = runlogistigate(dataDict_1_NUTS)
         lgDict_1_NUTS = util.scorePostSamplesIntervals(lgDict_1_NUTS) 
         #util.plotPostSamples(lgDict_1_NUTS)
         REPS_GenTime_NUTS.append(lgDict_1_NUTS['postSamplesGenTime'])
@@ -988,7 +1006,7 @@ def MCMCtest_40_400():
         dataDict_1_LMC.update({'numPostSamples': 500,
                             'prior': methods.prior_normal(),
                             'MCMCdict': MCMCdict_LMC})
-        lgDict_1_LMC = runLogistigate(dataDict_1_LMC)
+        lgDict_1_LMC = runlogistigate(dataDict_1_LMC)
         lgDict_1_LMC = util.scorePostSamplesIntervals(lgDict_1_LMC)
         #util.plotPostSamples(lgDict_1_LMC)
         REPS_GenTime_LMC.append(lgDict_1_LMC['postSamplesGenTime'])
@@ -1009,7 +1027,7 @@ def MCMCtest_40_400():
         dataDict_1_MH.update({'numPostSamples': 500,
                             'prior': methods.prior_normal(),
                             'MCMCdict': MCMCdict_MH})
-        lgDict_1_MH = runLogistigate(dataDict_1_MH)
+        lgDict_1_MH = runlogistigate(dataDict_1_MH)
         lgDict_1_MH = util.scorePostSamplesIntervals(lgDict_1_MH)
         #util.plotPostSamples(lgDict_1_MH)
         REPS_GenTime_MH.append(lgDict_1_MH['postSamplesGenTime'])
@@ -1140,14 +1158,14 @@ def Example1():
     conducted on a small system of 3 importers and 12 outlets.
     '''
     
-    dataTblDict = util.TestResultsFileToTable('data/example1bTestData.csv')
-    MCMCdict = {'MCMCtype': 'NUTS', }
+    dataTblDict = util.testresultsfiletotable('../examples/data/example1bTestData.csv')
+    MCMCdict = {'MCMCtype': 'NUTS', 'Madapt': 5000, 'delta': 0.4}
     dataTblDict.update({'diagSens': 0.90,
                         'diagSpec': 0.99,
                         'numPostSamples': 500,
                         'prior': methods.prior_normal(),
                         'MCMCdict': MCMCdict})
-    logistigateDict = runLogistigate(dataTblDict)
+    logistigateDict = runlogistigate(dataTblDict)
         
     util.plotPostSamples(logistigateDict)
     util.printEstimates(logistigateDict)
@@ -1160,13 +1178,14 @@ def Example1b():
     This example uses the same underlying environment as example 1, but with 
     1000 testing sample point instead of 4000.
     '''
-    dataTblDict = util.TestResultsFileToTable('data/example1bTestData.csv')
+    dataTblDict = util.testresultsfiletotable('../examples/data/example1bTestData.csv')
+    MCMCdict = {'MCMCtype': 'NUTS', 'Madapt': 5000, 'delta': 0.4}
     dataTblDict.update({'diagSens':0.90,
                         'diagSpec':0.99,
                         'numPostSamples':500,
                         'prior':methods.prior_normal(),
-                        'MCMCmethod': 'NUTS'})
-    logistigateDict = runLogistigate(dataTblDict)
+                        'MCMCdict': MCMCdict})
+    logistigateDict = runlogistigate(dataTblDict)
         
     util.plotPostSamples(logistigateDict)
     util.printEstimates(logistigateDict)
@@ -1178,13 +1197,13 @@ def Example1c():
     This example uses the same underlying environment as example 1 (including
     4000 testing sample points), but with 70% sensitivity and 90% specificity
     '''
-    dataTblDict = util.TestResultsFileToTable('data/example1cTestData.csv')
+    dataTblDict = util.testresultsfiletotable('data/example1cTestData.csv')
     dataTblDict.update({'diagSens':0.70,
                         'diagSpec':0.90,
                         'numPostSamples':500,
                         'prior':methods.prior_normal(),
                         'MCMCmethod': 'NUTS'})
-    logistigateDict = runLogistigate(dataTblDict)
+    logistigateDict = runlogistigate(dataTblDict)
         
     util.plotPostSamples(logistigateDict)
     util.printEstimates(logistigateDict)
@@ -1196,13 +1215,13 @@ def Example1d():
     This example uses the same underlying environment as example 2 but with 
     a Laplace instead of a Normal prior
     '''
-    dataTblDict = util.TestResultsFileToTable('data/example1TestData.csv') #'example2_testData.csv'
+    dataTblDict = util.testresultsfiletotable('../examples/data/example1TestData.csv') #'example2_testData.csv'
     dataTblDict.update({'diagSens':0.90,
                         'diagSpec':0.99,
                         'numPostSamples':500,
                         'prior':methods.prior_laplace(),
                         'MCMCmethod': 'NUTS'})
-    logistigateDict = runLogistigate(dataTblDict)
+    logistigateDict = runlogistigate(dataTblDict)
         
     util.plotPostSamples(logistigateDict)
     util.printEstimates(logistigateDict)
@@ -1213,14 +1232,14 @@ def Example2():
     Same test data as example 1, but with unknown importers (i.e., Untracked).
     Instead, the transition matrix is known.
     '''
-    dataTblDict = util.TestResultsFileToTable('data/example2TestData.csv',
+    dataTblDict = util.testresultsfiletotable('data/example2TestData.csv',
                                               'data/example2TransitionMatrix.csv')
     dataTblDict.update({'diagSens':0.90,
                         'diagSpec':0.99,
                         'numPostSamples':500,
                         'prior':methods.prior_normal(),
                         'MCMCmethod': 'NUTS'})
-    logistigateDict = runLogistigate(dataTblDict)
+    logistigateDict = runlogistigate(dataTblDict)
         
     util.plotPostSamples(logistigateDict)
     util.printEstimates(logistigateDict)

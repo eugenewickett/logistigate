@@ -17,7 +17,7 @@ import logistigate.mcmcsamplers.metrohastings as mh
 
 ########################### PRIOR CLASSES ###########################
 class prior_laplace:
-    ''' 
+    """
     Defines the class instance of Laplace priors, with an associated mu (mean)
     and scale in the logit-transfomed [0,1] range, and the following methods:
         rand: generate random draws from the distribution
@@ -25,7 +25,7 @@ class prior_laplace:
         lpdf_jac: Jacobian of the log-likelihood at the given vector
         lpdf_hess: Hessian of the log-likelihood at the given vector
     beta inputs may be a Numpy array of vectors
-    '''
+    """
     def __init__(self, mu=sps.logit(0.1), scale=np.sqrt(5/2)):
         self.mu = mu
         self.scale = scale
@@ -49,7 +49,7 @@ class prior_laplace:
         return np.squeeze(hess)
     
 class prior_normal:
-    ''' 
+    """
     Defines the class instance of Normal priors, with an associated mu (mean)
     and var (variance) in the logit-transfomed [0,1] range, and the following
     methods:
@@ -58,7 +58,7 @@ class prior_normal:
         lpdf_jac: Jacobian of the log-likelihood at the given vector
         lpdf_hess: Hessian of the log-likelihood at the given vector
     beta inputs may be a Numpy array of vectors
-    '''
+    """
     def __init__(self,mu=sps.logit(0.1),var=5):
         self.mu = mu
         self.var = var
@@ -247,7 +247,8 @@ def Tracked_LogLike(beta,numMat,posMat,sens,spec):
            #each term is a k-by-n-by-m array, with the n-by-m matrices then summed
     return np.squeeze(L)
 
-def Tracked_LogLike_Jac(beta,numMat,posMat,sens,spec):
+
+def Tracked_LogLike_Jac(beta, numMat, posMat, sens, spec):
     # betaVec should be [importers, outlets]; can be used with array beta
     if beta.ndim == 1: # reshape to 2d
         beta = np.reshape(beta,(1,-1))
