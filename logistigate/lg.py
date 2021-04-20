@@ -362,6 +362,22 @@ def MCMCtest_5_50():
     # write vectors to csv
     '''
     import csv
+    dataDict_1.keys()
+    data1 = dataDict_1['dataTbl']
+    file1 = open('TEST_dataTbl.csv', 'a+',newline='')
+    with file1:
+        write = csv.writer(file1)
+        write.writerows(data1)
+    data2 = dataDict_1['transMat']
+    file2 = open('TEST_transMat.csv', 'a+',newline='')
+    with file2:
+        write = csv.writer(file2)
+        write.writerows(data2)
+    data3 = dataDict_1['trueRates'].tolist()
+    with open('TEST_trueRates.csv', 'w') as f:
+        write = csv.writer(f)
+        write.writerow(data3)
+    
     # run times
     data = [REPS_GenTime_NUTS,REPS_GenTime_LMC,REPS_GenTime_MH]
     file = open('output_RunTimes.csv', 'a+',newline='')

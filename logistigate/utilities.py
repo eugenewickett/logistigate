@@ -368,15 +368,16 @@ def plotPostSamples(logistigateDict):
     '''
     numImp, numOut = logistigateDict['importerNum'], logistigateDict['outletNum']
 
+    for i in range(numImp):
+        plt.hist(logistigateDict['postSamples'][:, i], alpha=0.2)
+    plt.xlim([0,1])
+    plt.title('Importers', fontdict={'fontsize': 18})
+    plt.show()
     fig = plt.figure()
-    ax = fig.add_axes([0, 0, 2, 1])
-    ax.set_title('Importers', fontsize=18)
+    ax = fig.add_axes([0,0,2,1]) #[0, 0, 2, 1]
     ax.set_xlabel('Aberration rate', fontsize=14)
     ax.set_ylabel('Posterior distribution frequency', fontsize=14)
-    ax.set_xlim([0., 1.])
-    for i in range(numImp):
-        plt.hist(logistigateDict['postSamples'][:, i], alpha=0.3)
-    plt.show()
+    fig.show()
 
     fig = plt.figure()
     ax = fig.add_axes([0, 0, 2, 1])
