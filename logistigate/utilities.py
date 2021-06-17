@@ -7,7 +7,6 @@ import random
 from tabulate import tabulate
 import matplotlib.pyplot as plt
 
-
 def testresultsfiletotable(testDataFile, transitionMatrixFile=''):
     """
     Takes a CSV file name as input and returns a usable Python dictionary of
@@ -133,15 +132,15 @@ def GetVectorForms(dataTblDict):
     Takes dataTblDict with the following keys:
         type: string
             'Tracked' or 'Untracked'
-    dataTbl: list
-        If Tracked, each list entry should have three elements, as follows:
-            Element 1: string; Name of outlet/lower echelon entity
-            Element 2: string; Name of importer/upper echelon entity
-            Element 3: integer; 0 or 1, where 1 signifies aberration detection
-        If Untracked, each list entry should have two elements, as follows:
-            Element 1: string; Name of outlet/lower echelon entity
-            Element 2: integer; 0 or 1, where 1 signifies aberration detection
-    outletNames/importerNames: list of strings
+        dataTbl: list
+            If Tracked, each list entry should have three elements, as follows:
+                Element 1: string; Name of outlet/lower echelon entity
+                Element 2: string; Name of importer/upper echelon entity
+                Element 3: integer; 0 or 1, where 1 signifies aberration detection
+            If Untracked, each list entry should have two elements, as follows:
+                Element 1: string; Name of outlet/lower echelon entity
+                Element 2: integer; 0 or 1, where 1 signifies aberration detection
+        outletNames/importerNames: list of strings
 
     OUTPUTS
     -------
@@ -180,14 +179,75 @@ def GetVectorForms(dataTblDict):
 
     return dataTblDict
 
+def generateRandSystem(numImp=20, numOut=100, sourcingMatLambda=1.1, randSeed=-1,trueRates=[]):
+    '''
+    Randomly generates a two-echelon system with the entered characteristics.
+
+    INPUTS
+    ------
+    Takes the following arguments:
+        numImp, numOut: integer
+            Number of importers and outlets
+        transMatLambda: float
+            The parameter for the Pareto distribution that generates the sourcing matrix
+        randSeed: integer
+        trueRates: float
+            Vector of true SFP manifestation rates to use; generated randomly from
+            beta(1,6) distribution otherwise
+
+    OUTPUTS
+    -------
+    Returns systemDict dictionary with the following keys:
+        outletNames/importerNames: list of strings
+        sourcingMat: Numpy matrix
+            Matrix of sourcing probabilities between importers and outlets
+        trueRates: list
+            List of true SFP manifestation rates, in [importers, outlets] form
+    '''
+    systemDict = {}
+
+    impNames = ['Importer ' + str(i + 1) for i in range(numImp)]
+    outNames = ['Outlet ' + str(i + 1) for i in range(numOut)]
+
+    # Generate random true SFP rates
+    if trueRates == []:
+        trueRates = np.zeros(numImp + numOut)  # importers first, outlets second
+        if randSeed >= 0:
+            random.seed(randSeed)
+        trueRates[:numImp] = [random.betavariate(1, 7) for i in range(numImp)]
+        trueRates[numImp:] = [random.betavariate(1, 7) for i in range(numOut)]
+
+    # Generate random transition matrix
+    sourcingMat = np.zeros(shape=(numOut, numImp))
+    if randSeed >= 0:
+        random.seed(randSeed + 1) # Distinguish this seed from the one generating the true SFP rates
+    for outInd in range(numOut):
+        rowRands = [random.paretovariate(sourcingMatLambda) for i in range(numImp)]
+        if numImp > 10:  # Only keep 10 randomly chosen importers, if numImp > 10
+            rowRands[10:] = [0.0 for i in range(numImp - 10)]
+            random.shuffle(rowRands)
+
+        normalizedRands = [rowRands[i] / sum(rowRands) for i in range(numImp)]
+        # only keep transition probabilities above 2%
+        # normalizedRands = [normalizedRands[i] if normalizedRands[i]>0.02 else 0.0 for i in range(numImp)]
+
+        # normalizedRands = [normalizedRands[i] / sum(normalizedRands) for i in range(numImp)]
+        sourcingMat[outInd, :] = normalizedRands
+
+    # Update dictionary before returning
+    systemDict.update({'outletNames': outNames, 'importerNames': impNames,
+                        'sourcingMat': sourcingMat, 'trueRates': trueRates})
+
+    return systemDict
 
 def generateRandDataDict(numImp=5, numOut=50, diagSens=0.90,
                          diagSpec=0.99, numSamples=50 * 20,
-                         dataType='Tracked', randSeed=-1):
+                         dataType='Tracked', transMatLambda=1.1,
+                         randSeed=-1,trueRates=[]):
     """
-    Randomly generates an example input data dicionary for the entered inputs.
+    Randomly generates an example input data dictionary for the entered inputs.
     SFP rates are generated according to a beta(2,9) distribution, while
-    transition rates are distributed according to a scaled expo(100) distribution.
+    transition rates are distributed according to a scaled Pareto(1.1) distribution.
 
     INPUTS
     ------
@@ -224,18 +284,19 @@ def generateRandDataDict(numImp=5, numOut=50, diagSens=0.90,
     outNames = ['Outlet ' + str(i + 1) for i in range(numOut)]
 
     # Generate random true SFP rates
-    trueRates = np.zeros(numImp + numOut)  # importers first, outlets second
-    if randSeed >= 0:
-        random.seed(randSeed)
-    trueRates[:numImp] = [random.betavariate(2, 9) for i in range(numImp)]
-    trueRates[numImp:] = [random.betavariate(2, 9) for i in range(numOut)]
+    if trueRates == []:
+        trueRates = np.zeros(numImp + numOut)  # importers first, outlets second
+        if randSeed >= 0:
+            random.seed(randSeed)
+        trueRates[:numImp] = [random.betavariate(1, 9) for i in range(numImp)]
+        trueRates[numImp:] = [random.betavariate(1, 9) for i in range(numOut)]
 
     # Generate random transition matrix
     transMat = np.zeros(shape=(numOut, numImp))
     if randSeed >= 0:
         random.seed(randSeed + 1)
     for outInd in range(numOut):
-        rowRands = [random.paretovariate(1.1) for i in range(numImp)]
+        rowRands = [random.paretovariate(transMatLambda) for i in range(numImp)]
         if numImp > 10:  # Only keep 10 randomly chosen importers, if numImp > 10
             rowRands[10:] = [0.0 for i in range(numImp - 10)]
             random.shuffle(rowRands)
@@ -399,7 +460,7 @@ def printEstimates(logistigateDict):
     INPUTS
     ------
     estDict:  Dictionary returned from methods.Est_TrackedMLE() or
-              methods.Est_UntrackedMLE()
+              methods.Est_UntrackedMLE() #OLD NEED TO UPDATE
     impNames: List of names of importers/upper echelon entities
     outNames: List of names of outlets/lower echelon entities
     

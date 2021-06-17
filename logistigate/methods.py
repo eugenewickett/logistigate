@@ -3,6 +3,8 @@ This file contains the methods used for estimating aberration prevalence in a
 two-echelon supply chain. See descriptions for particular inputs.
 """
 
+######### NEED TO ADD CAPACITY TO HANDLE DIFFERENT DIAGNOSTIC DEVICES @ DIFFERENT DATA POINTS
+
 import numpy as np
 import scipy.optimize as spo
 import scipy.stats as spstat
@@ -489,7 +491,7 @@ def FormEstimates(dataTblDict):
     '''
     Takes a data input dictionary and returns an estimate dictionary,
     depending on the data type. The L-BFGS-B method of the SciPy Optimizer is
-    used to maximize the log-likelihood, where initial points are randomly
+    used to maximize the posterior log-likelihood, where initial points are randomly
     chosen from 'postSamples' in dataTblDict (if provided).
     
     INPUTS
