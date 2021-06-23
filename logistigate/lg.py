@@ -2090,8 +2090,8 @@ def testDynamicSamplingPolicies(numOutlets, numImporters, numSystems, numSamples
     '''
     import numpy as np
     numOutlets, numImporters = 100, 20
-    numSystems = 100
-    numSamples = 1000
+    numSystems = 50
+    numSamples = 2000
     batchSize = 100
     diagSens = 1.0
     diagSpec = 1.0
@@ -2099,6 +2099,7 @@ def testDynamicSamplingPolicies(numOutlets, numImporters, numSystems, numSamples
     numBatches = int(numSamples/batchSize)
     measureMat = np.zeros(shape=(numSystems,numBatches))
     for systemInd in range(numSystems): # Loop through each system
+        print('Working on system ' + str(systemInd+1))
         # Generate a new system of the desired size
         currSystemDict = util.generateRandSystem(numImp=numImporters,numOut=numOutlets,randSeed=systemInd+10)
         # Collect samples according to the sampling policy and regenerate MCMC samples if
@@ -2131,8 +2132,48 @@ def testDynamicSamplingPolicies(numOutlets, numImporters, numSystems, numSamples
     # Now there are measurements for each batch and generated system
     # Next is to plot the measurements across systems
     import matplotlib.pyplot as plt
-    
+    x = np.arange(1,numBatches+1)*batchSize
+    y = [np.mean(measureMat[:,i]) for i in range(numBatches)]
+    yLower = [np.quantile(measureMat[:, i], 0.025) for i in range(numBatches)]
+    yUpper = [np.quantile(measureMat[:, i], 0.975) for i in range(numBatches)]
+    fig = plt.figure()
+    plt.suptitle(
+        'Average 90% interval width vs. number of samples\n100 outlets, 20 importers\nUNIFORM RANDOM SAMPLING',
+        size=10)
+    plt.xlabel('Number of samples', size=14)
+    plt.ylabel('Average 90% interval width', size=14)
+    plt.plot(x,y,'black',label='Mean')
+    plt.plot(x,yLower,'b--',label='Lower 95% of systems')
+    plt.plot(x,yUpper,'g--',label='Upper 95% of systems')
+    plt.legend()
+    plt.show()
 
+    return
 
+def MQDdataScript():
+    '''Script looking at the MQD data'''
+    dataTblDict = util.testresultsfiletotable('../examples/data/MQD_TRIMMED1.csv')
+    MCMCdict = {'MCMCtype': 'NUTS', 'Madapt': 5000, 'delta': 0.4}
+    import scipy.special as sps
+    dataTblDict.update({'diagSens': 1.0,
+                        'diagSpec': 1.0,
+                        'numPostSamples': 500,
+                        'prior': methods.prior_normal(mu=sps.logit(0.038)),
+                        'MCMCdict': MCMCdict})
+    logistigateDict = runlogistigate(dataTblDict)
 
-return
+    util.plotPostSamples(logistigateDict)
+    util.printEstimates(logistigateDict)
+
+    dataTblDict2 = util.testresultsfiletotable('../examples/data/MQD_TRIMMED2.csv')
+    dataTblDict2.update({'diagSens': 1.0,
+                        'diagSpec': 1.0,
+                        'numPostSamples': 500,
+                        'prior': methods.prior_normal(mu=sps.logit(0.038)),
+                        'MCMCdict': MCMCdict})
+    logistigateDict2 = runlogistigate(dataTblDict2)
+
+    util.plotPostSamples(logistigateDict2)
+    util.printEstimates(logistigateDict2)
+
+    return
