@@ -411,7 +411,9 @@ def scorePostSamplesIntervals(logistigateDict):
     return logistigateDict
 
 
-def plotPostSamples(logistigateDict):
+def plotPostSamples(logistigateDict,
+                    importerIndsSubset=[],
+                    outletIndsSubset=[]):
     '''
     Plots the distribution of posterior aberration rate samples, with importer
     and outlet distributions plotted distinctly.
@@ -422,33 +424,35 @@ def plotPostSamples(logistigateDict):
         postSamples: List of posterior sample lists, with importer values entered first.
         numImp:    Number of importers/upper echelon entities
         numOut:    Number of outlets/lower echelon entities        
-        
+    importerNamesSubset, outletNamesSubset:
+        List of a subset of names to be plotted
+
     OUTPUTS
     -------
     No values are returned
     '''
     numImp, numOut = logistigateDict['importerNum'], logistigateDict['outletNum']
-
-    for i in range(numImp):
+    if importerIndsSubset == []:
+        importerIndsSubset = range(numImp)
+    for i in importerIndsSubset:
         plt.hist(logistigateDict['postSamples'][:, i], alpha=0.2)
     plt.xlim([0,1])
     plt.title('Importers', fontdict={'fontsize': 18})
+    plt.xlabel('SFP rate',fontdict={'fontsize': 14})
+    plt.ylabel('Posterior distribution frequency',fontdict={'fontsize': 14})
     plt.show()
-    fig = plt.figure()
-    ax = fig.add_axes([0,0,2,1]) #[0, 0, 2, 1]
-    ax.set_xlabel('Aberration rate', fontsize=14)
-    ax.set_ylabel('Posterior distribution frequency', fontsize=14)
-    fig.show()
+    plt.close()
 
-    fig = plt.figure()
-    ax = fig.add_axes([0, 0, 2, 1])
-    ax.set_title('Outlets', fontsize=18)
-    ax.set_xlabel('Aberration rate', fontsize=14)
-    ax.set_ylabel('Posterior distribution frequency', fontsize=14)
-    ax.set_xlim([0.,1.])
-    for i in range(numOut):
-        plt.hist(logistigateDict['postSamples'][:, numImp + i], alpha=0.3)
+    if outletIndsSubset == []:
+        outletIndsSubset = range(numOut)
+    for i in outletIndsSubset:
+        plt.hist(logistigateDict['postSamples'][:, numImp + i], alpha=0.2)
+    plt.xlim([0,1])
+    plt.title('Outlets', fontdict={'fontsize': 18})
+    plt.xlabel('SFP rate',fontdict={'fontsize': 14})
+    plt.ylabel('Posterior distribution frequency',fontdict={'fontsize': 14})
     plt.show()
+    plt.close()
 
     return
 

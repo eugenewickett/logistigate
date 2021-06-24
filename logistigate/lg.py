@@ -2152,9 +2152,12 @@ def testDynamicSamplingPolicies(numOutlets, numImporters, numSystems, numSamples
 
 def MQDdataScript():
     '''Script looking at the MQD data'''
-    dataTblDict = util.testresultsfiletotable('../examples/data/MQD_TRIMMED1.csv')
-    MCMCdict = {'MCMCtype': 'NUTS', 'Madapt': 5000, 'delta': 0.4}
     import scipy.special as sps
+    import numpy as np
+    MCMCdict = {'MCMCtype': 'NUTS', 'Madapt': 5000, 'delta': 0.4}
+
+    # Run with Country as outlets
+    dataTblDict = util.testresultsfiletotable('../examples/data/MQD_TRIMMED1.csv')
     dataTblDict.update({'diagSens': 1.0,
                         'diagSpec': 1.0,
                         'numPostSamples': 500,
@@ -2165,6 +2168,7 @@ def MQDdataScript():
     util.plotPostSamples(logistigateDict)
     util.printEstimates(logistigateDict)
 
+    # Run with Country-Province as outlets
     dataTblDict2 = util.testresultsfiletotable('../examples/data/MQD_TRIMMED2.csv')
     dataTblDict2.update({'diagSens': 1.0,
                         'diagSpec': 1.0,
@@ -2175,5 +2179,26 @@ def MQDdataScript():
 
     util.plotPostSamples(logistigateDict2)
     util.printEstimates(logistigateDict2)
+
+    # Run with Cambodia provinces
+    dataTblDict_CAM = util.testresultsfiletotable('../examples/data/MQD_CAMBODIA.csv')
+    countryMean = np.sum(dataTblDict_CAM['Y']) / np.sum(dataTblDict_CAM['N'])
+    dataTblDict_CAM.update({'diagSens': 1.0,
+                         'diagSpec': 1.0,
+                         'numPostSamples': 500,
+                         'prior': methods.prior_normal(mu=sps.logit(countryMean)),
+                         'MCMCdict': MCMCdict})
+    logistigateDict_CAM = runlogistigate(dataTblDict_CAM)
+
+    util.plotPostSamples(logistigateDict_CAM)
+    util.printEstimates(logistigateDict_CAM)
+    # Plot importers subset where median sample is above 0.4
+    totalEntities = logistigateDict_CAM['importerNum'] + logistigateDict_CAM['outletNum']
+    sampMedians = [np.median(logistigateDict_CAM['postSamples'][:,i]) for i in range(totalEntities)]
+    highImporterInds = [i for i, x in enumerate(sampMedians[:logistigateDict_CAM['importerNum']]) if x > 0.4]
+    util.plotPostSamples(logistigateDict_CAM,importerIndsSubset=highImporterInds)
+    
+
+
 
     return
