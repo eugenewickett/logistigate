@@ -2189,16 +2189,138 @@ def MQDdataScript():
                          'prior': methods.prior_normal(mu=sps.logit(countryMean)),
                          'MCMCdict': MCMCdict})
     logistigateDict_CAM = runlogistigate(dataTblDict_CAM)
-
     util.plotPostSamples(logistigateDict_CAM)
     util.printEstimates(logistigateDict_CAM)
+
     # Plot importers subset where median sample is above 0.4
     totalEntities = logistigateDict_CAM['importerNum'] + logistigateDict_CAM['outletNum']
     sampMedians = [np.median(logistigateDict_CAM['postSamples'][:,i]) for i in range(totalEntities)]
     highImporterInds = [i for i, x in enumerate(sampMedians[:logistigateDict_CAM['importerNum']]) if x > 0.4]
     util.plotPostSamples(logistigateDict_CAM,importerIndsSubset=highImporterInds)
-    
 
 
+    # Run with Ethiopia provinces
+    dataTblDict_ETH = util.testresultsfiletotable('../examples/data/MQD_ETHIOPIA.csv')
+    countryMean = np.sum(dataTblDict_ETH['Y']) / np.sum(dataTblDict_ETH['N'])
+    dataTblDict_ETH.update({'diagSens': 1.0,
+                            'diagSpec': 1.0,
+                            'numPostSamples': 500,
+                            'prior': methods.prior_normal(mu=sps.logit(countryMean)),
+                            'MCMCdict': MCMCdict})
+    logistigateDict_ETH = runlogistigate(dataTblDict_ETH)
+    util.plotPostSamples(logistigateDict_ETH)
+    util.printEstimates(logistigateDict_ETH)
+
+
+    # Run with Ghana provinces
+    dataTblDict_GHA = util.testresultsfiletotable('../examples/data/MQD_GHANA.csv')
+    countryMean = np.sum(dataTblDict_GHA['Y']) / np.sum(dataTblDict_GHA['N'])
+    dataTblDict_GHA.update({'diagSens': 1.0,
+                            'diagSpec': 1.0,
+                            'numPostSamples': 500,
+                            'prior': methods.prior_normal(mu=sps.logit(countryMean)),
+                            'MCMCdict': MCMCdict})
+    logistigateDict_GHA = runlogistigate(dataTblDict_GHA)
+    util.plotPostSamples(logistigateDict_GHA)
+    util.printEstimates(logistigateDict_GHA)
+
+
+    # Run with Kenya provinces
+    dataTblDict_KEN = util.testresultsfiletotable('../examples/data/MQD_KENYA.csv')
+    countryMean = np.sum(dataTblDict_KEN['Y']) / np.sum(dataTblDict_KEN['N'])
+    dataTblDict_KEN.update({'diagSens': 1.0,
+                            'diagSpec': 1.0,
+                            'numPostSamples': 500,
+                            'prior': methods.prior_normal(mu=sps.logit(countryMean)),
+                            'MCMCdict': MCMCdict})
+    logistigateDict_KEN = runlogistigate(dataTblDict_KEN)
+    util.plotPostSamples(logistigateDict_KEN)
+    util.printEstimates(logistigateDict_KEN)
+
+
+    # Run with Laos provinces
+    dataTblDict_LAO = util.testresultsfiletotable('../examples/data/MQD_LAOS.csv')
+    countryMean = np.sum(dataTblDict_LAO['Y']) / np.sum(dataTblDict_LAO['N'])
+    dataTblDict_LAO.update({'diagSens': 1.0,
+                            'diagSpec': 1.0,
+                            'numPostSamples': 500,
+                            'prior': methods.prior_normal(mu=sps.logit(countryMean)),
+                            'MCMCdict': MCMCdict})
+    logistigateDict_LAO = runlogistigate(dataTblDict_LAO)
+    util.plotPostSamples(logistigateDict_LAO)
+    util.printEstimates(logistigateDict_LAO)
+
+
+    # Run with Mozambique provinces
+    dataTblDict_MOZ = util.testresultsfiletotable('../examples/data/MQD_MOZAMBIQUE.csv')
+    countryMean = np.sum(dataTblDict_MOZ['Y']) / np.sum(dataTblDict_MOZ['N'])
+    dataTblDict_MOZ.update({'diagSens': 1.0,
+                            'diagSpec': 1.0,
+                            'numPostSamples': 500,
+                            'prior': methods.prior_normal(mu=sps.logit(countryMean)),
+                            'MCMCdict': MCMCdict})
+    logistigateDict_MOZ = runlogistigate(dataTblDict_MOZ)
+    util.plotPostSamples(logistigateDict_MOZ)
+    util.printEstimates(logistigateDict_MOZ)
+
+    # Run with Nigeria provinces
+    dataTblDict_NIG = util.testresultsfiletotable('../examples/data/MQD_NIGERIA.csv')
+    countryMean = np.sum(dataTblDict_NIG['Y']) / np.sum(dataTblDict_NIG['N'])
+    dataTblDict_NIG.update({'diagSens': 1.0,
+                            'diagSpec': 1.0,
+                            'numPostSamples': 500,
+                            'prior': methods.prior_normal(mu=sps.logit(countryMean)),
+                            'MCMCdict': MCMCdict})
+    logistigateDict_NIG = runlogistigate(dataTblDict_NIG)
+    util.plotPostSamples(logistigateDict_NIG)
+    util.printEstimates(logistigateDict_NIG)
+
+    # Run with Peru provinces
+    dataTblDict_PER = util.testresultsfiletotable('../examples/data/MQD_PERU.csv')
+    countryMean = np.sum(dataTblDict_PER['Y']) / np.sum(dataTblDict_PER['N'])
+    dataTblDict_PER.update({'diagSens': 1.0,
+                            'diagSpec': 1.0,
+                            'numPostSamples': 500,
+                            'prior': methods.prior_normal(mu=sps.logit(countryMean)),
+                            'MCMCdict': MCMCdict})
+    logistigateDict_PER = runlogistigate(dataTblDict_PER)
+    util.plotPostSamples(logistigateDict_PER)
+    util.printEstimates(logistigateDict_PER)
+
+    # Run with Philippines provinces
+    dataTblDict_PHI = util.testresultsfiletotable('../examples/data/MQD_PHILIPPINES.csv')
+    countryMean = np.sum(dataTblDict_PHI['Y']) / np.sum(dataTblDict_PHI['N'])
+    dataTblDict_PHI.update({'diagSens': 1.0,
+                            'diagSpec': 1.0,
+                            'numPostSamples': 500,
+                            'prior': methods.prior_normal(mu=sps.logit(countryMean)),
+                            'MCMCdict': MCMCdict})
+    logistigateDict_PHI = runlogistigate(dataTblDict_PHI)
+    util.plotPostSamples(logistigateDict_PHI)
+    util.printEstimates(logistigateDict_PHI)
+
+    # Run with Thailand provinces
+    dataTblDict_THA = util.testresultsfiletotable('../examples/data/MQD_THAILAND.csv')
+    countryMean = np.sum(dataTblDict_THA['Y']) / np.sum(dataTblDict_THA['N'])
+    dataTblDict_THA.update({'diagSens': 1.0,
+                            'diagSpec': 1.0,
+                            'numPostSamples': 500,
+                            'prior': methods.prior_normal(mu=sps.logit(countryMean)),
+                            'MCMCdict': MCMCdict})
+    logistigateDict_THA = runlogistigate(dataTblDict_THA)
+    util.plotPostSamples(logistigateDict_THA)
+    util.printEstimates(logistigateDict_THA)
+
+    # Run with Viet Nam provinces
+    dataTblDict_VIE = util.testresultsfiletotable('../examples/data/MQD_VIETNAM.csv')
+    countryMean = np.sum(dataTblDict_VIE['Y']) / np.sum(dataTblDict_VIE['N'])
+    dataTblDict_VIE.update({'diagSens': 1.0,
+                            'diagSpec': 1.0,
+                            'numPostSamples': 500,
+                            'prior': methods.prior_normal(mu=sps.logit(countryMean)),
+                            'MCMCdict': MCMCdict})
+    logistigateDict_VIE = runlogistigate(dataTblDict_VIE)
+    util.plotPostSamples(logistigateDict_VIE)
+    util.printEstimates(logistigateDict_VIE)
 
     return
