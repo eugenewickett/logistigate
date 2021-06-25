@@ -413,7 +413,7 @@ def scorePostSamplesIntervals(logistigateDict):
 
 def plotPostSamples(logistigateDict,
                     importerIndsSubset=[],
-                    outletIndsSubset=[]):
+                    outletIndsSubset=[], subTitleStr=['','']):
     '''
     Plots the distribution of posterior aberration rate samples, with importer
     and outlet distributions plotted distinctly.
@@ -426,6 +426,9 @@ def plotPostSamples(logistigateDict,
         numOut:    Number of outlets/lower echelon entities        
     importerNamesSubset, outletNamesSubset:
         List of a subset of names to be plotted
+    subTitleStr:
+        List of strings to be added to plot titles for importers, outlets
+        respectively
 
     OUTPUTS
     -------
@@ -437,7 +440,7 @@ def plotPostSamples(logistigateDict,
     for i in importerIndsSubset:
         plt.hist(logistigateDict['postSamples'][:, i], alpha=0.2)
     plt.xlim([0,1])
-    plt.title('Importers', fontdict={'fontsize': 18})
+    plt.title('Importers'+subTitleStr[0], fontdict={'fontsize': 18})
     plt.xlabel('SFP rate',fontdict={'fontsize': 14})
     plt.ylabel('Posterior distribution frequency',fontdict={'fontsize': 14})
     plt.show()
@@ -448,7 +451,7 @@ def plotPostSamples(logistigateDict,
     for i in outletIndsSubset:
         plt.hist(logistigateDict['postSamples'][:, numImp + i], alpha=0.2)
     plt.xlim([0,1])
-    plt.title('Outlets', fontdict={'fontsize': 18})
+    plt.title('Outlets'+subTitleStr[1], fontdict={'fontsize': 18})
     plt.xlabel('SFP rate',fontdict={'fontsize': 14})
     plt.ylabel('Posterior distribution frequency',fontdict={'fontsize': 14})
     plt.show()
@@ -457,7 +460,8 @@ def plotPostSamples(logistigateDict,
     return
 
 
-def printEstimates(logistigateDict):
+def printEstimates(logistigateDict,
+                   importerIndsSubset=[], outletIndsSubset=[]):
     '''
     Prints a formatted table of an estimate dictionary.
     
@@ -477,6 +481,9 @@ def printEstimates(logistigateDict):
     estDict = logistigateDict['estDict']
 
     impMLE = np.ndarray.tolist(estDict['impEst'])
+    if importerIndsSubset==[]:
+        importerIndsSubset = range(len(impMLE))
+
     imp99lower = np.ndarray.tolist(estDict['99lower_imp'])
     imp95lower = np.ndarray.tolist(estDict['95lower_imp'])
     imp90lower = np.ndarray.tolist(estDict['90lower_imp'])
@@ -487,9 +494,12 @@ def printEstimates(logistigateDict):
                  ["{0:.1%}".format(imp99lower[i])] + ["{0:.1%}".format(imp95lower[i])] +
                  ["{0:.1%}".format(imp90lower[i])] + ["{0:.1%}".format(imp90upper[i])] +
                  ["{0:.1%}".format(imp95upper[i])] + ["{0:.1%}".format(imp99upper[i])]
-                 for i in range(len(impMLE))]
+                 for i in importerIndsSubset]
 
     outMLE = np.ndarray.tolist(estDict['outEst'])
+    if outletIndsSubset == []:
+        outletIndsSubset = range(len(outMLE))
+
     out99lower = np.ndarray.tolist(estDict['99lower_out'])
     out95lower = np.ndarray.tolist(estDict['95lower_out'])
     out90lower = np.ndarray.tolist(estDict['90lower_out'])
@@ -500,7 +510,7 @@ def printEstimates(logistigateDict):
                  ["{0:.1%}".format(out99lower[i])] + ["{0:.1%}".format(out95lower[i])] +
                  ["{0:.1%}".format(out90lower[i])] + ["{0:.1%}".format(out90upper[i])] +
                  ["{0:.1%}".format(out95upper[i])] + ["{0:.1%}".format(out99upper[i])]
-                 for i in range(len(outMLE))]
+                 for i in outletIndsSubset]
 
     print('*' * 120)
     print('ESTIMATE DICTIONARY VALUES')

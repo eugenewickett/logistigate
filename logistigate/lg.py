@@ -2189,15 +2189,14 @@ def MQDdataScript():
                          'prior': methods.prior_normal(mu=sps.logit(countryMean)),
                          'MCMCdict': MCMCdict})
     logistigateDict_CAM = runlogistigate(dataTblDict_CAM)
-    util.plotPostSamples(logistigateDict_CAM)
+    util.plotPostSamples(logistigateDict_CAM,subTitleStr=['\nCambodia','\nCambodia'])
     util.printEstimates(logistigateDict_CAM)
-
     # Plot importers subset where median sample is above 0.4
     totalEntities = logistigateDict_CAM['importerNum'] + logistigateDict_CAM['outletNum']
     sampMedians = [np.median(logistigateDict_CAM['postSamples'][:,i]) for i in range(totalEntities)]
     highImporterInds = [i for i, x in enumerate(sampMedians[:logistigateDict_CAM['importerNum']]) if x > 0.4]
-    util.plotPostSamples(logistigateDict_CAM,importerIndsSubset=highImporterInds)
-
+    util.plotPostSamples(logistigateDict_CAM,importerIndsSubset=highImporterInds,subTitleStr=['\nCambodia - Subset','\nCambodia'])
+    util.printEstimates(logistigateDict_CAM,importerIndsSubset=highImporterInds)
 
     # Run with Ethiopia provinces
     dataTblDict_ETH = util.testresultsfiletotable('../examples/data/MQD_ETHIOPIA.csv')
@@ -2221,9 +2220,17 @@ def MQDdataScript():
                             'prior': methods.prior_normal(mu=sps.logit(countryMean)),
                             'MCMCdict': MCMCdict})
     logistigateDict_GHA = runlogistigate(dataTblDict_GHA)
-    util.plotPostSamples(logistigateDict_GHA)
+    util.plotPostSamples(logistigateDict_GHA,subTitleStr=['\nGhana','\nGhana'])
     util.printEstimates(logistigateDict_GHA)
-
+    # Plot importers subset where median sample is above 0.4
+    totalEntities = logistigateDict_GHA['importerNum'] + logistigateDict_GHA['outletNum']
+    sampMedians = [np.median(logistigateDict_GHA['postSamples'][:, i]) for i in range(totalEntities)]
+    highImporterInds = [i for i, x in enumerate(sampMedians[:logistigateDict_GHA['importerNum']]) if x > 0.4]
+    highOutletInds = [i for i, x in enumerate(sampMedians[logistigateDict_GHA['importerNum']:]) if x > 0.15]
+    util.plotPostSamples(logistigateDict_GHA, importerIndsSubset=highImporterInds,
+                         outletIndsSubset=highOutletInds,
+                         subTitleStr=['\nGhana - Subset', '\nGhana - Subset'])
+    util.printEstimates(logistigateDict_GHA, importerIndsSubset=highImporterInds,outletIndsSubset=highOutletInds)
 
     # Run with Kenya provinces
     dataTblDict_KEN = util.testresultsfiletotable('../examples/data/MQD_KENYA.csv')
@@ -2284,8 +2291,18 @@ def MQDdataScript():
                             'prior': methods.prior_normal(mu=sps.logit(countryMean)),
                             'MCMCdict': MCMCdict})
     logistigateDict_PER = runlogistigate(dataTblDict_PER)
-    util.plotPostSamples(logistigateDict_PER)
+    util.plotPostSamples(logistigateDict_PER,subTitleStr=['\nPeru','\nPeru'])
     util.printEstimates(logistigateDict_PER)
+    # Plot importers subset where median sample is above 0.4
+    totalEntities = logistigateDict_PER['importerNum'] + logistigateDict_PER['outletNum']
+    sampMedians = [np.median(logistigateDict_PER['postSamples'][:, i]) for i in range(totalEntities)]
+    highImporterInds = [i for i, x in enumerate(sampMedians[:logistigateDict_PER['importerNum']]) if x > 0.4]
+    highImporterInds = [highImporterInds[i] for i in [3,6,7,8,9,12,13,16]] # Only manufacturers with more than 1 sample
+    highOutletInds = [i for i, x in enumerate(sampMedians[logistigateDict_PER['importerNum']:]) if x > 0.12]
+    util.plotPostSamples(logistigateDict_PER, importerIndsSubset=highImporterInds,
+                         outletIndsSubset=highOutletInds,
+                         subTitleStr=['\nPeru - Subset', '\nPeru - Subset'])
+    util.printEstimates(logistigateDict_PER, importerIndsSubset=highImporterInds, outletIndsSubset=highOutletInds)
 
     # Run with Philippines provinces
     dataTblDict_PHI = util.testresultsfiletotable('../examples/data/MQD_PHILIPPINES.csv')
@@ -2296,8 +2313,19 @@ def MQDdataScript():
                             'prior': methods.prior_normal(mu=sps.logit(countryMean)),
                             'MCMCdict': MCMCdict})
     logistigateDict_PHI = runlogistigate(dataTblDict_PHI)
-    util.plotPostSamples(logistigateDict_PHI)
+    util.plotPostSamples(logistigateDict_PHI,subTitleStr=['\nPhilippines','\nPhilippines'])
     util.printEstimates(logistigateDict_PHI)
+    # Plot importers subset where median sample is above 0.1
+    totalEntities = logistigateDict_PHI['importerNum'] + logistigateDict_PHI['outletNum']
+    sampMedians = [np.median(logistigateDict_PHI['postSamples'][:, i]) for i in range(totalEntities)]
+    highImporterInds = [i for i, x in enumerate(sampMedians[:logistigateDict_PHI['importerNum']]) if x > 0.1]
+    #highImporterInds = [highImporterInds[i] for i in
+    #                    [3, 6, 7, 8, 9, 12, 13, 16]]  # Only manufacturers with more than 1 sample
+    highOutletInds = [i for i, x in enumerate(sampMedians[logistigateDict_PHI['importerNum']:]) if x > 0.1]
+    util.plotPostSamples(logistigateDict_PHI, importerIndsSubset=highImporterInds,
+                         outletIndsSubset=highOutletInds,
+                         subTitleStr=['\nPhilippines - Subset', '\nPhilippines - Subset'])
+    util.printEstimates(logistigateDict_PHI, importerIndsSubset=highImporterInds, outletIndsSubset=highOutletInds)
 
     # Run with Thailand provinces
     dataTblDict_THA = util.testresultsfiletotable('../examples/data/MQD_THAILAND.csv')

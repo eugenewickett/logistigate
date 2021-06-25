@@ -43,7 +43,7 @@ Peru-Loreto,Genfar Peru S.A.,1
 Peru-Loreto,Genfar Peru S.A.,1
 Peru-Loreto,Genfar Peru S.A.,1
 Peru-Ucayali,Genfar Peru S.A.,1
-Peru-Callao,Genfar S.A.,1
+Peru-Callao,Genfar Peru S.A.,1
 Peru-Amazonas,GlaxoSmithKline,1
 Peru-Amazonas,GlaxoSmithKline,1
 Peru-Callao,Hersil S.A. Laboratorios Industriales Farmaceuticos,1
@@ -53,9 +53,9 @@ Peru-Callao,Induquimica S.A.,1
 Peru-Amazonas,JPS Distribuciones E.I.R.L,1
 Peru-Loreto,JPS Distribuciones E.I.R.L,1
 Peru-Loreto,JPS Distribuciones E.I.R.L,1
-Peru-Callao,Lab. D.A. Carrion S.A. / Refasa SAC,1
-Peru-Callao,Lab. Naturales y Genericos SAC,1
-Peru-Callao,Lab. Naturales y Genericos SAC,1
+Peru-Callao,Laboratorio D.A. Carrion SAC,1
+Peru-Callao,Laboratorios Naturales Y Genericos S.A.C.,1
+Peru-Callao,Laboratorios Naturales Y Genericos S.A.C.,1
 Peru-Callao,Laboratorio D.A. Carrion SAC,1
 Peru-San Martin,Laboratorio Farmaceutico San Joaquin - Roxfarma S.A.,1
 Peru-Madre de Dios,Laboratorios Americanos S.A.,1
@@ -265,7 +265,7 @@ Peru-Ucayali,HOSPITAL REGIONAL DE SALUD DE PUCALLPA,0
 Peru-Ucayali,HOSPITAL REGIONAL DE SALUD DE PUCALLPA,0
 Peru-Ucayali,HOSPITAL REGIONAL DE SALUD DE PUCALLPA,0
 Peru-Madre de Dios,HUESEMBE GONZALES TEODOSIA,0
-Peru-Callao,Imported for: Gen Far Peru S.A.,0
+Peru-Callao,Genfar Peru S.A.,0
 Peru-Callao,Innova Andina S.A.,0
 Peru-Amazonas,Instituto Quimioterapico S.A.,0
 Peru-Amazonas,Instituto Quimioterapico S.A.,0
@@ -325,9 +325,9 @@ Peru-Ucayali,Laboratorios Americanos S.A.,0
 Peru-Callao,Laboratorios Corporacion Infarmasa S.A.,0
 Peru-Callao,Laboratorios Corporacion Infarmasa S.A.,0
 Peru-Callao,Laboratorios Corporacion Infarmasa S.A.,0
-Peru-Madre de Dios,LABORATORIOS D.A.CARRION S.A.C.,0
-Peru-San Martin,LABORATORIOS D.A.CARRION S.A.C.,0
-Peru-San Martin,LABORATORIOS D.A.CARRION S.A.C.,0
+Peru-Madre de Dios,Laboratorio D.A. Carrion SAC,0
+Peru-San Martin,Laboratorio D.A. Carrion SAC,0
+Peru-San Martin,Laboratorio D.A. Carrion SAC,0
 Peru-Amazonas,LABORATORIOS DELFARMA S.A.C.,0
 Peru-Amazonas,Laboratorios Elifarma S.A.,0
 Peru-Loreto,LABORATORIOS FARMACEUTICA DEL PERU SOCIEDAD ANONIMA CERRADA,0
@@ -348,12 +348,12 @@ Peru-Callao,Laboratorios Unidos S.A.,0
 Peru-Madre de Dios,Laboratorios Unidos S.A.,0
 Peru-Ucayali,Laboratorios Unidos S.A.,0
 Peru-Madre de Dios,MANRRIQUE ORME,0
-Peru-Callao,Manufactured for: AC Farma S.A.,0
-Peru-Callao,Manufactured for: Cipa S.A.,0
-Peru-Callao,Manufactured for: Cipa S.A.,0
-Peru-Callao,Manufactured for: Corporacion Infarmasa S.A.,0
-Peru-Callao,Manufactured for: Corporacion Infarmasa S.A.,0
-Peru-Callao,Manufactured for: Corporacion Infarmasa S.A.,0
+Peru-Callao,Laboratorios AC Farma S.A.,0
+Peru-Callao,Cipa S.A.,0
+Peru-Callao,Cipa S.A.,0
+Peru-Callao,Corporacion Infarmasa S.A.,0
+Peru-Callao,Corporacion Infarmasa S.A.,0
+Peru-Callao,Corporacion Infarmasa S.A.,0
 Peru-Loreto,MARINA DE GUERRA DEL PERU,0
 Peru-Loreto,MARINA DE GUERRA DEL PERU,0
 Peru-Loreto,MARINA DE GUERRA DEL PERU,0
@@ -407,8 +407,6 @@ Peru-Ucayali,Medrock Corporation Sociedad Anonima Cerrada,0
 Peru-Madre de Dios,MIRANDA FLORES BERNARDO,0
 Peru-Madre de Dios,MKS UNIDOS S.A.,0
 Peru-Ucayali,MUNICIPALIDAD PROVINCIAL DE PADRE ABAD,0
-Peru-Ucayali,Unknown,0
-Peru-Ucayali,Unknown,0
 Peru-Callao,Naturgen,0
 Peru-San Martin,Novartis,0
 Peru-Madre de Dios,OSORIO DE PINTADO ELENA,0
@@ -450,6 +448,8 @@ Peru-Callao,Shering-Plough,0
 Peru-San Martin,TERBOL PERU SOCIEDAD ANONIMA CERRADA,0
 Peru-Ucayali,TERBOL PERU SOCIEDAD ANONIMA CERRADA,0
 Peru-Ucayali,TORRES SUAREZ OHNER ELDI,0
+Peru-Ucayali,Unknown,0
+Peru-Ucayali,Unknown,0
 Peru-Amazonas,Vita Pharma S.A.C.,0
 Peru-Loreto,Vita Pharma S.A.C.,0
 Peru-Loreto,Vita Pharma S.A.C.,0
