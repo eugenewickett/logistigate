@@ -411,9 +411,8 @@ def scorePostSamplesIntervals(logistigateDict):
     return logistigateDict
 
 
-def plotPostSamples(logistigateDict,
-                    importerIndsSubset=[],
-                    outletIndsSubset=[], subTitleStr=['','']):
+def plotPostSamples(logistigateDict, plotType='hist', importerIndsSubset=[],
+                    outletIndsSubset=[], subTitleStr=['',''], sortBy = 'midpoint'):
     '''
     Plots the distribution of posterior aberration rate samples, with importer
     and outlet distributions plotted distinctly.
@@ -423,41 +422,151 @@ def plotPostSamples(logistigateDict,
     logistigateDict with the following keys:
         postSamples: List of posterior sample lists, with importer values entered first.
         numImp:    Number of importers/upper echelon entities
-        numOut:    Number of outlets/lower echelon entities        
-    importerNamesSubset, outletNamesSubset:
-        List of a subset of names to be plotted
+        numOut:    Number of outlets/lower echelon entities
+    plotType string from the following options:
+        'hist': histograms for importer entities and outlet entities
+        'int90'/'int95'/'int99': plot of 90%/95%/99% confidence intervals with importers
+    importerIndsSubset, outletIndsSubset:
+        List of a subset of entities to be plotted
     subTitleStr:
         List of strings to be added to plot titles for importers, outlets
         respectively
-
+    sortBy:
+        'lower'/'upper'/'midpoint': Whether to sort interval plots by their lower or upper interval values
     OUTPUTS
     -------
     No values are returned
     '''
     numImp, numOut = logistigateDict['importerNum'], logistigateDict['outletNum']
-    if importerIndsSubset == []:
-        importerIndsSubset = range(numImp)
-    for i in importerIndsSubset:
-        plt.hist(logistigateDict['postSamples'][:, i], alpha=0.2)
-    plt.xlim([0,1])
-    plt.title('Importers'+subTitleStr[0], fontdict={'fontsize': 18})
-    plt.xlabel('SFP rate',fontdict={'fontsize': 14})
-    plt.ylabel('Posterior distribution frequency',fontdict={'fontsize': 14})
-    plt.show()
-    plt.close()
 
-    if outletIndsSubset == []:
-        outletIndsSubset = range(numOut)
-    for i in outletIndsSubset:
-        plt.hist(logistigateDict['postSamples'][:, numImp + i], alpha=0.2)
-    plt.xlim([0,1])
-    plt.title('Outlets'+subTitleStr[1], fontdict={'fontsize': 18})
-    plt.xlabel('SFP rate',fontdict={'fontsize': 14})
-    plt.ylabel('Posterior distribution frequency',fontdict={'fontsize': 14})
-    plt.show()
-    plt.close()
+    if plotType == 'hist': # Plot histograms
+        if importerIndsSubset == []:
+            importerIndsSubset = range(numImp)
+        for i in importerIndsSubset:
+            plt.hist(logistigateDict['postSamples'][:, i], alpha=0.2)
+        plt.xlim([0,1])
+        plt.title('Importers'+subTitleStr[0], fontdict={'fontsize': 18})
+        plt.xlabel('SFP rate',fontdict={'fontsize': 14})
+        plt.ylabel('Posterior distribution frequency',fontdict={'fontsize': 14})
+        plt.show()
+        plt.close()
+
+        if outletIndsSubset == []:
+            outletIndsSubset = range(numOut)
+        for i in outletIndsSubset:
+            plt.hist(logistigateDict['postSamples'][:, numImp + i], alpha=0.2)
+        plt.xlim([0,1])
+        plt.title('Outlets'+subTitleStr[1], fontdict={'fontsize': 18})
+        plt.xlabel('SFP rate',fontdict={'fontsize': 14})
+        plt.ylabel('Posterior distribution frequency',fontdict={'fontsize': 14})
+        plt.show()
+        plt.close()
+    elif plotType == 'int90' or plotType == 'int95' or plotType == 'int99': # Plot 90%/95%/99% credible intervals, as well as the prior for comparison
+        if plotType == 'int90':
+            lowerQuant, upperQuant = 0.05, 0.95
+            intStr = '90'
+        elif plotType == 'int95':
+            lowerQuant, upperQuant = 0.025, 0.975
+            intStr = '95'
+        elif plotType == 'int99':
+            lowerQuant, upperQuant = 0.005, 0.995
+            intStr = '99'
+        priorSamps = logistigateDict['prior'].expitrand(5000)
+        priorLower, priorUpper = np.quantile(priorSamps,lowerQuant), np.quantile(priorSamps,upperQuant)
+
+        if importerIndsSubset == []:
+            importerIndsSubset = range(numImp)
+            impNames = [logistigateDict['importerNames'][i] for i in importerIndsSubset]
+        else:
+            impNames = [logistigateDict['importerNames'][i] for i in importerIndsSubset]
+        impLowers = [np.quantile(logistigateDict['postSamples'][:, l], lowerQuant) for l in importerIndsSubset]
+        impUppers = [np.quantile(logistigateDict['postSamples'][:, l], upperQuant) for l in importerIndsSubset]
+        if sortBy == 'lower':
+            zippedList = zip(impLowers, impUppers, impNames)
+        elif sortBy == 'upper':
+            zippedList = zip(impUppers, impLowers, impNames)
+        elif sortBy == 'midpoint':
+            midpoints = [impUppers[i] - (impUppers[i]-impLowers[i])/2 for i in range(len(impUppers))]
+            zippedList = zip(midpoints, impUppers, impLowers, impNames)
+        sorted_pairs = sorted(zippedList, reverse=True)
+        impNames.append('')
+        impNames.append('(Prior)')
+        # Plot
+        fig, (ax) = plt.subplots(figsize=(8, 10), ncols=1)
+        if sortBy == 'lower':
+            sorted_pairs.append((np.nan, np.nan, ' '))  # for spacing
+            for lower, upper, name in sorted_pairs:
+                plt.plot((name,name),(lower,upper),'o-',color='red')
+        elif sortBy == 'upper':
+            sorted_pairs.append((np.nan, np.nan, ' '))  # for spacing
+            for upper, lower, name in sorted_pairs:
+                plt.plot((name,name),(lower,upper),'o-',color='red')
+        elif sortBy == 'midpoint':
+            sorted_pairs.append((np.nan,np.nan, np.nan, ' '))  # for spacing
+            for _, upper, lower, name in sorted_pairs:
+                plt.plot((name, name), (lower, upper), 'o-', color='red')
+        plt.plot((impNames[-1], impNames[-1]), (priorLower, priorUpper), 'o--', color='gray')
+        plt.ylim([0,1])
+        plt.xticks(range(len(impNames)),impNames,rotation=90)
+        plt.title('Importers - ' + intStr + '% Intervals'+subTitleStr[0], fontdict={'fontsize': 18, 'fontname':'Trebuchet MS'})
+        plt.xlabel('Importer Name', fontdict={'fontsize': 14,'fontname':'Trebuchet MS'})
+        plt.ylabel('Interval value', fontdict={'fontsize': 14, 'fontname':'Trebuchet MS'})
+        for label in (ax.get_xticklabels() + ax.get_yticklabels()):
+            label.set_fontname('Times New Roman')
+            label.set_fontsize(10)
+        fig.tight_layout()
+        plt.show()
+        plt.close()
+
+        if outletIndsSubset == []:
+            outletIndsSubset = range(numOut)
+            outNames = [logistigateDict['outletNames'][i] for i in outletIndsSubset]
+        else:
+            outNames = [logistigateDict['outletNames'][i] for i in outletIndsSubset]
+        outLowers = [np.quantile(logistigateDict['postSamples'][:, numImp + l], lowerQuant) for l in outletIndsSubset]
+        outUppers = [np.quantile(logistigateDict['postSamples'][:, numImp + l], upperQuant) for l in outletIndsSubset]
+        if sortBy == 'lower':
+            zippedList = zip(outLowers, outUppers, impNames)
+        elif sortBy == 'upper':
+            zippedList = zip(outUppers, outLowers, impNames)
+        elif sortBy == 'midpoint':
+            midpoints = [outUppers[i] - (outUppers[i] - outLowers[i]) / 2 for i in range(len(outUppers))]
+            zippedList = zip(midpoints, outUppers, outLowers, outNames)
+        sorted_pairs = sorted(zippedList, reverse=True)
+        outNames.append('')
+        outNames.append('(Prior)')
+        # Plot
+        fig, (ax) = plt.subplots(figsize=(8, 10), ncols=1)
+        if sortBy == 'lower':
+            sorted_pairs.append((np.nan, np.nan, ' '))  # for spacing
+            for lower, upper, name in sorted_pairs:
+                plt.plot((name,name),(lower,upper), 'o-', color='purple')
+        elif sortBy == 'upper':
+            sorted_pairs.append((np.nan, np.nan, ' '))  # for spacing
+            for upper, lower, name in sorted_pairs:
+                plt.plot((name, name), (lower, upper), 'o-', color='purple')
+        elif sortBy == 'midpoint':
+            sorted_pairs.append((np.nan,np.nan, np.nan, ' '))  # for spacing
+            for _, upper, lower, name in sorted_pairs:
+                plt.plot((name, name),(lower, upper), 'o-', color='purple')
+        plt.plot((outNames[-1], outNames[-1]), (priorLower, priorUpper), 'o--', color='gray')
+        plt.ylim([0,1])
+        plt.xticks(range(len(outNames)),outNames,rotation=90)
+        plt.title('Outlets - ' + intStr + '% Intervals'+subTitleStr[1], fontdict={'fontsize': 18, 'fontname':'Trebuchet MS'})
+        plt.xlabel('Outlet Name', fontdict={'fontsize': 14,'fontname':'Trebuchet MS'})
+        plt.ylabel('Interval value', fontdict={'fontsize': 14, 'fontname':'Trebuchet MS'})
+        for label in (ax.get_xticklabels() + ax.get_yticklabels()):
+            label.set_fontname('Times New Roman')
+            label.set_fontsize(10)
+        fig.tight_layout()
+        plt.show()
+        plt.close()
+
+
 
     return
+
+
 
 
 def printEstimates(logistigateDict,

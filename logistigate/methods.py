@@ -32,7 +32,9 @@ class prior_laplace:
         self.mu = mu
         self.scale = scale
     def rand(self, n=1):
-        return np.random.laplace(self.mu, self.scale,n)
+        return np.random.laplace(self.mu, self.scale, n)
+    def expitrand(self, n=1): # transformed to [0,1] space
+        return sps.expit(np.random.laplace(self.mu, self.scale, n))
     def lpdf(self,beta):
         if beta.ndim == 1: # reshape to 2d
             beta = np.reshape(beta,(1,-1))
@@ -65,7 +67,9 @@ class prior_normal:
         self.mu = mu
         self.var = var
     def rand(self, n=1):
-        return np.random.normal(self.mu, np.sqrt(self.var),n)
+        return np.random.normal(self.mu, np.sqrt(self.var), n)
+    def expitrand(self, n=1): # transformed to [0,1] space
+        return sps.expit(np.random.normal(self.mu, np.sqrt(self.var), n))
     def lpdf(self,beta):
         if beta.ndim == 1: # reshape to 2d
             beta = np.reshape(beta,(1,-1))

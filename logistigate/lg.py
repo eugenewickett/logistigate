@@ -2287,11 +2287,16 @@ def MQDdataScript():
     countryMean = np.sum(dataTblDict_PER['Y']) / np.sum(dataTblDict_PER['N'])
     dataTblDict_PER.update({'diagSens': 1.0,
                             'diagSpec': 1.0,
-                            'numPostSamples': 500,
+                            'numPostSamples': 1000,
                             'prior': methods.prior_normal(mu=sps.logit(countryMean)),
                             'MCMCdict': MCMCdict})
     logistigateDict_PER = runlogistigate(dataTblDict_PER)
-    util.plotPostSamples(logistigateDict_PER,subTitleStr=['\nPeru','\nPeru'])
+    numPeruImps_half = int(np.floor(logistigateDict_PER['importerNum']/2))
+    util.plotPostSamples(logistigateDict_PER, plotType='int90',
+                         importerIndsSubset=np.arange(0,numPeruImps_half).tolist(), subTitleStr=['\nPeru - 1st Half', '\nPeru'])
+    util.plotPostSamples(logistigateDict_PER, plotType='int90',
+                         importerIndsSubset=np.arange(numPeruImps_half,logistigateDict_PER['importerNum']).tolist(),
+                         subTitleStr=['\nPeru - 2nd Half', '\nPeru'])
     util.printEstimates(logistigateDict_PER)
     # Plot importers subset where median sample is above 0.4
     totalEntities = logistigateDict_PER['importerNum'] + logistigateDict_PER['outletNum']
@@ -2309,11 +2314,11 @@ def MQDdataScript():
     countryMean = np.sum(dataTblDict_PHI['Y']) / np.sum(dataTblDict_PHI['N'])
     dataTblDict_PHI.update({'diagSens': 1.0,
                             'diagSpec': 1.0,
-                            'numPostSamples': 500,
+                            'numPostSamples': 1000,
                             'prior': methods.prior_normal(mu=sps.logit(countryMean)),
                             'MCMCdict': MCMCdict})
     logistigateDict_PHI = runlogistigate(dataTblDict_PHI)
-    util.plotPostSamples(logistigateDict_PHI,subTitleStr=['\nPhilippines','\nPhilippines'])
+    util.plotPostSamples(logistigateDict_PHI,plotType='int90',subTitleStr=['\nPhilippines','\nPhilippines'])
     util.printEstimates(logistigateDict_PHI)
     # Plot importers subset where median sample is above 0.1
     totalEntities = logistigateDict_PHI['importerNum'] + logistigateDict_PHI['outletNum']
@@ -2352,3 +2357,4 @@ def MQDdataScript():
     util.printEstimates(logistigateDict_VIE)
 
     return
+
