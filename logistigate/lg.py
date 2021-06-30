@@ -2184,12 +2184,24 @@ def MQDdataScript():
     dataTblDict_CAM = util.testresultsfiletotable('../examples/data/MQD_CAMBODIA.csv')
     countryMean = np.sum(dataTblDict_CAM['Y']) / np.sum(dataTblDict_CAM['N'])
     dataTblDict_CAM.update({'diagSens': 1.0,
-                         'diagSpec': 1.0,
-                         'numPostSamples': 500,
-                         'prior': methods.prior_normal(mu=sps.logit(countryMean)),
-                         'MCMCdict': MCMCdict})
+                            'diagSpec': 1.0,
+                            'numPostSamples': 1000,
+                            'prior': methods.prior_normal(mu=sps.logit(countryMean)),
+                            'MCMCdict': MCMCdict})
     logistigateDict_CAM = runlogistigate(dataTblDict_CAM)
-    util.plotPostSamples(logistigateDict_CAM,subTitleStr=['\nCambodia','\nCambodia'])
+    numCamImps_fourth = int(np.floor(logistigateDict_CAM['importerNum'] / 4))
+    util.plotPostSamples(logistigateDict_CAM, plotType='int90',
+                         importerIndsSubset=np.arange(numCamImps_fourth).tolist(),
+                         subTitleStr=['\nCambodia - 1st Quarter', '\nCambodia'])
+    util.plotPostSamples(logistigateDict_CAM, plotType='int90',
+                         importerIndsSubset=np.arange(numCamImps_fourth,numCamImps_fourth*2).tolist(),
+                         subTitleStr=['\nCambodia - 2nd Quarter', '\nCambodia'])
+    util.plotPostSamples(logistigateDict_CAM, plotType='int90',
+                         importerIndsSubset=np.arange(numCamImps_fourth * 2, numCamImps_fourth * 3).tolist(),
+                         subTitleStr=['\nCambodia - 3rd Quarter', '\nCambodia'])
+    util.plotPostSamples(logistigateDict_CAM, plotType='int90',
+                         importerIndsSubset=np.arange(numCamImps_fourth * 3, numCamImps_fourth * 4).tolist(),
+                         subTitleStr=['\nCambodia - 4th Quarter', '\nCambodia'])
     util.printEstimates(logistigateDict_CAM)
     # Plot importers subset where median sample is above 0.4
     totalEntities = logistigateDict_CAM['importerNum'] + logistigateDict_CAM['outletNum']
@@ -2216,11 +2228,12 @@ def MQDdataScript():
     countryMean = np.sum(dataTblDict_GHA['Y']) / np.sum(dataTblDict_GHA['N'])
     dataTblDict_GHA.update({'diagSens': 1.0,
                             'diagSpec': 1.0,
-                            'numPostSamples': 500,
+                            'numPostSamples': 1000,
                             'prior': methods.prior_normal(mu=sps.logit(countryMean)),
                             'MCMCdict': MCMCdict})
     logistigateDict_GHA = runlogistigate(dataTblDict_GHA)
-    util.plotPostSamples(logistigateDict_GHA,subTitleStr=['\nGhana','\nGhana'])
+    util.plotPostSamples(logistigateDict_GHA, plotType='int90',
+                         subTitleStr=['\nGhana', '\nGhana'])
     util.printEstimates(logistigateDict_GHA)
     # Plot importers subset where median sample is above 0.4
     totalEntities = logistigateDict_GHA['importerNum'] + logistigateDict_GHA['outletNum']
