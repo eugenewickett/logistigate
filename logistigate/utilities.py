@@ -489,8 +489,9 @@ def plotPostSamples(logistigateDict, plotType='hist', importerIndsSubset=[],
             midpoints = [impUppers[i] - (impUppers[i]-impLowers[i])/2 for i in range(len(impUppers))]
             zippedList = zip(midpoints, impUppers, impLowers, impNames)
         sorted_pairs = sorted(zippedList, reverse=True)
-        impNames.append('')
-        impNames.append('(Prior)')
+        impNamesSorted = [tup[3] for tup in sorted_pairs]
+        impNamesSorted.append('')
+        impNamesSorted.append('(Prior)')
         # Plot
         fig, (ax) = plt.subplots(figsize=(8, 10), ncols=1)
         if sortBy == 'lower':
@@ -505,9 +506,9 @@ def plotPostSamples(logistigateDict, plotType='hist', importerIndsSubset=[],
             sorted_pairs.append((np.nan,np.nan, np.nan, ' '))  # for spacing
             for _, upper, lower, name in sorted_pairs:
                 plt.plot((name, name), (lower, upper), 'o-', color='red')
-        plt.plot((impNames[-1], impNames[-1]), (priorLower, priorUpper), 'o--', color='gray')
+        plt.plot((impNamesSorted[-1], impNamesSorted[-1]), (priorLower, priorUpper), 'o--', color='gray')
         plt.ylim([0,1])
-        plt.xticks(range(len(impNames)),impNames,rotation=90)
+        plt.xticks(range(len(impNamesSorted)),impNamesSorted,rotation=90)
         plt.title('Importers - ' + intStr + '% Intervals'+subTitleStr[0], fontdict={'fontsize': 18, 'fontname':'Trebuchet MS'})
         plt.xlabel('Importer Name', fontdict={'fontsize': 14,'fontname':'Trebuchet MS'})
         plt.ylabel('Interval value', fontdict={'fontsize': 14, 'fontname':'Trebuchet MS'})
@@ -533,8 +534,9 @@ def plotPostSamples(logistigateDict, plotType='hist', importerIndsSubset=[],
             midpoints = [outUppers[i] - (outUppers[i] - outLowers[i]) / 2 for i in range(len(outUppers))]
             zippedList = zip(midpoints, outUppers, outLowers, outNames)
         sorted_pairs = sorted(zippedList, reverse=True)
-        outNames.append('')
-        outNames.append('(Prior)')
+        outNamesSorted = [tup[3] for tup in sorted_pairs]
+        outNamesSorted.append('')
+        outNamesSorted.append('(Prior)')
         # Plot
         fig, (ax) = plt.subplots(figsize=(8, 10), ncols=1)
         if sortBy == 'lower':
@@ -549,9 +551,9 @@ def plotPostSamples(logistigateDict, plotType='hist', importerIndsSubset=[],
             sorted_pairs.append((np.nan,np.nan, np.nan, ' '))  # for spacing
             for _, upper, lower, name in sorted_pairs:
                 plt.plot((name, name),(lower, upper), 'o-', color='purple')
-        plt.plot((outNames[-1], outNames[-1]), (priorLower, priorUpper), 'o--', color='gray')
+        plt.plot((outNamesSorted[-1], outNamesSorted[-1]), (priorLower, priorUpper), 'o--', color='gray')
         plt.ylim([0,1])
-        plt.xticks(range(len(outNames)),outNames,rotation=90)
+        plt.xticks(range(len(outNamesSorted)),outNamesSorted,rotation=90)
         plt.title('Outlets - ' + intStr + '% Intervals'+subTitleStr[1], fontdict={'fontsize': 18, 'fontname':'Trebuchet MS'})
         plt.xlabel('Outlet Name', fontdict={'fontsize': 14,'fontname':'Trebuchet MS'})
         plt.ylabel('Interval value', fontdict={'fontsize': 14, 'fontname':'Trebuchet MS'})
