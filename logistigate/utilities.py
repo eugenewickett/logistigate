@@ -626,12 +626,12 @@ def printEstimates(logistigateDict,
     print('*' * 120)
     print('ESTIMATE DICTIONARY VALUES')
     print('*' * 120)
-    print(tabulate(impReport, headers=['Importer Name', 'Max. Lklhd. Est.',
+    print(tabulate(impReport, headers=['Importer Name', 'Max. Est.',
                                        '99% Lower', '95% Lower', '90% Lower',
                                        '90% Upper', '95% Upper', '99% Upper']))
     print('*' * 120)
     print('*' * 120)
-    print(tabulate(outReport, headers=['Outlet Name', 'Max. Lklhd. Est.',
+    print(tabulate(outReport, headers=['Outlet Name', 'Max. Est.',
                                        '99% Lower', '95% Lower', '90% Lower',
                                        '90% Upper', '95% Upper', '99% Upper']))
 
