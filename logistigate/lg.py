@@ -2510,3 +2510,11 @@ def MQDdataScript():
 
     return
 
+def laplaceTests():
+    '''
+    A script for checking the Laplace approximation in producing credible intervals.
+    '''
+
+
+
+    return
