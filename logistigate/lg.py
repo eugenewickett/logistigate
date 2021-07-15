@@ -2514,7 +2514,16 @@ def laplaceTests():
     '''
     A script for checking the Laplace approximation in producing credible intervals.
     '''
-
+    # Check L-BFGS exit flags for some random systems
+    import numpy as np
+    for randSys in range(10):
+        newSysDict = util.generateRandDataDict(numImp=10, numOut=100, numSamples=100 * 20,
+                                                 dataType='Tracked')
+        _ = util.GetVectorForms(newSysDict)
+        newSysDict.update({'prior': methods.prior_normal()})
+        outDict = methods.FormEstimates(newSysDict, retOptStatus=True)
+        print(np.sum(outDict['optStatus']))
+    # Ran for 100 systems of size 10/100; no instance of a non-successful optimizer exit
 
 
     return

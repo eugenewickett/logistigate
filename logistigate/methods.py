@@ -491,12 +491,11 @@ def GeneratePostSamples(dataTblDict):
     print('Posterior samples generated')
     return dataTblDict
 
-def FormEstimates(dataTblDict):
+def FormEstimates(dataTblDict, retOptStatus=False):
     '''
-    Takes a data input dictionary and returns an estimate dictionary,
-    depending on the data type. The L-BFGS-B method of the SciPy Optimizer is
-    used to maximize the posterior log-likelihood, where initial points are randomly
-    chosen from 'postSamples' in dataTblDict (if provided).
+    Takes a data input dictionary and returns an estimate dictionary using Laplace approximation.
+    The L-BFGS-B method of the SciPy Optimizer is used to maximize the posterior log-likelihood,
+    warm-started using random points via the prior.
     
     INPUTS
     ------
@@ -516,10 +515,7 @@ def FormEstimates(dataTblDict):
         diagSens, diagSpec: float
             Diagnostic characteristics for the data compiled in dataTbl
         prior: prior Class object
-            Prior object for use with the posterior likelihood
-        postSamples: list
-            List of posterior samples from which to choose random initial
-            points for the optimizer
+            Prior object for use with the posterior likelihood, as well as for warm-starting
     OUTPUTS
     -------
     Returns an estimate dictionary containing the following keys:
@@ -533,6 +529,12 @@ def FormEstimates(dataTblDict):
         hess:      Hessian matrix at the maximum
     '''
     # CHECK THAT ALL NECESSARY KEYS ARE IN THE INPUT DICTIONARY
+    if not all(key in dataTblDict for key in ['type', 'N', 'Y', 'outletNames', 'importerNames',
+                                              'diagSens', 'diagSpec', 'prior']):
+        print('The input dictionary does not contain all required information for the Laplace approximation.' +
+              ' Please check and try again.')
+        return {}
+
     print('Generating estimates and confidence intervals...')
     
     outDict = {}
@@ -546,16 +548,14 @@ def FormEstimates(dataTblDict):
         (numOut,numImp) = transMat.shape
     
     beta0_List=[]
-    if 'postSamples' in dataTblDict.keys(): # Choose 10 random posterior samples if available
-        randInds = np.random.choice(len(dataTblDict['postSamples']),
-                                    size=min(10,len(dataTblDict['postSamples'])),replace=False)
-        beta0_List = dataTblDict['postSamples'][randInds]
-    else:
-        beta0_List.append(-6 * np.ones(numImp+numOut) + np.random.uniform(-1,1,numImp+numOut))
+    for sampNum in range(10): # Choose 10 random samples from the prior
+        beta0_List.append(prior.rand(numImp + numOut))
 
     #Loop through each possible initial point and store the optimal solution likelihood values
     likelihoodsList = []
     solsList = []
+    if retOptStatus:
+        OptStatusList = []
     bds = spo.Bounds(np.zeros(numImp+numOut)-8, np.zeros(numImp+numOut)+8)
     if dataTblDict['type'] == 'Tracked':
         for curr_beta0 in beta0_List:
@@ -565,6 +565,8 @@ def FormEstimates(dataTblDict):
                                  options={'disp': False},bounds=bds)
             likelihoodsList.append(opVal.fun)
             solsList.append(opVal.x)
+            if retOptStatus:
+                OptStatusList.append(opVal.status)
         best_x = solsList[np.argmin(likelihoodsList)]
         hess = Tracked_NegLogPost_Hess(best_x,N,Y,Sens,Spec,prior)
     elif dataTblDict['type'] == 'Untracked':
@@ -574,7 +576,9 @@ def FormEstimates(dataTblDict):
                              method='L-BFGS-B', jac = Untracked_NegLogPost_Grad,
                              options={'disp': False}, bounds=bds)
             likelihoodsList.append(opVal.fun)
-            solsList.append(opVal.x) 
+            solsList.append(opVal.x)
+            if retOptStatus:
+                OptStatusList.append(opVal.status)
         best_x = solsList[np.argmin(likelihoodsList)]
         hess = Untracked_NegLogPost_Hess(best_x,N,Y,Sens,Spec,transMat,prior)
     # Generate confidence intervals
@@ -598,7 +602,9 @@ def FormEstimates(dataTblDict):
     outDict['99lower_out'] = sps.expit(best_x[numImp:] - out_Int99)
     outDict['impEst'],outDict['outEst'] = impEst,outEst
     outDict['hess'] = hess
-    
+    if retOptStatus:
+        outDict['optStatus'] = OptStatusList
+
     print('Estimates and confidence intervals generated')
     
     return outDict
