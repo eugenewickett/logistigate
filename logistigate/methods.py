@@ -55,8 +55,8 @@ class prior_laplace:
 class prior_normal:
     """
     Defines the class instance of Normal priors, with an associated mu (mean)
-    and var (variance) in the logit-transfomed [0,1] range, and the following
-    methods:
+    and var (variance) in the logit-transfomed [0,1], i.e. unbounded, range,
+    and the following methods:
         rand: generate random draws from the distribution
         lpdf: log-likelihood of a given vector
         lpdf_jac: Jacobian of the log-likelihood at the given vector
@@ -297,7 +297,7 @@ def Tracked_LogLike_Hess(betaVec,numMat,posMat,sens,spec):
             elem = (1-impP)*(outP - outP**2)*(yDat*((1-r-s)*(impP-impP**2)*(1-outP))/\
                     zTilde**2-(nSam-yDat)*((s+r-1)*(impP-impP**2-outP*impP+outP*\
                     (impP**2)))/(1-zTilde)**2)*\
-                    (r+s-1) + (yDat/zTilde - (nSam - yDat)/(1-zTilde ))\
+                    (r+s-1) + (yDat/zTilde - (nSam - yDat)/(1-zTilde))\
                     *(outP - outP**2)*(impP**2 -impP)*(r + s - 1)
             hess[m+triRow,triCol] = elem
             hess[triCol,m+triRow] = elem
@@ -351,22 +351,22 @@ def Tracked_NegLogLike_Hess(beta,numMat,posMat,sens,spec):
     return -1*Tracked_LogLike_Hess(beta,numMat,posMat,sens,spec)
 
 ##### TRACKED POSTERIOR FUNCTIONS #####
-def Tracked_LogPost(beta,N,Y,sens,spec,prior):
+def Tracked_LogPost(beta, N, Y, sens, spec, prior):
     return prior.lpdf(beta)\
-           +Tracked_LogLike(beta,N,Y,sens,spec)
-def Tracked_LogPost_Grad(beta, N, Y, sens, spec,prior):
+           + Tracked_LogLike(beta, N, Y, sens, spec)
+def Tracked_LogPost_Grad(beta, N, Y, sens, spec, prior):
     return prior.lpdf_jac(beta)\
-           +Tracked_LogLike_Jac(beta,N,Y,sens,spec)
-def Tracked_LogPost_Hess(beta, N, Y, sens, spec,prior):
+           + Tracked_LogLike_Jac(beta, N, Y, sens, spec)
+def Tracked_LogPost_Hess(beta, N, Y, sens, spec, prior):
     return prior.lpdf_hess(beta)\
-           +Tracked_LogLike_Hess(beta,N,Y,sens,spec)
+           + Tracked_LogLike_Hess(beta, N, Y, sens, spec)
            
-def Tracked_NegLogPost(beta,N,Y,sens,spec,prior):
-    return -1*Tracked_LogPost(beta,N,Y,sens,spec,prior)
-def Tracked_NegLogPost_Grad(beta, N, Y, sens, spec,prior):
+def Tracked_NegLogPost(beta, N, Y, sens, spec, prior):
+    return -1*Tracked_LogPost(beta, N, Y, sens, spec, prior)
+def Tracked_NegLogPost_Grad(beta, N, Y, sens, spec, prior):
     return -1*Tracked_LogPost_Grad(beta, N, Y, sens, spec, prior)
-def Tracked_NegLogPost_Hess(beta,N,Y,sens,spec,prior):
-    return -1*Tracked_LogPost_Hess(beta,N,Y,sens,spec,prior)
+def Tracked_NegLogPost_Hess(beta, N, Y, sens, spec, prior):
+    return -1*Tracked_LogPost_Hess(beta, N, Y, sens, spec, prior)
 
 ######################### END TRACKED FUNCTIONS #########################
 
@@ -491,7 +491,7 @@ def GeneratePostSamples(dataTblDict):
     print('Posterior samples generated')
     return dataTblDict
 
-def FormEstimates(dataTblDict, retOptStatus=False):
+def FormEstimates(dataTblDict, retOptStatus=False, printUpdate=True):
     '''
     Takes a data input dictionary and returns an estimate dictionary using Laplace approximation.
     The L-BFGS-B method of the SciPy Optimizer is used to maximize the posterior log-likelihood,
@@ -534,8 +534,8 @@ def FormEstimates(dataTblDict, retOptStatus=False):
         print('The input dictionary does not contain all required information for the Laplace approximation.' +
               ' Please check and try again.')
         return {}
-
-    print('Generating estimates and confidence intervals...')
+    if printUpdate:
+        print('Generating estimates and confidence intervals...')
     
     outDict = {}
     N, Y = dataTblDict['N'], dataTblDict['Y']
@@ -584,7 +584,8 @@ def FormEstimates(dataTblDict, retOptStatus=False):
     # Generate confidence intervals
     impEst = sps.expit(best_x[:numImp])
     outEst = sps.expit(best_x[numImp:])
-    hInvs = [i if i >= 0 else i*-1 for i in 1/np.diag(hess)]
+    hessinv = np.linalg.pinv(hess) # Pseudo-inverse of the Hessian
+    hInvs = [i if i >= 0 else i*-1 for i in np.diag(hessinv)]
     z90,z95,z99 = spstat.norm.ppf(0.95),spstat.norm.ppf(0.975),spstat.norm.ppf(0.995)
     imp_Int90,imp_Int95,imp_Int99 = z90*np.sqrt(hInvs[:numImp]),z95*np.sqrt(hInvs[:numImp]),z99*np.sqrt(hInvs[:numImp])
     out_Int90,out_Int95,out_Int99 = z90*np.sqrt(hInvs[numImp:]),z95*np.sqrt(hInvs[numImp:]),z99*np.sqrt(hInvs[numImp:])
@@ -601,10 +602,10 @@ def FormEstimates(dataTblDict, retOptStatus=False):
     outDict['99upper_out'] = sps.expit(best_x[numImp:] + out_Int99)
     outDict['99lower_out'] = sps.expit(best_x[numImp:] - out_Int99)
     outDict['impEst'],outDict['outEst'] = impEst,outEst
-    outDict['hess'] = hess
+    outDict['hess'], outDict['hessinv'] = hess, hessinv
     if retOptStatus:
         outDict['optStatus'] = OptStatusList
-
-    print('Estimates and confidence intervals generated')
+    if printUpdate:
+        print('Estimates and confidence intervals generated')
     
     return outDict
