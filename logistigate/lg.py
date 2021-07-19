@@ -2760,7 +2760,7 @@ def examiningLaplaceApprox():
     import numpy as np
 
     # First generate a random system using a fixed seed
-    newSysDict = util.generateRandDataDict(numImp=5, numOut=50, numSamples=50 * 20,
+    newSysDict = util.generateRandDataDict(numImp=3, numOut=10, numSamples=10 * 20,
                                            diagSens=0.9, diagSpec=0.99,
                                            dataType='Tracked', randSeed=5)
     _ = util.GetVectorForms(newSysDict)
