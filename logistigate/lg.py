@@ -29,6 +29,10 @@ Creators:
 
 Industrial Engineering & Management Sciences, Northwestern University
 """
+import sys
+import os
+SCRIPT_DIR = os.path.dirname(os.path.realpath(os.path.join(os.getcwd(), os.path.expanduser(__file__))))
+sys.path.append(os.path.normpath(os.path.join(SCRIPT_DIR, 'logistigate','logistigate')))
 import methods
 import utilities as util    # THESE IMPORTS ARE FOR DEVELOPING NEW CODE, ETC.;
                             # NEED TO BE CHANGED BACK TO THOSE BELOW BEFORE UPLOADING TO GITHUB
@@ -40,8 +44,8 @@ def runlogistigate(dataTblDict):
     """
     This function reads a data input dictionary and returns an estimation
     dictionary containing 90%,95%, and 99% confidence intervals for the
-    aberration proportions at the importer and outlet echelons, in addition to
-    posterior samples of the aberration rates.
+    SFP proportions at the importer and outlet echelons, in addition to
+    posterior samples of the SFP rates.
 
     INPUTS
     ------
