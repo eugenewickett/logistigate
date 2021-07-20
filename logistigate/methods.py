@@ -9,11 +9,10 @@ import numpy as np
 import scipy.optimize as spo
 import scipy.stats as spstat
 import scipy.special as sps
-#import logistigate.utilities as util
 import time
-import logistigate.mcmcsamplers.adjustedNUTS as adjnuts
-import logistigate.mcmcsamplers.lmc as langevinMC
-import logistigate.mcmcsamplers.metrohastings as mh
+import mcmcsamplers.adjustedNUTS as adjnuts
+import mcmcsamplers.lmc as langevinMC
+import mcmcsamplers.metrohastings as mh
 
 #import nuts
 
