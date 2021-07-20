@@ -10,6 +10,12 @@ import scipy.optimize as spo
 import scipy.stats as spstat
 import scipy.special as sps
 import time
+# Workaround for the 'methods' file not being able to locate the 'mcmcsamplers' folder for importing
+import sys
+import os
+SCRIPT_DIR = os.path.dirname(os.path.realpath(os.path.join(os.getcwd(), os.path.expanduser(__file__))))
+sys.path.append(os.path.normpath(os.path.join(SCRIPT_DIR, 'logistigate','logistigate')))
+
 import mcmcsamplers.adjustedNUTS as adjnuts
 import mcmcsamplers.lmc as langevinMC
 import mcmcsamplers.metrohastings as mh
