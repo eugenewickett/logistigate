@@ -48,7 +48,6 @@ def testresultsfiletotable(testDataFile, transitionMatrixFile=''):
         outletNames: Sorted list of unique outlet names
         importerNames: Sorted list of unique importer names
     """
-
     dataTblDict = {}
     dataTbl = []  # Initialize list for raw data
     try:

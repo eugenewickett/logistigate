@@ -398,6 +398,13 @@ def GeneratePostSamples(dataTblDict):
     poor-quality likelihoods.    
     '''
     #change utilities to nuts if wanting to use the Gelman sampler
+
+    if not all(key in dataTblDict for key in ['type', 'N', 'Y', 'diagSens', 'diagSpec',
+                                              'MCMCdict', 'prior', 'numPostSamples']):
+        print('The input dictionary does not contain all required information for the Laplace approximation.' +
+              ' Please check and try again.')
+        return {}
+
     print('Generating posterior samples...')
     
     N,Y = dataTblDict['N'],dataTblDict['Y']
@@ -496,11 +503,11 @@ def GeneratePostSamples(dataTblDict):
     print('Posterior samples generated')
     return dataTblDict
 
-def FormEstimates(dataTblDict, retOptStatus=False, printUpdate=True):
+def FormEstimates(dataTblDict, retOptStatus=True, printUpdate=True):
     '''
     Takes a data input dictionary and returns an estimate dictionary using Laplace approximation.
     The L-BFGS-B method of the SciPy Optimizer is used to maximize the posterior log-likelihood,
-    warm-started using random points via the prior.
+    randomly restarted via the prior.
     
     INPUTS
     ------
@@ -521,6 +528,9 @@ def FormEstimates(dataTblDict, retOptStatus=False, printUpdate=True):
             Diagnostic characteristics for the data compiled in dataTbl
         prior: prior Class object
             Prior object for use with the posterior likelihood, as well as for warm-starting
+    retOptStatus is a Boolean determining if the optimization status should be returned from SciPy
+    printUpdate is a Boolean regarding processing updates
+
     OUTPUTS
     -------
     Returns an estimate dictionary containing the following keys:
@@ -534,8 +544,7 @@ def FormEstimates(dataTblDict, retOptStatus=False, printUpdate=True):
         hess:      Hessian matrix at the maximum
     '''
     # CHECK THAT ALL NECESSARY KEYS ARE IN THE INPUT DICTIONARY
-    if not all(key in dataTblDict for key in ['type', 'N', 'Y', 'outletNames', 'importerNames',
-                                              'diagSens', 'diagSpec', 'prior']):
+    if not all(key in dataTblDict for key in ['type', 'N', 'Y', 'diagSens', 'diagSpec', 'prior']):
         print('The input dictionary does not contain all required information for the Laplace approximation.' +
               ' Please check and try again.')
         return {}
