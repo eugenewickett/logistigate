@@ -504,7 +504,7 @@ def plotPostSamples(logistigateDict, plotType='hist', importerIndsSubset=[],
         impNamesSorted.append('')
         impNamesSorted.append('(Prior)')
         # Plot
-        fig, (ax) = plt.subplots(figsize=(8, 10), ncols=1)
+        fig, (ax) = plt.subplots(figsize=(10, 10), ncols=1)
         if sortBy == 'lower':
             sorted_pairs.append((np.nan, np.nan, ' '))  # for spacing
             for lower, upper, name in sorted_pairs:
@@ -549,7 +549,7 @@ def plotPostSamples(logistigateDict, plotType='hist', importerIndsSubset=[],
         outNamesSorted.append('')
         outNamesSorted.append('(Prior)')
         # Plot
-        fig, (ax) = plt.subplots(figsize=(8, 10), ncols=1)
+        fig, (ax) = plt.subplots(figsize=(10, 10), ncols=1)
         if sortBy == 'lower':
             sorted_pairs.append((np.nan, np.nan, ' '))  # for spacing
             for lower, upper, name in sorted_pairs:
