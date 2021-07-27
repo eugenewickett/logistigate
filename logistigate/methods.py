@@ -3,16 +3,36 @@ This file contains the methods used for estimating aberration prevalence in a
 two-echelon supply chain. See descriptions for particular inputs.
 """
 
+######### NEED TO ADD CAPACITY TO HANDLE DIFFERENT DIAGNOSTIC DEVICES @ DIFFERENT DATA POINTS
+
 import numpy as np
 import scipy.optimize as spo
 import scipy.stats as spstat
 import scipy.special as sps
-import logistigate.utilities as util
+import time
+
+# THESE IMPORTS ARE FOR DEVELOPING NEW CODE, ETC.;
+# NEED TO BE CHANGED BACK TO THOSE BELOW BEFORE UPLOADING TO GITHUB
+# todo: Change these import references before submitting a new version of logistigate
+import sys
+import os
+SCRIPT_DIR = os.path.dirname(os.path.realpath(os.path.join(os.getcwd(), os.path.expanduser(__file__))))
+sys.path.append(os.path.normpath(os.path.join(SCRIPT_DIR, 'logistigate','mcmcsamplers')))
+import adjustedNUTS as adjnuts
+import lmc as langevinMC
+import metrohastings as mh
+
+# THESE ARE FOR THE ACTUAL PACKAGE
+# todo: Use the below import references
+#import logistigate.mcmcsamplers.adjustedNUTS as adjnuts
+#import logistigate.mcmcsamplers.lmc as langevinMC
+#import logistigate.mcmcsamplers.metrohastings as mh
+
 #import nuts
 
 ########################### PRIOR CLASSES ###########################
 class prior_laplace:
-    ''' 
+    """
     Defines the class instance of Laplace priors, with an associated mu (mean)
     and scale in the logit-transfomed [0,1] range, and the following methods:
         rand: generate random draws from the distribution
@@ -20,12 +40,14 @@ class prior_laplace:
         lpdf_jac: Jacobian of the log-likelihood at the given vector
         lpdf_hess: Hessian of the log-likelihood at the given vector
     beta inputs may be a Numpy array of vectors
-    '''
+    """
     def __init__(self, mu=sps.logit(0.1), scale=np.sqrt(5/2)):
         self.mu = mu
         self.scale = scale
     def rand(self, n=1):
-        return np.random.laplace(self.mu, self.scale,n)
+        return np.random.laplace(self.mu, self.scale, n)
+    def expitrand(self, n=1): # transformed to [0,1] space
+        return sps.expit(np.random.laplace(self.mu, self.scale, n))
     def lpdf(self,beta):
         if beta.ndim == 1: # reshape to 2d
             beta = np.reshape(beta,(1,-1))
@@ -44,21 +66,23 @@ class prior_laplace:
         return np.squeeze(hess)
     
 class prior_normal:
-    ''' 
+    """
     Defines the class instance of Normal priors, with an associated mu (mean)
-    and var (variance) in the logit-transfomed [0,1] range, and the following
-    methods:
+    and var (variance) in the logit-transfomed [0,1], i.e. unbounded, range,
+    and the following methods:
         rand: generate random draws from the distribution
         lpdf: log-likelihood of a given vector
         lpdf_jac: Jacobian of the log-likelihood at the given vector
         lpdf_hess: Hessian of the log-likelihood at the given vector
     beta inputs may be a Numpy array of vectors
-    '''
+    """
     def __init__(self,mu=sps.logit(0.1),var=5):
         self.mu = mu
         self.var = var
     def rand(self, n=1):
-        return np.random.normal(self.mu, np.sqrt(self.var),n)
+        return np.random.normal(self.mu, np.sqrt(self.var), n)
+    def expitrand(self, n=1): # transformed to [0,1] space
+        return sps.expit(np.random.normal(self.mu, np.sqrt(self.var), n))
     def lpdf(self,beta):
         if beta.ndim == 1: # reshape to 2d
             beta = np.reshape(beta,(1,-1))
@@ -242,7 +266,8 @@ def Tracked_LogLike(beta,numMat,posMat,sens,spec):
            #each term is a k-by-n-by-m array, with the n-by-m matrices then summed
     return np.squeeze(L)
 
-def Tracked_LogLike_Jac(beta,numMat,posMat,sens,spec):
+
+def Tracked_LogLike_Jac(beta, numMat, posMat, sens, spec):
     # betaVec should be [importers, outlets]; can be used with array beta
     if beta.ndim == 1: # reshape to 2d
         beta = np.reshape(beta,(1,-1))
@@ -285,7 +310,7 @@ def Tracked_LogLike_Hess(betaVec,numMat,posMat,sens,spec):
             elem = (1-impP)*(outP - outP**2)*(yDat*((1-r-s)*(impP-impP**2)*(1-outP))/\
                     zTilde**2-(nSam-yDat)*((s+r-1)*(impP-impP**2-outP*impP+outP*\
                     (impP**2)))/(1-zTilde)**2)*\
-                    (r+s-1) + (yDat/zTilde - (nSam - yDat)/(1-zTilde ))\
+                    (r+s-1) + (yDat/zTilde - (nSam - yDat)/(1-zTilde))\
                     *(outP - outP**2)*(impP**2 -impP)*(r + s - 1)
             hess[m+triRow,triCol] = elem
             hess[triCol,m+triRow] = elem
@@ -339,29 +364,30 @@ def Tracked_NegLogLike_Hess(beta,numMat,posMat,sens,spec):
     return -1*Tracked_LogLike_Hess(beta,numMat,posMat,sens,spec)
 
 ##### TRACKED POSTERIOR FUNCTIONS #####
-def Tracked_LogPost(beta,N,Y,sens,spec,prior):
+def Tracked_LogPost(beta, N, Y, sens, spec, prior):
     return prior.lpdf(beta)\
-           +Tracked_LogLike(beta,N,Y,sens,spec)
-def Tracked_LogPost_Grad(beta, N, Y, sens, spec,prior):
+           + Tracked_LogLike(beta, N, Y, sens, spec)
+def Tracked_LogPost_Grad(beta, N, Y, sens, spec, prior):
     return prior.lpdf_jac(beta)\
-           +Tracked_LogLike_Jac(beta,N,Y,sens,spec)
-def Tracked_LogPost_Hess(beta, N, Y, sens, spec,prior):
+           + Tracked_LogLike_Jac(beta, N, Y, sens, spec)
+def Tracked_LogPost_Hess(beta, N, Y, sens, spec, prior):
     return prior.lpdf_hess(beta)\
-           +Tracked_LogLike_Hess(beta,N,Y,sens,spec)
+           + Tracked_LogLike_Hess(beta, N, Y, sens, spec)
            
-def Tracked_NegLogPost(beta,N,Y,sens,spec,prior):
-    return -1*Tracked_LogPost(beta,N,Y,sens,spec,prior)
-def Tracked_NegLogPost_Grad(beta, N, Y, sens, spec,prior):
+def Tracked_NegLogPost(beta, N, Y, sens, spec, prior):
+    return -1*Tracked_LogPost(beta, N, Y, sens, spec, prior)
+def Tracked_NegLogPost_Grad(beta, N, Y, sens, spec, prior):
     return -1*Tracked_LogPost_Grad(beta, N, Y, sens, spec, prior)
-def Tracked_NegLogPost_Hess(beta,N,Y,sens,spec,prior):
-    return -1*Tracked_LogPost_Hess(beta,N,Y,sens,spec,prior)
+def Tracked_NegLogPost_Hess(beta, N, Y, sens, spec, prior):
+    return -1*Tracked_LogPost_Hess(beta, N, Y, sens, spec, prior)
 
 ######################### END TRACKED FUNCTIONS #########################
 
 def GeneratePostSamples(dataTblDict):
     '''
     Retrives posterior samples under the appropriate Tracked or Untracked
-    likelihood model and given data inputs, via the NUTS sampler (Gelman 2011).
+    likelihood model, given data inputs, and entered posterior sampler.
+    
     INPUTS
     ------
     dataTblDict is an input dictionary with the following keys:
@@ -370,37 +396,126 @@ def GeneratePostSamples(dataTblDict):
         diagSens,diagSpec: Diagnostic sensitivity and specificity
         prior: Prior distribution object with lpdf,lpdf_jac methods
         numPostSamples: Number of posterior distribution samples to generate
-        Madapt,delta: Parameters for use with NUTS
+        MCMCDict: Dictionary for the desired MCMC sampler to use for generating
+        posterior samples; requies a key 'MCMCType' that is one of
+        'MetropolisHastings', 'Langevin', 'NUTS', or 'STAN'; necessary arguments
+        for the sampler should be contained as keys within MCMCDict
     OUTPUTS
     -------
-    Returns a list of posterior samples, with importers coming before outlets.
+    Returns dataTblDict with key 'postSamples' that contains the non-transformed
+    poor-quality likelihoods.    
     '''
+    #change utilities to nuts if wanting to use the Gelman sampler
+
+    if not all(key in dataTblDict for key in ['type', 'N', 'Y', 'diagSens', 'diagSpec',
+                                              'MCMCdict', 'prior', 'numPostSamples']):
+        print('The input dictionary does not contain all required information for the Laplace approximation.' +
+              ' Please check and try again.')
+        return {}
+
+    print('Generating posterior samples...')
+    
     N,Y = dataTblDict['N'],dataTblDict['Y']
     sens,spec = dataTblDict['diagSens'],dataTblDict['diagSpec']
-    prior,M = dataTblDict['prior'],dataTblDict['numPostSamples']
-    if 'transMat' in dataTblDict.keys():
-        transMat = dataTblDict['transMat']
-    Madapt, delta = 5000, 0.4
-    if dataTblDict['type'] == 'Tracked':
-        beta0 = -2 * np.ones(N.shape[1] + N.shape[0])
-        def TargetForNUTS(beta):
-            return Tracked_LogPost(beta,N,Y,sens,spec,prior),\
-                   Tracked_LogPost_Grad(beta,N,Y,sens,spec,prior)     
-    elif dataTblDict['type'] == 'Untracked':
-        beta0 = -2 * np.ones(transMat.shape[1] + transMat.shape[0])
-        def TargetForNUTS(beta):
-            return Untracked_LogPost(beta,N,Y,sens,spec,transMat,prior),\
-                   Untracked_LogPost_Grad(beta,N,Y,sens,spec,transMat,prior)    
-    samples, lnprob, epsilon = util.nuts6(TargetForNUTS,M,Madapt,beta0,delta)
-    #change utilities to nuts if wanting to use the Gelman sampler
-    return sps.expit(samples)
+    
+    MCMCdict = dataTblDict['MCMCdict']
+    
+    startTime = time.time()
+    # Run NUTS (Hoffman & Gelman, 2011)
+    if MCMCdict['MCMCtype'] == 'NUTS':
+        prior, M = dataTblDict['prior'], dataTblDict['numPostSamples']    
+        Madapt, delta = MCMCdict['Madapt'], MCMCdict['delta']
+        if dataTblDict['type'] == 'Tracked':
+            beta0 = -2 * np.ones(N.shape[1] + N.shape[0])
+            def TargetForNUTS(beta):
+                return Tracked_LogPost(beta,N,Y,sens,spec,prior),\
+                       Tracked_LogPost_Grad(beta,N,Y,sens,spec,prior)     
+        elif dataTblDict['type'] == 'Untracked':
+            transMat = dataTblDict['transMat']
+            beta0 = -2 * np.ones(transMat.shape[1] + transMat.shape[0])
+            def TargetForNUTS(beta):
+                return Untracked_LogPost(beta,N,Y,sens,spec,transMat,prior),\
+                       Untracked_LogPost_Grad(beta,N,Y,sens,spec,transMat,prior) 
+        
+        samples, lnprob, epsilon = adjnuts.nuts6(TargetForNUTS,M,Madapt,beta0,delta)
+        
+        dataTblDict.update({'acc_rate':'NA'}) # FIX LATER
+    # Run Langevin MC
+    elif MCMCdict['MCMCtype'] == 'Langevin':
+        prior = dataTblDict['prior']
+        if dataTblDict['type'] == 'Tracked':
+            dimens = N.shape[1] + N.shape[0]
+            theta0 = np.empty((100, dimens), dtype=float)
+            for ind in range(100):
+                theta0[ind,:] = prior.rand(n=dimens)
+            LMCoptions = {'theta0': theta0, 'numsamp':dataTblDict['numPostSamples']}
+            def TargetForLMC(beta):
+                return Tracked_LogPost(beta,N,Y,sens,spec,prior),\
+                       Tracked_LogPost_Grad(beta,N,Y,sens,spec,prior)            
+        elif dataTblDict['type'] == 'Untracked':
+            transMat = dataTblDict['transMat']
+            dimens = transMat.shape[1] + transMat.shape[0]
+            theta0 = np.empty((100, dimens), dtype=float)
+            for ind in range(100):
+                theta0[ind,:] = prior.rand(n=dimens)
+            LMCoptions = {'theta0': theta0, 'numsamp':dataTblDict['numPostSamples']}
+            def TargetForLMC(beta):
+                return Untracked_LogPost(beta,N,Y,sens,spec,transMat,prior),\
+                       Untracked_LogPost_Grad(beta,N,Y,sens,spec,transMat,prior)
+        # Call LangevinMC
+        samplerDict = langevinMC.sampler(TargetForLMC,LMCoptions)
+        samples = samplerDict['theta']
+        
+        dataTblDict.update({'acc_rate':'NA'}) # FIX LATER
+        
+    # Run Metropolis-Hastings
+    elif MCMCdict['MCMCtype'] == 'MetropolisHastings':
+        prior = dataTblDict['prior']
+        if dataTblDict['type'] == 'Tracked':
+            dimens = N.shape[1] + N.shape[0]
+            theta0 = np.empty((100, dimens), dtype=float)
+            for ind in range(100):
+                theta0[ind,:] = prior.rand(n=dimens)
+            MHoptions = {'theta0': theta0, 'numsamp':dataTblDict['numPostSamples'],
+                         'stepType': 'normal','covMat':MCMCdict['covMat'],
+                         'stepParam': MCMCdict['stepParam'],
+                         'adaptNum': MCMCdict['adaptNum']}
+            def TargetForMH(beta):
+                return Tracked_LogPost(beta,N,Y,sens,spec,prior)
+        elif dataTblDict['type'] == 'Untracked':
+            transMat = dataTblDict['transMat']
+            dimens = transMat.shape[1] + transMat.shape[0]
+            theta0 = np.empty((100, dimens), dtype=float)
+            for ind in range(100):
+                theta0[ind,:] = prior.rand(n=dimens)
+            MHoptions = {'theta0': theta0, 'numsamp':dataTblDict['numPostSamples'],
+                         'stepType': 'normal','covMat':MCMCdict['covMat'],
+                         'stepParam': MCMCdict['stepParam'],
+                         'adaptNum': MCMCdict['adaptNum']}
+            def TargetForMH(beta):
+                return Untracked_LogPost(beta,N,Y,sens,spec,transMat,prior)
+        # Call Metropolis-Hastings
+        samplerDict = mh.sampler(TargetForMH,MHoptions)
+        print(samplerDict['acc_rate'])
+        dataTblDict.update({'acc_rate':samplerDict['acc_rate']})
+        samples = samplerDict['theta']
+    
+    #Transform samples back
+    postSamples = sps.expit(samples)
+    
+    # Record generation time
+    endTime = time.time()
+    
+    dataTblDict.update({'postSamples': postSamples,
+                        'postSamplesGenTime': endTime-startTime})
+    print('Posterior samples generated')
+    return dataTblDict
 
-def FormEstimates(dataTblDict):
+def FormEstimates(dataTblDict, retOptStatus=True, printUpdate=True):
     '''
-    Takes a data input dictionary and returns an estimate dictionary,
-    depending on the data type. The L-BFGS-B method of the SciPy Optimizer is
-    used to maximize the log-likelihood, where initial points are randomly
-    chosen from 'postSamples' in dataTblDict (if provided).
+    Takes a data input dictionary and returns an estimate dictionary using Laplace approximation.
+    The L-BFGS-B method of the SciPy Optimizer is used to maximize the posterior log-likelihood,
+    randomly restarted via the prior.
     
     INPUTS
     ------
@@ -420,10 +535,10 @@ def FormEstimates(dataTblDict):
         diagSens, diagSpec: float
             Diagnostic characteristics for the data compiled in dataTbl
         prior: prior Class object
-            Prior object for use with the posterior likelihood
-        postSamples: list
-            List of posterior samples from which to choose random initial
-            points for the optimizer
+            Prior object for use with the posterior likelihood, as well as for warm-starting
+    retOptStatus is a Boolean determining if the optimization status should be returned from SciPy
+    printUpdate is a Boolean regarding processing updates
+
     OUTPUTS
     -------
     Returns an estimate dictionary containing the following keys:
@@ -437,6 +552,12 @@ def FormEstimates(dataTblDict):
         hess:      Hessian matrix at the maximum
     '''
     # CHECK THAT ALL NECESSARY KEYS ARE IN THE INPUT DICTIONARY
+    if not all(key in dataTblDict for key in ['type', 'N', 'Y', 'diagSens', 'diagSpec', 'prior']):
+        print('The input dictionary does not contain all required information for the Laplace approximation.' +
+              ' Please check and try again.')
+        return {}
+    if printUpdate:
+        print('Generating estimates and confidence intervals...')
     
     outDict = {}
     N, Y = dataTblDict['N'], dataTblDict['Y']
@@ -449,16 +570,14 @@ def FormEstimates(dataTblDict):
         (numOut,numImp) = transMat.shape
     
     beta0_List=[]
-    if 'postSamples' in dataTblDict.keys(): # Choose 10 random posterior samples if available
-        randInds = np.random.choice(len(dataTblDict['postSamples']),
-                                    size=min(10,len(dataTblDict['postSamples'])),replace=False)
-        beta0_List = dataTblDict['postSamples'][randInds]
-    else:
-        beta0_List.append(-6 * np.ones(numImp+numOut) + np.random.uniform(-1,1,numImp+numOut))
+    for sampNum in range(10): # Choose 10 random samples from the prior
+        beta0_List.append(prior.rand(numImp + numOut))
 
     #Loop through each possible initial point and store the optimal solution likelihood values
     likelihoodsList = []
     solsList = []
+    if retOptStatus:
+        OptStatusList = []
     bds = spo.Bounds(np.zeros(numImp+numOut)-8, np.zeros(numImp+numOut)+8)
     if dataTblDict['type'] == 'Tracked':
         for curr_beta0 in beta0_List:
@@ -468,6 +587,8 @@ def FormEstimates(dataTblDict):
                                  options={'disp': False},bounds=bds)
             likelihoodsList.append(opVal.fun)
             solsList.append(opVal.x)
+            if retOptStatus:
+                OptStatusList.append(opVal.status)
         best_x = solsList[np.argmin(likelihoodsList)]
         hess = Tracked_NegLogPost_Hess(best_x,N,Y,Sens,Spec,prior)
     elif dataTblDict['type'] == 'Untracked':
@@ -477,13 +598,16 @@ def FormEstimates(dataTblDict):
                              method='L-BFGS-B', jac = Untracked_NegLogPost_Grad,
                              options={'disp': False}, bounds=bds)
             likelihoodsList.append(opVal.fun)
-            solsList.append(opVal.x) 
+            solsList.append(opVal.x)
+            if retOptStatus:
+                OptStatusList.append(opVal.status)
         best_x = solsList[np.argmin(likelihoodsList)]
         hess = Untracked_NegLogPost_Hess(best_x,N,Y,Sens,Spec,transMat,prior)
     # Generate confidence intervals
     impEst = sps.expit(best_x[:numImp])
     outEst = sps.expit(best_x[numImp:])
-    hInvs = [i if i >= 0 else i*-1 for i in 1/np.diag(hess)]
+    hessinv = np.linalg.pinv(hess) # Pseudo-inverse of the Hessian
+    hInvs = [i if i >= 0 else i*-1 for i in np.diag(hessinv)]
     z90,z95,z99 = spstat.norm.ppf(0.95),spstat.norm.ppf(0.975),spstat.norm.ppf(0.995)
     imp_Int90,imp_Int95,imp_Int99 = z90*np.sqrt(hInvs[:numImp]),z95*np.sqrt(hInvs[:numImp]),z99*np.sqrt(hInvs[:numImp])
     out_Int90,out_Int95,out_Int99 = z90*np.sqrt(hInvs[numImp:]),z95*np.sqrt(hInvs[numImp:]),z99*np.sqrt(hInvs[numImp:])
@@ -500,6 +624,10 @@ def FormEstimates(dataTblDict):
     outDict['99upper_out'] = sps.expit(best_x[numImp:] + out_Int99)
     outDict['99lower_out'] = sps.expit(best_x[numImp:] - out_Int99)
     outDict['impEst'],outDict['outEst'] = impEst,outEst
-    outDict['hess'] = hess
+    outDict['hess'], outDict['hessinv'] = hess, hessinv
+    if retOptStatus:
+        outDict['optStatus'] = OptStatusList
+    if printUpdate:
+        print('Estimates and confidence intervals generated')
     
     return outDict
