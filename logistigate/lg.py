@@ -29,14 +29,18 @@ Creators:
 
 Industrial Engineering & Management Sciences, Northwestern University
 """
+# THESE IMPORTS ARE FOR DEVELOPING NEW CODE, ETC.;
+# NEED TO BE CHANGED BACK TO THOSE BELOW BEFORE UPLOADING TO GITHUB
+# todo: Change these import references before submitting a new version of logistigate
 import sys
 import os
 SCRIPT_DIR = os.path.dirname(os.path.realpath(os.path.join(os.getcwd(), os.path.expanduser(__file__))))
-sys.path.append(os.path.normpath(os.path.join(SCRIPT_DIR, 'logistigate','logistigate')))
+sys.path.append(os.path.normpath(os.path.join(SCRIPT_DIR, 'logistigate')))
 import methods
-import utilities as util    # THESE IMPORTS ARE FOR DEVELOPING NEW CODE, ETC.;
-                            # NEED TO BE CHANGED BACK TO THOSE BELOW BEFORE UPLOADING TO GITHUB
+import utilities as util
 
+# THESE ARE FOR THE ACTUAL PACKAGE
+# todo: Use the below import references
 #import logistigate.methods as methods
 #import logistigate.utilities as util
 
@@ -216,6 +220,26 @@ def Example1d():
     return
 
 
+def Example1e():
+    '''
+    Same test data as example 1, but input using a Python table instead of a CSV file.
+    '''
+    dataTblDict = util.testresultsfiletotable('data/example2TestData.csv',
+                                              'data/example2TransitionMatrix.csv')
+    dataTblDict.update({'diagSens': 0.90,
+                        'diagSpec': 0.99,
+                        'numPostSamples': 500,
+                        'prior': methods.prior_normal(),
+                        'MCMCmethod': 'NUTS'})
+    logistigateDict = runlogistigate(dataTblDict)
+
+    util.plotPostSamples(logistigateDict)
+    util.plotPostSamples(logistigateDict, plotType='int90')
+    util.printEstimates(logistigateDict)
+
+    return
+
+
 def Example2():
     '''
     Same test data as example 1, but with unknown importers (i.e., Untracked).
@@ -235,6 +259,9 @@ def Example2():
     util.printEstimates(logistigateDict)
     
     return
+
+
+
 
 
 

@@ -10,15 +10,23 @@ import scipy.optimize as spo
 import scipy.stats as spstat
 import scipy.special as sps
 import time
-# Workaround for the 'methods' file not being able to locate the 'mcmcsamplers' folder for importing
+
+# THESE IMPORTS ARE FOR DEVELOPING NEW CODE, ETC.;
+# NEED TO BE CHANGED BACK TO THOSE BELOW BEFORE UPLOADING TO GITHUB
+# todo: Change these import references before submitting a new version of logistigate
 import sys
 import os
 SCRIPT_DIR = os.path.dirname(os.path.realpath(os.path.join(os.getcwd(), os.path.expanduser(__file__))))
-sys.path.append(os.path.normpath(os.path.join(SCRIPT_DIR, 'logistigate','logistigate')))
+sys.path.append(os.path.normpath(os.path.join(SCRIPT_DIR, 'logistigate','mcmcsamplers')))
+import adjustedNUTS as adjnuts
+import lmc as langevinMC
+import metrohastings as mh
 
-import mcmcsamplers.adjustedNUTS as adjnuts
-import mcmcsamplers.lmc as langevinMC
-import mcmcsamplers.metrohastings as mh
+# THESE ARE FOR THE ACTUAL PACKAGE
+# todo: Use the below import references
+#import logistigate.mcmcsamplers.adjustedNUTS as adjnuts
+#import logistigate.mcmcsamplers.lmc as langevinMC
+#import logistigate.mcmcsamplers.metrohastings as mh
 
 #import nuts
 

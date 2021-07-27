@@ -7,7 +7,7 @@ import random
 from tabulate import tabulate
 import matplotlib.pyplot as plt
 
-def testresultsfiletotable(testDataFile, transitionMatrixFile=''):
+def testresultsfiletotable(testDataFile, transitionMatrixFile='', csvName=True):
     """
     Takes a CSV file name as input and returns a usable Python dictionary of
     testing results, in addition to lists of the outlet names and importer names,
@@ -15,7 +15,7 @@ def testresultsfiletotable(testDataFile, transitionMatrixFile=''):
 
     INPUTS
     ------
-    testDataFile: CSV file name string
+    testDataFile: CSV file name string or Python list (if csvName=True)
         CSV file must be located within the current working directory when
         testresultsfiletotable() is called. There should not be a header row.
         Each row of the file should signify a single sample point.
@@ -26,7 +26,7 @@ def testresultsfiletotable(testDataFile, transitionMatrixFile=''):
         For untracked data, each row should have two columns, as follows:
             column 1: string; Name of outlet/lower echelon entity
             column 2: integer; 0 or 1, where 1 signifies aberration detection
-    transitionMatrixFile: CSV file name string
+    transitionMatrixFile: CSV file name string or Python list (if csvName=True)
         If using tracked data, leave transitionMatrixFile=''.
         CSV file must be located within the current working directory when
         testresultsfiletotable() is called. Columns and rows should be named,
@@ -36,6 +36,7 @@ def testresultsfiletotable(testDataFile, transitionMatrixFile=''):
         transitionMatrixFile. Each outlet's row should correspond to the
         likelihood of procurement from the corresponding importer, and should
         sum to 1. No negative values are permitted.
+    csvName: Boolean indicating whether the inputs are CSV file names (True) or Python lists (False)
 
     OUTPUTS
     -------
@@ -49,23 +50,26 @@ def testresultsfiletotable(testDataFile, transitionMatrixFile=''):
         importerNames: Sorted list of unique importer names
     """
     dataTblDict = {}
-    dataTbl = []  # Initialize list for raw data
-    try:
-        with open(testDataFile, newline='') as file:
-            reader = csv.reader(file)
-            for row in reader:
-                row[-1] = int(row[-1])  # Convert results to integers
-                dataTbl.append(row)
-    except FileNotFoundError:
-        print('Unable to locate file ' + str(testDataFile) + ' in the current directory.' + \
-              ' Make sure the directory is set to the location of the CSV file.')
-        return
-    except ValueError:
-        print('There seems to be something wrong with your data. Check that' + \
-              ' your CSV file is correctly formatted, with each row having' + \
-              ' entries [OUTLETNAME,IMPORTERNAME,TESTRESULT], and that the' + \
-              ' test results are all either 0 or 1.')
-        return
+    if csvName == True:
+        dataTbl = []  # Initialize list for raw data
+        try:
+            with open(testDataFile, newline='') as file:
+                reader = csv.reader(file)
+                for row in reader:
+                    row[-1] = int(row[-1])  # Convert results to integers
+                    dataTbl.append(row)
+        except FileNotFoundError:
+            print('Unable to locate file ' + str(testDataFile) + ' in the current directory.' + \
+                  ' Make sure the directory is set to the location of the CSV file.')
+            return
+        except ValueError:
+            print('There seems to be something wrong with your data. Check that' + \
+                  ' your CSV file is correctly formatted, with each row having' + \
+                  ' entries [OUTLETNAME,IMPORTERNAME,TESTRESULT], and that the' + \
+                  ' test results are all either 0 or 1.')
+            return
+    else: # csvName is False
+        dataTbl = testDataFile
 
     # Grab list of unique outlet and importer names
     outletNames = []
@@ -80,29 +84,33 @@ def testresultsfiletotable(testDataFile, transitionMatrixFile=''):
     importerNames.sort()
 
     if not transitionMatrixFile == '':
-        dataTblDict['type'] = 'Untracked'
-        try:
-            with open(transitionMatrixFile, newline='') as file:
-                reader = csv.reader(file)
-                counter = 0
-                for row in reader:
-                    if counter == 0:
-                        importerNames = row[1:]
-                        transitionMatrix = np.zeros(shape=(len(outletNames), len(importerNames)))
-                    else:
-                        transitionMatrix[counter - 1] = np.array([float(row[i]) \
-                                                                  for i in range(1, len(importerNames) + 1)])
-                    counter += 1
+        if csvName == True:
+            dataTblDict['type'] = 'Untracked'
+            try:
+                with open(transitionMatrixFile, newline='') as file:
+                    reader = csv.reader(file)
+                    counter = 0
+                    for row in reader:
+                        if counter == 0:
+                            importerNames = row[1:]
+                            transitionMatrix = np.zeros(shape=(len(outletNames), len(importerNames)))
+                        else:
+                            transitionMatrix[counter - 1] = np.array([float(row[i]) \
+                                                                      for i in range(1, len(importerNames) + 1)])
+                        counter += 1
+                dataTblDict['transMat'] = transitionMatrix
+            except FileNotFoundError:
+                print('Unable to locate file ' + str(testDataFile) + ' in the current directory.' + \
+                      ' Make sure the directory is set to the location of the CSV file.')
+                return
+            except ValueError:
+                print('There seems to be something wrong with your transition matrix. Check that' + \
+                      ' your CSV file is correctly formatted, with only values between' + \
+                      ' 0 and 1 included.')
+                return
+        else: # csvName is False
+            transitionMatrix = transitionMatrixFile
             dataTblDict['transMat'] = transitionMatrix
-        except FileNotFoundError:
-            print('Unable to locate file ' + str(testDataFile) + ' in the current directory.' + \
-                  ' Make sure the directory is set to the location of the CSV file.')
-            return
-        except ValueError:
-            print('There seems to be something wrong with your transition matrix. Check that' + \
-                  ' your CSV file is correctly formatted, with only values between' + \
-                  ' 0 and 1 included.')
-            return
     else:
         dataTblDict['type'] = 'Tracked'
         dataTblDict['transMat'] = np.zeros(shape=(len(outletNames), len(importerNames)))
