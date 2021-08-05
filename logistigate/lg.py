@@ -186,11 +186,12 @@ def Example1c():
     4000 testing sample points), but with 70% sensitivity and 90% specificity
     '''
     dataTblDict = util.testresultsfiletotable('data/example1cTestData.csv')
+    MCMCdict = {'MCMCtype': 'NUTS', 'Madapt': 5000, 'delta': 0.4}
     dataTblDict.update({'diagSens':0.70,
                         'diagSpec':0.90,
                         'numPostSamples':500,
                         'prior':methods.prior_normal(),
-                        'MCMCmethod': 'NUTS'})
+                        'MCMCdict': MCMCdict})
     logistigateDict = runlogistigate(dataTblDict)
         
     util.plotPostSamples(logistigateDict)
@@ -206,11 +207,12 @@ def Example1d():
     a Laplace instead of a Normal prior
     '''
     dataTblDict = util.testresultsfiletotable('../examples/data/example1TestData.csv') #'example2_testData.csv'
+    MCMCdict = {'MCMCtype': 'NUTS', 'Madapt': 5000, 'delta': 0.4}
     dataTblDict.update({'diagSens':0.90,
                         'diagSpec':0.99,
                         'numPostSamples':500,
                         'prior':methods.prior_laplace(),
-                        'MCMCmethod': 'NUTS'})
+                        'MCMCdict': MCMCdict})
     logistigateDict = runlogistigate(dataTblDict)
         
     util.plotPostSamples(logistigateDict)
@@ -226,11 +228,12 @@ def Example1e():
     '''
     dataTblDict = util.testresultsfiletotable('data/example2TestData.csv',
                                               'data/example2TransitionMatrix.csv')
+    MCMCdict = {'MCMCtype': 'NUTS', 'Madapt': 5000, 'delta': 0.4}
     dataTblDict.update({'diagSens': 0.90,
                         'diagSpec': 0.99,
                         'numPostSamples': 500,
                         'prior': methods.prior_normal(),
-                        'MCMCmethod': 'NUTS'})
+                        'MCMCdict': MCMCdict})
     logistigateDict = runlogistigate(dataTblDict)
 
     util.plotPostSamples(logistigateDict)
@@ -245,13 +248,14 @@ def Example2():
     Same test data as example 1, but with unknown importers (i.e., Untracked).
     Instead, the transition matrix is known.
     '''
-    dataTblDict = util.testresultsfiletotable('data/example2TestData.csv',
-                                              'data/example2TransitionMatrix.csv')
+    dataTblDict = util.testresultsfiletotable('examples/data/example2TestData.csv',
+                                              'examples/data/example2TransitionMatrix.csv')
+    MCMCdict = {'MCMCtype': 'NUTS', 'Madapt': 5000, 'delta': 0.4}
     dataTblDict.update({'diagSens':0.90,
                         'diagSpec':0.99,
                         'numPostSamples':500,
                         'prior':methods.prior_normal(),
-                        'MCMCmethod': 'NUTS'})
+                        'MCMCdict': MCMCdict})
     logistigateDict = runlogistigate(dataTblDict)
         
     util.plotPostSamples(logistigateDict)
@@ -259,34 +263,6 @@ def Example2():
     util.printEstimates(logistigateDict)
     
     return
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

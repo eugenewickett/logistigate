@@ -393,7 +393,7 @@ def GeneratePostSamples(dataTblDict):
 
     if not all(key in dataTblDict for key in ['type', 'N', 'Y', 'diagSens', 'diagSpec',
                                               'MCMCdict', 'prior', 'numPostSamples']):
-        print('The input dictionary does not contain all required information for the Laplace approximation.' +
+        print('The input dictionary does not contain all required information for generating posterior samples.' +
               ' Please check and try again.')
         return {}
 
