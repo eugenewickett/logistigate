@@ -264,6 +264,44 @@ def Example2():
     
     return
 
+def identifyingnonidentifiableexample():
+    '''
+    Aim is to identify an example where the posterior retains mass away from theta^* as n-->inf
+    '''
+    dict = util.generateRandDataDict(numImp=2, numOut=3, diagSens=0.90,
+                         diagSpec=0.99, numSamples=500,
+                         dataType='Tracked', transMatLambda=1.1,
+                         randSeed=5, trueRates=[0.3,0.6,0.2,0.4,0.7])
+    MCMCdict = {'MCMCtype': 'NUTS', 'Madapt': 5000, 'delta': 0.4}
+    dict.update({'numPostSamples': 1000, 'prior': methods.prior_normal(), 'MCMCdict': MCMCdict})
+    lgDict = runlogistigate(dict)
+    util.plotPostSamples(lgDict)
 
+    dict = util.generateRandDataDict(numImp=2, numOut=3, diagSens=0.90,
+                                     diagSpec=0.99, numSamples=5000,
+                                     dataType='Tracked', transMatLambda=1.1,
+                                     randSeed=5, trueRates=[0.3, 0.6, 0.2, 0.4, 0.7])
+    MCMCdict = {'MCMCtype': 'NUTS', 'Madapt': 5000, 'delta': 0.4}
+    dict.update({'numPostSamples': 1000, 'prior': methods.prior_normal(), 'MCMCdict': MCMCdict})
+    lgDict = runlogistigate(dict)
+    util.plotPostSamples(lgDict)
 
+    dict = util.generateRandDataDict(numImp=2, numOut=3, diagSens=0.90,
+                                     diagSpec=0.99, numSamples=50000,
+                                     dataType='Tracked', transMatLambda=1.1,
+                                     randSeed=5, trueRates=[0.3, 0.6, 0.2, 0.4, 0.7])
+    MCMCdict = {'MCMCtype': 'NUTS', 'Madapt': 5000, 'delta': 0.4}
+    dict.update({'numPostSamples': 1000, 'prior': methods.prior_normal(), 'MCMCdict': MCMCdict})
+    lgDict = runlogistigate(dict)
+    util.plotPostSamples(lgDict)
 
+    dict = util.generateRandDataDict(numImp=2, numOut=3, diagSens=0.90,
+                                     diagSpec=0.99, numSamples=500000,
+                                     dataType='Tracked', transMatLambda=1.1,
+                                     randSeed=5, trueRates=[0.3, 0.6, 0.2, 0.4, 0.7])
+    MCMCdict = {'MCMCtype': 'NUTS', 'Madapt': 5000, 'delta': 0.4}
+    dict.update({'numPostSamples': 1000, 'prior': methods.prior_normal(), 'MCMCdict': MCMCdict})
+    lgDict = runlogistigate(dict)
+    util.plotPostSamples(lgDict)
+
+    return

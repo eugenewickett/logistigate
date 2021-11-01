@@ -18,6 +18,9 @@ Release 0.1.2
 * utilities.plotPostSamples() can provide interval plots, take index subsets for plotting, and handle user-input subtitles for plots.
 * utilities.generateRandSystem() and .generateRandDataDict are added; these functions provide randomly generated two-echelon supply chains, and are useful for simulation studies.
 * utilities.scorePostSamplesIntervals is added; this function provides scoring for intervals and underlying SFP rates.
+* [TO-DO] All methods are updated to handle data obtained via different testing tools
+* [TO-DO] Examples, variables, and documentation are updated to reflect terminology of "test nodes," "supply nodes," and "sourcing probability"
+* [TO-DO] Break utilities.generateRandSystem() into its component parts
 
 Release 0.1.1
 -------------

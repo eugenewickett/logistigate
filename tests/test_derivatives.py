@@ -388,5 +388,8 @@ class TrackedTestCase(unittest.TestCase): # Class for testing Tracked functions
                 flag = True
         self.assertEqual(flag,False,msg='Tracked posterior Hessian check in low-data setting failed')
 
+
+# todo: TRY USING from scipy.optimize import check_grad FOR CHECKING GRADIENTS
+
 if __name__ == '__main__':
     unittest.main()
