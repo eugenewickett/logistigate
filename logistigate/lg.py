@@ -34,10 +34,26 @@ Industrial Engineering & Management Sciences, Northwestern University
 # todo: Change these import references before submitting a new version of logistigate
 import sys
 import os
-SCRIPT_DIR = os.path.dirname(os.path.realpath(os.path.join(os.getcwd(), os.path.expanduser(__file__))))
-sys.path.append(os.path.normpath(os.path.join(SCRIPT_DIR, 'logistigate')))
-import methods
-import utilities as util
+
+#SCRIPT_DIR = os.path.dirname(os.path.realpath(os.path.join(os.getcwd(), os.path.expanduser(__file__))))
+#sys.path.append(os.path.normpath(os.path.join(SCRIPT_DIR, 'logistigate')))
+#import methods
+#import utilities as util
+
+if __name__ == '__main__':
+    if __package__ is None:
+        import sys
+        import os
+        import os.path as path
+        from os import path
+        SCRIPT_DIR = path.dirname(path.realpath(path.join(os.getcwd(), path.expanduser(__file__))))
+        sys.path.append(path.normpath(path.join(SCRIPT_DIR, 'logistigate')))
+        import methods
+        import utilities as util
+
+    else:
+        from . import methods as methods
+        from . import utilities as util
 
 # THESE ARE FOR THE ACTUAL PACKAGE
 # todo: Use the below import references
