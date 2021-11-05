@@ -43,6 +43,18 @@ if __name__ == '__main__':
         from .mcmcsamplers import lmc as langevinMC
         from .mcmcsamplers import metrohastings as mh
 
+else:
+    import sys
+    import os
+    import os.path as path
+    from os import path
+    SCRIPT_DIR = path.dirname(path.realpath(path.join(os.getcwd(), path.expanduser(__file__))))
+    sys.path.append(path.normpath(path.join(SCRIPT_DIR, 'logistigate', 'mcmcsamplers')))
+    sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
+    import logistigate.mcmcsamplers.adjustedNUTS as adjnuts
+    import logistigate.mcmcsamplers.lmc as langevinMC
+    import logistigate.mcmcsamplers.metrohastings as mh
+
 #import nuts
 
 ########################### PRIOR CLASSES ###########################
