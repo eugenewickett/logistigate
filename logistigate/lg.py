@@ -58,6 +58,8 @@ else:
     import sys
     import os
     import os.path as path
+    from os import path
+
     SCRIPT_DIR = path.dirname(path.realpath(path.join(os.getcwd(), path.expanduser(__file__))))
     sys.path.append(path.normpath(path.join(SCRIPT_DIR, 'logistigate')))
     import methods

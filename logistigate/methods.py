@@ -25,7 +25,9 @@ import time
 #import logistigate.mcmcsamplers.metrohastings as mh
 
 # For handling different import scenarios
-if __name__ == '__main__':
+print(__name__)
+print(__package__)
+if __name__ == '__main__' and __package__ is None:
     if __package__ is None:
         import sys
         import os
@@ -48,6 +50,7 @@ else:
     import os
     import os.path as path
     from os import path
+
     SCRIPT_DIR = path.dirname(path.realpath(path.join(os.getcwd(), path.expanduser(__file__))))
     sys.path.append(path.normpath(path.join(SCRIPT_DIR, 'logistigate', 'mcmcsamplers')))
     sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
