@@ -7,7 +7,7 @@ Below are the notes from all logistigate releases.
 Release 0.1.2
 -------------
 
-:Date: July 23, 2021
+:Date: November 10, 2021
 
 * README is updated.
 * Unit tests are added for Jacobian and Hessian methods.
@@ -22,6 +22,7 @@ Release 0.1.2
 * [TO-DO] Examples, variables, and documentation are updated to reflect terminology of "test nodes," "supply nodes," and "sourcing probability."
 * [TO-DO] Break utilities.generateRandSystem() into its component parts.
 * [TO-DO] methods updated to properly import mcmsamplers.
+* [TO-DO] lg updated to properly import methods and utilities.
 
 Release 0.1.1
 -------------

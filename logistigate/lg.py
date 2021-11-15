@@ -40,21 +40,21 @@ import os
 #import methods
 #import utilities as util
 
-if __name__ == '__main__':
-    if __package__ is None:
-        import sys
-        import os
-        import os.path as path
-        from os import path
-        SCRIPT_DIR = path.dirname(path.realpath(path.join(os.getcwd(), path.expanduser(__file__))))
-        sys.path.append(path.normpath(path.join(SCRIPT_DIR, 'logistigate')))
-        import methods
-        import utilities as util
+if __name__ == '__main__' and __package__ is None:
 
-    else:
-        from . import methods as methods
-        from . import utilities as util
+    import sys
+    import os
+    import os.path as path
+    from os import path
+    SCRIPT_DIR = path.dirname(path.realpath(path.join(os.getcwd(), path.expanduser(__file__))))
+    sys.path.append(path.normpath(path.join(SCRIPT_DIR, 'logistigate')))
+    import methods
+    import utilities as util
+
 else:
+    from . import methods as methods
+    from . import utilities as util
+    '''
     import sys
     import os
     import os.path as path
@@ -64,6 +64,7 @@ else:
     sys.path.append(path.normpath(path.join(SCRIPT_DIR, 'logistigate')))
     import methods
     import utilities as util
+    '''
 
 # THESE ARE FOR THE ACTUAL PACKAGE
 # todo: Use the below import references
