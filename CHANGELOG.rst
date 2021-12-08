@@ -23,6 +23,7 @@ Release 0.1.2
 * [TO-DO] Break utilities.generateRandSystem() into its component parts.
 * [TO-DO] methods updated to properly import mcmsamplers.
 * [TO-DO] lg updated to properly import methods and utilities.
+* [TO-DO] update Langevin sampler
 
 Release 0.1.1
 -------------
