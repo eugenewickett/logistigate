@@ -124,7 +124,6 @@ def testresultsfiletotable(testDataFile, transitionMatrixFile='', csvName=True):
 
     return dataTblDict
 
-
 def GetVectorForms(dataTblDict):
     """
     Takes a dictionary that has a list of testing results and appends the N,Y
@@ -464,7 +463,7 @@ def plotPostSamples(logistigateDict, plotType='hist', importerIndsSubset=[],
         for i in importerIndsSubset:
             plt.hist(logistigateDict['postSamples'][:, i], alpha=0.2)
         plt.xlim([0,1])
-        plt.title('Importers'+subTitleStr[0], fontdict={'fontsize': 18})
+        plt.title('Supply Nodes'+subTitleStr[0], fontdict={'fontsize': 18})
         plt.xlabel('SFP rate',fontdict={'fontsize': 14})
         plt.ylabel('Posterior distribution frequency',fontdict={'fontsize': 14})
         plt.show()
@@ -475,7 +474,7 @@ def plotPostSamples(logistigateDict, plotType='hist', importerIndsSubset=[],
         for i in outletIndsSubset:
             plt.hist(logistigateDict['postSamples'][:, numImp + i], alpha=0.2)
         plt.xlim([0,1])
-        plt.title('Outlets'+subTitleStr[1], fontdict={'fontsize': 18})
+        plt.title('Test Nodes'+subTitleStr[1], fontdict={'fontsize': 18})
         plt.xlabel('SFP rate',fontdict={'fontsize': 14})
         plt.ylabel('Posterior distribution frequency',fontdict={'fontsize': 14})
         plt.show()
@@ -528,8 +527,8 @@ def plotPostSamples(logistigateDict, plotType='hist', importerIndsSubset=[],
         plt.plot((impNamesSorted[-1], impNamesSorted[-1]), (priorLower, priorUpper), 'o--', color='gray')
         plt.ylim([0,1])
         plt.xticks(range(len(impNamesSorted)),impNamesSorted,rotation=90)
-        plt.title('Importers - ' + intStr + '% Intervals'+subTitleStr[0], fontdict={'fontsize': 18, 'fontname':'Trebuchet MS'})
-        plt.xlabel('Importer Name', fontdict={'fontsize': 14,'fontname':'Trebuchet MS'})
+        plt.title('Supply Nodes - ' + intStr + '% Intervals'+subTitleStr[0], fontdict={'fontsize': 18, 'fontname':'Trebuchet MS'})
+        plt.xlabel('Supply Node Name', fontdict={'fontsize': 14,'fontname':'Trebuchet MS'})
         plt.ylabel('Interval value', fontdict={'fontsize': 14, 'fontname':'Trebuchet MS'})
         for label in (ax.get_xticklabels() + ax.get_yticklabels()):
             label.set_fontname('Times New Roman')
@@ -573,8 +572,8 @@ def plotPostSamples(logistigateDict, plotType='hist', importerIndsSubset=[],
         plt.plot((outNamesSorted[-1], outNamesSorted[-1]), (priorLower, priorUpper), 'o--', color='gray')
         plt.ylim([0,1])
         plt.xticks(range(len(outNamesSorted)),outNamesSorted,rotation=90)
-        plt.title('Outlets - ' + intStr + '% Intervals'+subTitleStr[1], fontdict={'fontsize': 18, 'fontname':'Trebuchet MS'})
-        plt.xlabel('Outlet Name', fontdict={'fontsize': 14,'fontname':'Trebuchet MS'})
+        plt.title('Test Nodes - ' + intStr + '% Intervals'+subTitleStr[1], fontdict={'fontsize': 18, 'fontname':'Trebuchet MS'})
+        plt.xlabel('Test Node Name', fontdict={'fontsize': 14,'fontname':'Trebuchet MS'})
         plt.ylabel('Interval value', fontdict={'fontsize': 14, 'fontname':'Trebuchet MS'})
         for label in (ax.get_xticklabels() + ax.get_yticklabels()):
             label.set_fontname('Times New Roman')
