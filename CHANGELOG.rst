@@ -12,6 +12,7 @@ Release 0.1.2
 * README is updated.
 * Unit tests are added for Jacobian and Hessian methods.
 * Unit test is added for the SciPy optimizer.
+* Unit tests are added for the NUTS and Langevin MCMC samplers.
 * methods.FormEstimates() function for Lapalce approximation has optional arguments for capturing results from the SciPy optimizer as well as printing processing updates.
 * utilities.testresultsfiletotable() can take Python list inputs.
 * utilities.printEstimates() can provide results for a subset of indices.
@@ -23,7 +24,6 @@ Release 0.1.2
 * [TO-DO] Break utilities.generateRandSystem() into its component parts.
 * [TO-DO] methods updated to properly import mcmsamplers.
 * [TO-DO] lg updated to properly import methods and utilities.
-* [TO-DO] update Langevin sampler
 
 Release 0.1.1
 -------------
