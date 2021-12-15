@@ -30,10 +30,17 @@ class InferenceTestCase(unittest.TestCase):
         flag = False
         # Check that at least 80% of true rates are recovered by 90% intervals, 85% by 95% intervals, and 90%
         # by 99% intervals
-        if (self.SCdict['numInInt90'] < 0.8*len(self.SCdict['outletNames']) + len(self.SCdict['importerNames'])) or\
-                (self.SCdict['numInInt95'] < 0.85*len(self.SCdict['outletNames']) + len(self.SCdict['importerNames'])) or\
-                (self.SCdict['numInInt99'] < 0.9*len(self.SCdict['outletNames']) + len(self.SCdict['importerNames'])):
+        if (self.SCdict['numInInt90'] < 0.8*(len(self.SCdict['outletNames']) + len(self.SCdict['importerNames']))) or\
+                (self.SCdict['numInInt95'] < 0.85*(len(self.SCdict['outletNames']) + len(self.SCdict['importerNames']))) or\
+                (self.SCdict['numInInt99'] < 0.9*(len(self.SCdict['outletNames']) + len(self.SCdict['importerNames']))):
             flag = True
+        print(f"Recovered true rate proportions, using NUTS:")
+        print(
+            f"{'':<5}{'90% Interval:':<20}{'{:.3f}'.format(self.SCdict['numInInt90'] / (len(self.SCdict['outletNames']) + len(self.SCdict['importerNames']))) :<40}")
+        print(
+            f"{'':<5}{'95% Interval:':<20}{'{:.3f}'.format(self.SCdict['numInInt95'] / (len(self.SCdict['outletNames']) + len(self.SCdict['importerNames']))) :<40}")
+        print(
+            f"{'':<5}{'99% Interval:':<20}{'{:.3f}'.format(self.SCdict['numInInt99'] / (len(self.SCdict['outletNames']) + len(self.SCdict['importerNames']))) :<40}")
         self.assertEqual(flag,False)
 
     def test_lmc(self): # Check inference using NUTS
@@ -44,10 +51,17 @@ class InferenceTestCase(unittest.TestCase):
         flag = False
         # Check that at least 80% of true rates are recovered by 90% intervals, 85% by 95% intervals, and 90%
         # by 99% intervals
-        if (self.SCdict['numInInt90'] < 0.8*len(self.SCdict['outletNames']) + len(self.SCdict['importerNames'])) or\
-                (self.SCdict['numInInt95'] < 0.85*len(self.SCdict['outletNames']) + len(self.SCdict['importerNames'])) or\
-                (self.SCdict['numInInt99'] < 0.9*len(self.SCdict['outletNames']) + len(self.SCdict['importerNames'])):
+        if (self.SCdict['numInInt90'] < 0.8*(len(self.SCdict['outletNames']) + len(self.SCdict['importerNames']))) or\
+                (self.SCdict['numInInt95'] < 0.85*(len(self.SCdict['outletNames']) + len(self.SCdict['importerNames']))) or\
+                (self.SCdict['numInInt99'] < 0.9*(len(self.SCdict['outletNames']) + len(self.SCdict['importerNames']))):
             flag = True
+        print(f"Recovered true rate proportions, using LANGEVIN MC:")
+        print(
+            f"{'':<5}{'90% Interval:':<20}{'{:.3f}'.format(self.SCdict['numInInt90'] / (len(self.SCdict['outletNames']) + len(self.SCdict['importerNames']))) :<40}")
+        print(
+            f"{'':<5}{'95% Interval:':<20}{'{:.3f}'.format(self.SCdict['numInInt95'] / (len(self.SCdict['outletNames']) + len(self.SCdict['importerNames']))) :<40}")
+        print(
+            f"{'':<5}{'99% Interval:':<20}{'{:.3f}'.format(self.SCdict['numInInt99'] / (len(self.SCdict['outletNames']) + len(self.SCdict['importerNames']))) :<40}")
         self.assertEqual(flag,False)
 
 if __name__ == '__main__':
