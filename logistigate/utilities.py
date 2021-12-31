@@ -507,7 +507,7 @@ def plotPostSamples(logistigateDict, plotType='hist', importerIndsSubset=[],
             midpoints = [impUppers[i] - (impUppers[i]-impLowers[i])/2 for i in range(len(impUppers))]
             zippedList = zip(midpoints, impUppers, impLowers, impNames)
         sorted_pairs = sorted(zippedList, reverse=True)
-        impNamesSorted = [tup[3] for tup in sorted_pairs]
+        impNamesSorted = [tup[-1] for tup in sorted_pairs]
         impNamesSorted.append('')
         impNamesSorted.append('(Prior)')
         # Plot
@@ -552,7 +552,7 @@ def plotPostSamples(logistigateDict, plotType='hist', importerIndsSubset=[],
             midpoints = [outUppers[i] - (outUppers[i] - outLowers[i]) / 2 for i in range(len(outUppers))]
             zippedList = zip(midpoints, outUppers, outLowers, outNames)
         sorted_pairs = sorted(zippedList, reverse=True)
-        outNamesSorted = [tup[3] for tup in sorted_pairs]
+        outNamesSorted = [tup[-1] for tup in sorted_pairs]
         outNamesSorted.append('')
         outNamesSorted.append('(Prior)')
         # Plot
