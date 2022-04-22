@@ -353,7 +353,7 @@ def generateRandDataDict(numImp=5, numOut=50, diagSens=0.90,
             testingDataList.append([currOutlet, result])
 
     dataTblDict.update({'outletNames': outNames, 'importerNames': impNames,
-                        'diagSens': 0.90, 'diagSpec': 0.99, 'type': dataType,
+                        'diagSens': diagSens, 'diagSpec': diagSpec, 'type': dataType,
                         'dataTbl': testingDataList, 'transMat': transMat,
                         'trueRates': trueRates})
 
