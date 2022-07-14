@@ -34,10 +34,37 @@ Industrial Engineering & Management Sciences, Northwestern University
 # todo: Change these import references before submitting a new version of logistigate
 import sys
 import os
-SCRIPT_DIR = os.path.dirname(os.path.realpath(os.path.join(os.getcwd(), os.path.expanduser(__file__))))
-sys.path.append(os.path.normpath(os.path.join(SCRIPT_DIR, 'logistigate')))
-import methods
-import utilities as util
+
+#SCRIPT_DIR = os.path.dirname(os.path.realpath(os.path.join(os.getcwd(), os.path.expanduser(__file__))))
+#sys.path.append(os.path.normpath(os.path.join(SCRIPT_DIR, 'logistigate')))
+#import methods
+#import utilities as util
+
+if __name__ == '__main__' and __package__ is None:
+
+    import sys
+    import os
+    import os.path as path
+    from os import path
+    SCRIPT_DIR = path.dirname(path.realpath(path.join(os.getcwd(), path.expanduser(__file__))))
+    sys.path.append(path.normpath(path.join(SCRIPT_DIR, 'logistigate')))
+    import methods
+    import utilities as util
+
+else:
+    from . import methods as methods
+    from . import utilities as util
+    '''
+    import sys
+    import os
+    import os.path as path
+    from os import path
+
+    SCRIPT_DIR = path.dirname(path.realpath(path.join(os.getcwd(), path.expanduser(__file__))))
+    sys.path.append(path.normpath(path.join(SCRIPT_DIR, 'logistigate')))
+    import methods
+    import utilities as util
+    '''
 
 # THESE ARE FOR THE ACTUAL PACKAGE
 # todo: Use the below import references
@@ -186,11 +213,12 @@ def Example1c():
     4000 testing sample points), but with 70% sensitivity and 90% specificity
     '''
     dataTblDict = util.testresultsfiletotable('data/example1cTestData.csv')
+    MCMCdict = {'MCMCtype': 'NUTS', 'Madapt': 5000, 'delta': 0.4}
     dataTblDict.update({'diagSens':0.70,
                         'diagSpec':0.90,
                         'numPostSamples':500,
                         'prior':methods.prior_normal(),
-                        'MCMCmethod': 'NUTS'})
+                        'MCMCdict': MCMCdict})
     logistigateDict = runlogistigate(dataTblDict)
         
     util.plotPostSamples(logistigateDict)
@@ -206,11 +234,12 @@ def Example1d():
     a Laplace instead of a Normal prior
     '''
     dataTblDict = util.testresultsfiletotable('../examples/data/example1TestData.csv') #'example2_testData.csv'
+    MCMCdict = {'MCMCtype': 'NUTS', 'Madapt': 5000, 'delta': 0.4}
     dataTblDict.update({'diagSens':0.90,
                         'diagSpec':0.99,
                         'numPostSamples':500,
                         'prior':methods.prior_laplace(),
-                        'MCMCmethod': 'NUTS'})
+                        'MCMCdict': MCMCdict})
     logistigateDict = runlogistigate(dataTblDict)
         
     util.plotPostSamples(logistigateDict)
@@ -226,11 +255,12 @@ def Example1e():
     '''
     dataTblDict = util.testresultsfiletotable('data/example2TestData.csv',
                                               'data/example2TransitionMatrix.csv')
+    MCMCdict = {'MCMCtype': 'NUTS', 'Madapt': 5000, 'delta': 0.4}
     dataTblDict.update({'diagSens': 0.90,
                         'diagSpec': 0.99,
                         'numPostSamples': 500,
                         'prior': methods.prior_normal(),
-                        'MCMCmethod': 'NUTS'})
+                        'MCMCdict': MCMCdict})
     logistigateDict = runlogistigate(dataTblDict)
 
     util.plotPostSamples(logistigateDict)
@@ -245,13 +275,14 @@ def Example2():
     Same test data as example 1, but with unknown importers (i.e., Untracked).
     Instead, the transition matrix is known.
     '''
-    dataTblDict = util.testresultsfiletotable('data/example2TestData.csv',
-                                              'data/example2TransitionMatrix.csv')
+    dataTblDict = util.testresultsfiletotable('examples/data/example2TestData.csv',
+                                              'examples/data/example2TransitionMatrix.csv')
+    MCMCdict = {'MCMCtype': 'NUTS', 'Madapt': 5000, 'delta': 0.4}
     dataTblDict.update({'diagSens':0.90,
                         'diagSpec':0.99,
                         'numPostSamples':500,
                         'prior':methods.prior_normal(),
-                        'MCMCmethod': 'NUTS'})
+                        'MCMCdict': MCMCdict})
     logistigateDict = runlogistigate(dataTblDict)
         
     util.plotPostSamples(logistigateDict)
@@ -260,34 +291,44 @@ def Example2():
     
     return
 
+def identifyingnonidentifiableexample():
+    '''
+    Aim is to identify an example where the posterior retains mass away from theta^* as n-->inf
+    '''
+    dict = util.generateRandDataDict(numImp=2, numOut=3, diagSens=0.90,
+                         diagSpec=0.99, numSamples=500,
+                         dataType='Tracked', transMatLambda=1.1,
+                         randSeed=5, trueRates=[0.3,0.6,0.2,0.4,0.7])
+    MCMCdict = {'MCMCtype': 'NUTS', 'Madapt': 5000, 'delta': 0.4}
+    dict.update({'numPostSamples': 1000, 'prior': methods.prior_normal(), 'MCMCdict': MCMCdict})
+    lgDict = runlogistigate(dict)
+    util.plotPostSamples(lgDict)
 
+    dict = util.generateRandDataDict(numImp=2, numOut=3, diagSens=0.90,
+                                     diagSpec=0.99, numSamples=5000,
+                                     dataType='Tracked', transMatLambda=1.1,
+                                     randSeed=5, trueRates=[0.3, 0.6, 0.2, 0.4, 0.7])
+    MCMCdict = {'MCMCtype': 'NUTS', 'Madapt': 5000, 'delta': 0.4}
+    dict.update({'numPostSamples': 1000, 'prior': methods.prior_normal(), 'MCMCdict': MCMCdict})
+    lgDict = runlogistigate(dict)
+    util.plotPostSamples(lgDict)
 
+    dict = util.generateRandDataDict(numImp=2, numOut=3, diagSens=0.90,
+                                     diagSpec=0.99, numSamples=50000,
+                                     dataType='Tracked', transMatLambda=1.1,
+                                     randSeed=5, trueRates=[0.3, 0.6, 0.2, 0.4, 0.7])
+    MCMCdict = {'MCMCtype': 'NUTS', 'Madapt': 5000, 'delta': 0.4}
+    dict.update({'numPostSamples': 1000, 'prior': methods.prior_normal(), 'MCMCdict': MCMCdict})
+    lgDict = runlogistigate(dict)
+    util.plotPostSamples(lgDict)
 
+    dict = util.generateRandDataDict(numImp=2, numOut=3, diagSens=0.90,
+                                     diagSpec=0.99, numSamples=500000,
+                                     dataType='Tracked', transMatLambda=1.1,
+                                     randSeed=5, trueRates=[0.3, 0.6, 0.2, 0.4, 0.7])
+    MCMCdict = {'MCMCtype': 'NUTS', 'Madapt': 5000, 'delta': 0.4}
+    dict.update({'numPostSamples': 1000, 'prior': methods.prior_normal(), 'MCMCdict': MCMCdict})
+    lgDict = runlogistigate(dict)
+    util.plotPostSamples(lgDict)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    return

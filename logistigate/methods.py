@@ -3,7 +3,7 @@ This file contains the methods used for estimating aberration prevalence in a
 two-echelon supply chain. See descriptions for particular inputs.
 """
 
-######### NEED TO ADD CAPACITY TO HANDLE DIFFERENT DIAGNOSTIC DEVICES @ DIFFERENT DATA POINTS
+#todo: Need to add capacity to handle different diagnostic devices at different data points
 
 import numpy as np
 import scipy.optimize as spo
@@ -14,13 +14,9 @@ import time
 # THESE IMPORTS ARE FOR DEVELOPING NEW CODE, ETC.;
 # NEED TO BE CHANGED BACK TO THOSE BELOW BEFORE UPLOADING TO GITHUB
 # todo: Change these import references before submitting a new version of logistigate
-import sys
-import os
-SCRIPT_DIR = os.path.dirname(os.path.realpath(os.path.join(os.getcwd(), os.path.expanduser(__file__))))
-sys.path.append(os.path.normpath(os.path.join(SCRIPT_DIR, 'logistigate','mcmcsamplers')))
-import adjustedNUTS as adjnuts
-import lmc as langevinMC
-import metrohastings as mh
+#import logistigate.mcmcsamplers.adjustedNUTS as adjnuts
+#import logistigate.mcmcsamplers.lmc as langevinMC
+#import logistigate.mcmcsamplers.metrohastings as mh
 
 # THESE ARE FOR THE ACTUAL PACKAGE
 # todo: Use the below import references
@@ -28,6 +24,39 @@ import metrohastings as mh
 #import logistigate.mcmcsamplers.lmc as langevinMC
 #import logistigate.mcmcsamplers.metrohastings as mh
 
+# For handling different import scenarios
+#print(__name__)
+#print(__package__)
+if __name__ == '__main__' and __package__ is None:
+    import sys
+    import os
+    import os.path as path
+    from os import path
+    SCRIPT_DIR = path.dirname(path.realpath(path.join(os.getcwd(), path.expanduser(__file__))))
+    sys.path.append(path.normpath(path.join(SCRIPT_DIR, 'logistigate','mcmcsamplers')))
+    sys.path.append( path.dirname( path.dirname( path.abspath(__file__) ) ) )
+    import logistigate.mcmcsamplers.adjustedNUTS as adjnuts
+    import logistigate.mcmcsamplers.lmc as langevinMC
+    import logistigate.mcmcsamplers.metrohastings as mh
+
+else:
+
+    from .mcmcsamplers import adjustedNUTS as adjnuts
+    from .mcmcsamplers import lmc as langevinMC
+    from .mcmcsamplers import metrohastings as mh
+    '''
+    import sys
+    import os
+    import os.path as path
+    from os import path
+
+    SCRIPT_DIR = path.dirname(path.realpath(path.join(os.getcwd(), path.expanduser(__file__))))
+    sys.path.append(path.normpath(path.join(SCRIPT_DIR, 'logistigate', 'mcmcsamplers')))
+    sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
+    import logistigate.mcmcsamplers.adjustedNUTS as adjnuts
+    import logistigate.mcmcsamplers.lmc as langevinMC
+    import logistigate.mcmcsamplers.metrohastings as mh
+    '''
 #import nuts
 
 ########################### PRIOR CLASSES ###########################
@@ -51,12 +80,12 @@ class prior_laplace:
     def lpdf(self,beta):
         if beta.ndim == 1: # reshape to 2d
             beta = np.reshape(beta,(1,-1))
-        lik = -(1/self.scale) * np.sum(np.abs(beta - self.mu),axis=1)         
+        lik = np.log(1/(2*self.scale)) - np.sum(np.abs(beta - self.mu)/self.scale,axis=1)
         return np.squeeze(lik)
     def lpdf_jac(self,beta):
         if beta.ndim == 1: # reshape to 2d
             beta = np.reshape(beta,(1,-1))
-        jac = -(1/self.scale) * np.squeeze(1*(beta>=self.mu) - 1*(beta<=self.mu))
+        jac = - (1/self.scale)*np.squeeze(1*(beta>=self.mu) - 1*(beta<=self.mu))
         return np.squeeze(jac)
     def lpdf_hess(self,beta):
         if beta.ndim == 1: # reshape to 2d
@@ -86,7 +115,7 @@ class prior_normal:
     def lpdf(self,beta):
         if beta.ndim == 1: # reshape to 2d
             beta = np.reshape(beta,(1,-1))
-        lik = -(1/(2*self.var)) * np.sum((beta - (self.mu))**2,axis=1)         
+        lik = -(1/(2*self.var)) * np.sum((beta - (self.mu))**2,axis=1) - np.log(self.var*2*np.pi)*np.size(beta)/2
         return np.squeeze(lik)
     def lpdf_jac(self,beta):
         if beta.ndim == 1: # reshape to 2d
@@ -99,7 +128,7 @@ class prior_normal:
         k,n = len(beta[:,0]),len(beta[0])
         hess = np.tile(np.zeros(shape=(n,n)),(k,1,1))
         for i in range(k):
-            hess[i] = np.diag( -(1/self.var) * beta[i])
+            hess[i] = np.diag(np.repeat(-(1/self.var),n))
         return np.squeeze(hess)
         
 ########################### END PRIOR CLASSES ###########################
@@ -365,15 +394,12 @@ def Tracked_NegLogLike_Hess(beta,numMat,posMat,sens,spec):
 
 ##### TRACKED POSTERIOR FUNCTIONS #####
 def Tracked_LogPost(beta, N, Y, sens, spec, prior):
-    return prior.lpdf(beta)\
-           + Tracked_LogLike(beta, N, Y, sens, spec)
+    return prior.lpdf(beta) + Tracked_LogLike(beta, N, Y, sens, spec)
 def Tracked_LogPost_Grad(beta, N, Y, sens, spec, prior):
-    return prior.lpdf_jac(beta)\
-           + Tracked_LogLike_Jac(beta, N, Y, sens, spec)
+    return prior.lpdf_jac(beta) + Tracked_LogLike_Jac(beta, N, Y, sens, spec)
 def Tracked_LogPost_Hess(beta, N, Y, sens, spec, prior):
-    return prior.lpdf_hess(beta)\
-           + Tracked_LogLike_Hess(beta, N, Y, sens, spec)
-           
+    return prior.lpdf_hess(beta) + Tracked_LogLike_Hess(beta, N, Y, sens, spec)
+
 def Tracked_NegLogPost(beta, N, Y, sens, spec, prior):
     return -1*Tracked_LogPost(beta, N, Y, sens, spec, prior)
 def Tracked_NegLogPost_Grad(beta, N, Y, sens, spec, prior):
@@ -409,7 +435,7 @@ def GeneratePostSamples(dataTblDict):
 
     if not all(key in dataTblDict for key in ['type', 'N', 'Y', 'diagSens', 'diagSpec',
                                               'MCMCdict', 'prior', 'numPostSamples']):
-        print('The input dictionary does not contain all required information for the Laplace approximation.' +
+        print('The input dictionary does not contain all required information for generating posterior samples.' +
               ' Please check and try again.')
         return {}
 
