@@ -33,7 +33,7 @@ release = '0.1.0'
 
 # If your documentation needs a minimal Sphinx version, state it here.
 #
-needs_sphinx = '4.0.2'
+# needs_sphinx = '4.0.2'
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
@@ -56,7 +56,7 @@ templates_path = ['_templates']
 # You can specify multiple suffix as a list of string:
 #
 # source_suffix = ['.rst', '.md']
-source_suffix = '.rst'
+source_suffix = ['.rst','.txt']
 
 # The master toctree document.
 master_doc = 'index'
