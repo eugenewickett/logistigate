@@ -3,3 +3,4 @@ scipy
 matplotlib
 tabulate
 nuts
+jinja2<3.1
