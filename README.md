@@ -6,11 +6,11 @@ https://logistigate.readthedocs.io/en/main/
 Overview of logistigate
 -----------------------
 The logistigate methods infer rates of substandard and
-falsified products (SFPs) at locations within a two-echelon
+falsified products (SFPs) at locations within two echelons of a
 supply chain, using testing data only from samples of products
 at locations of the lower echelon.
 
-Each location of both echelons has some fixed SFP rate.
+Each location of both echelons has a fixed SFP rate.
 Non-SFP products traveling through a location become SFP
 according to this rate.
 All products travel through one location of each echelon.
