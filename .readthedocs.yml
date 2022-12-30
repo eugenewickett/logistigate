@@ -6,6 +6,14 @@ version: 2
 sphinx:
     configuration: docs/conf.py
 
+
+# ADDED
+build:
+  os: ubuntu-22.04
+  tools:
+    python: "3.7" # TEMPLATE SAID 3.11
+# END ADDED
+
 # Optionally set the version of Python and requirements required to build your docs
 python:
     version: 3.7
