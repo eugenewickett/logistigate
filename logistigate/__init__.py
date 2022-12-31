@@ -1,1 +1,1 @@
-# Dummy file to make logistigate a package
+"""Dummy file to make logistigate a package"""
