@@ -1,7 +1,7 @@
 Overview of logistigate
 -----------------------
 The logistigate methods infer rates of substandard and
-falsified products (SFPs) at locations within a two-echelon
+falsified products (SFPs) at locations within two echelons of a
 supply chain, using testing data only from samples of products
 at locations of the lower echelon.
 
@@ -17,7 +17,7 @@ Product testing at the lower echelon is conducted with
 a diagnostic tool with a known sensitivity and specificity.
 Detection of an SFP is recorded as "1" and no detection is
 recorded as "0."
-There are two types of supply-chain information available
+There are two types of supply-chain information settings available
 to regulators, Tracked and Untracked:
 
 * In the Tracked case, both the upper-echelon and lower-echelon locations traversed by a product are known upon testing.
