@@ -137,7 +137,6 @@ def runlogistigate(dataTblDict):
     logistigateDict = {} # Initialize our output dictionary
     dataTblDict = util.GetVectorForms(dataTblDict) # Add N,Y matrices
     dataTblDict = methods.GeneratePostSamples(dataTblDict) # Generate and add posterior samples
-    estDict = methods.FormEstimates(dataTblDict) # Form point estimates and CIs
 
     if not 'trueRates' in dataTblDict:
         dataTblDict.update({'trueRates':[]})
@@ -154,7 +153,7 @@ def runlogistigate(dataTblDict):
                      'diagSens':dataTblDict['diagSens'],
                      'diagSpec':dataTblDict['diagSpec'],
                      'N':dataTblDict['N'], 'Y':dataTblDict['Y'],
-                     'estDict':estDict, 'postSamples':dataTblDict['postSamples'],
+                     'postSamples':dataTblDict['postSamples'],
                      'MCMCdict': dataTblDict['MCMCdict'],
                      'prior':dataTblDict['prior'],
                      'postSamplesGenTime': dataTblDict['postSamplesGenTime'],
@@ -180,7 +179,7 @@ def Example1():
         
     util.plotPostSamples(logistigateDict)
     util.plotPostSamples(logistigateDict,plotType='int90')
-    util.printEstimates(logistigateDict)
+    #util.printEstimates(logistigateDict)
     #util.writeToFile(logistigateDict)
     
     return
@@ -202,7 +201,7 @@ def Example1b():
         
     util.plotPostSamples(logistigateDict)
     util.plotPostSamples(logistigateDict, plotType='int90')
-    util.printEstimates(logistigateDict)
+    #util.printEstimates(logistigateDict)
     
     return
 
@@ -223,7 +222,7 @@ def Example1c():
         
     util.plotPostSamples(logistigateDict)
     util.plotPostSamples(logistigateDict, plotType='int90')
-    util.printEstimates(logistigateDict)
+    #util.printEstimates(logistigateDict)
     
     return
 
@@ -244,7 +243,7 @@ def Example1d():
         
     util.plotPostSamples(logistigateDict)
     util.plotPostSamples(logistigateDict, plotType='int90')
-    util.printEstimates(logistigateDict)
+    #util.printEstimates(logistigateDict)
     
     return
 
@@ -265,7 +264,7 @@ def Example1e():
 
     util.plotPostSamples(logistigateDict)
     util.plotPostSamples(logistigateDict, plotType='int90')
-    util.printEstimates(logistigateDict)
+    #util.printEstimates(logistigateDict)
 
     return
 
@@ -287,7 +286,7 @@ def Example2():
         
     util.plotPostSamples(logistigateDict)
     util.plotPostSamples(logistigateDict, plotType='int90')
-    util.printEstimates(logistigateDict)
+    #util.printEstimates(logistigateDict)
     
     return
 
