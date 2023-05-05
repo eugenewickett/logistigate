@@ -2,6 +2,10 @@
 Contains prior classes for use with Bayesian inference methods
 '''
 
+import numpy as np
+import scipy.special as sps
+import scipy.stats as spstat
+
 class prior_normal_assort:
     """
     Defines the class instance of an assortment of independent normal priors, with associated mu (mean)
