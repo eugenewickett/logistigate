@@ -11,10 +11,52 @@ import scipy.stats as spstat
 import scipy.special as sps
 import time
 
-import logistigate.mcmcsamplers.adjustedNUTS as adjnuts
-import logistigate.mcmcsamplers.lmc as langevinMC
-import logistigate.mcmcsamplers.metrohastings as mh
+# THESE IMPORTS ARE FOR DEVELOPING NEW CODE, ETC.;
+# NEED TO BE CHANGED BACK TO THOSE BELOW BEFORE UPLOADING TO GITHUB
+# todo: Change these import references before submitting a new version of logistigate
+#import logistigate.mcmcsamplers.adjustedNUTS as adjnuts
+#import logistigate.mcmcsamplers.lmc as langevinMC
+#import logistigate.mcmcsamplers.metrohastings as mh
 
+# THESE ARE FOR THE ACTUAL PACKAGE
+# todo: Use the below import references
+#import logistigate.mcmcsamplers.adjustedNUTS as adjnuts
+#import logistigate.mcmcsamplers.lmc as langevinMC
+#import logistigate.mcmcsamplers.metrohastings as mh
+
+# For handling different import scenarios
+#print(__name__)
+#print(__package__)
+if __name__ == '__main__' and __package__ is None:
+    import sys
+    import os
+    import os.path as path
+    from os import path
+    SCRIPT_DIR = path.dirname(path.realpath(path.join(os.getcwd(), path.expanduser(__file__))))
+    sys.path.append(path.normpath(path.join(SCRIPT_DIR, 'logistigate','mcmcsamplers')))
+    sys.path.append( path.dirname( path.dirname( path.abspath(__file__) ) ) )
+    import logistigate.mcmcsamplers.adjustedNUTS as adjnuts
+    import logistigate.mcmcsamplers.lmc as langevinMC
+    import logistigate.mcmcsamplers.metrohastings as mh
+
+else:
+
+    from .mcmcsamplers import adjustedNUTS as adjnuts
+    from .mcmcsamplers import lmc as langevinMC
+    from .mcmcsamplers import metrohastings as mh
+    '''
+    import sys
+    import os
+    import os.path as path
+    from os import path
+
+    SCRIPT_DIR = path.dirname(path.realpath(path.join(os.getcwd(), path.expanduser(__file__))))
+    sys.path.append(path.normpath(path.join(SCRIPT_DIR, 'logistigate', 'mcmcsamplers')))
+    sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
+    import logistigate.mcmcsamplers.adjustedNUTS as adjnuts
+    import logistigate.mcmcsamplers.lmc as langevinMC
+    import logistigate.mcmcsamplers.metrohastings as mh
+    '''
 #import nuts
 
 ########################### PRIOR CLASSES ###########################
@@ -393,7 +435,7 @@ def GeneratePostSamples(dataTblDict):
 
     if not all(key in dataTblDict for key in ['type', 'N', 'Y', 'diagSens', 'diagSpec',
                                               'MCMCdict', 'prior', 'numPostSamples']):
-        print('The input dictionary does not contain all required information for the Laplace approximation.' +
+        print('The input dictionary does not contain all required information for generating posterior samples.' +
               ' Please check and try again.')
         return {}
 
