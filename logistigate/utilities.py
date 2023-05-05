@@ -678,12 +678,6 @@ def Summarize(inputDict):
 
 
 
-
-
-
-
-
-
 #### Necessary NUTS functions ####
 """
 This package implements the No-U-Turn Sampler (NUTS) algorithm 6 from the NUTS
