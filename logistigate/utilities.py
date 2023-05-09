@@ -22,10 +22,10 @@ def testresultsfiletotable(testDataFile, transitionMatrixFile='', csvName=True):
         For tracked data, each row should have three columns, as follows:
             column 1: string; Name of outlet/lower echelon entity
             column 2: string; Name of importer/upper echelon entity
-            column 3: integer; 0 or 1, where 1 signifies aberration detection
+            column 3: integer; 0 or 1, where 1 signifies SFP detection
         For untracked data, each row should have two columns, as follows:
             column 1: string; Name of outlet/lower echelon entity
-            column 2: integer; 0 or 1, where 1 signifies aberration detection
+            column 2: integer; 0 or 1, where 1 signifies SFP detection
     transitionMatrixFile: CSV file name string or Python list (if csvName=True)
         If using tracked data, leave transitionMatrixFile=''.
         CSV file must be located within the current working directory when
@@ -128,9 +128,9 @@ def GetVectorForms(dataTblDict):
     """
     Takes a dictionary that has a list of testing results and appends the N,Y
     matrices/vectors necessary for the Tracked/Untracked methods.
-    For Tracked, element (i,j) of N/Y signifies the number of samples/aberrations
+    For Tracked, element (i,j) of N/Y signifies the number of samples/SFPs
     collected from each (outlet i, importer j) track.
-    For Untracked, element i of N/Y signifies the number of samples/aberrations
+    For Untracked, element i of N/Y signifies the number of samples/SFPs
     collected from each outlet i.
 
     INPUTS
@@ -142,10 +142,10 @@ def GetVectorForms(dataTblDict):
             If Tracked, each list entry should have three elements, as follows:
                 Element 1: string; Name of outlet/lower echelon entity
                 Element 2: string; Name of importer/upper echelon entity
-                Element 3: integer; 0 or 1, where 1 signifies aberration detection
+                Element 3: integer; 0 or 1, where 1 signifies SFPs detection
             If Untracked, each list entry should have two elements, as follows:
                 Element 1: string; Name of outlet/lower echelon entity
-                Element 2: integer; 0 or 1, where 1 signifies aberration detection
+                Element 2: integer; 0 or 1, where 1 signifies SFPs detection
         outletNames/importerNames: list of strings
 
     OUTPUTS
@@ -274,10 +274,10 @@ def generateRandDataDict(numImp=5, numOut=50, diagSens=0.90,
             If Tracked, each list entry should have three elements, as follows:
                 Element 1: string; Name of outlet/lower echelon entity
                 Element 2: string; Name of importer/upper echelon entity
-                Element 3: integer; 0 or 1, where 1 signifies aberration detection
+                Element 3: integer; 0 or 1, where 1 signifies SFP detection
             If Untracked, each list entry should have two elements, as follows:
                 Element 1: string; Name of outlet/lower echelon entity
-                Element 2: integer; 0 or 1, where 1 signifies aberration detection
+                Element 2: integer; 0 or 1, where 1 signifies SFP detection
         outletNames/importerNames: list of strings
         transMat: Numpy matrix
             Matrix of transition probabilities between importers and outlets
@@ -362,8 +362,8 @@ def generateRandDataDict(numImp=5, numOut=50, diagSens=0.90,
 
 def scorePostSamplesIntervals(logistigateDict):
     """
-    Checks if posterior aberration rate sample intervals contain the underlying
-    generative aberration rates
+    Checks if posterior SFP rate sample intervals contain the underlying
+    generative SFP rates
     INPUTS
     ------
     logistigateDict with the following keys:
@@ -427,7 +427,7 @@ def scorePostSamplesIntervals(logistigateDict):
 def plotPostSamples(logistigateDict, plotType='hist', importerIndsSubset=[],
                     outletIndsSubset=[], subTitleStr=['',''], sortBy = 'midpoint'):
     '''
-    Plots the distribution of posterior aberration rate samples, with importer
+    Plots the distribution of posterior SFP rate samples, with importer
     and outlet distributions plotted distinctly.
     
     INPUTS
