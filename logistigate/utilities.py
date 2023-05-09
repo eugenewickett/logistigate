@@ -7,6 +7,8 @@ import random
 from tabulate import tabulate
 import matplotlib.pyplot as plt
 
+#### INFERENCE UTILITIES ####
+
 def testresultsfiletotable(testDataFile, transitionMatrixFile='', csvName=True):
     """
     Takes a CSV file name as input and returns a usable Python dictionary of
@@ -670,6 +672,72 @@ def Summarize(inputDict):
 
     return
 
+#################################
+#### SAMPLING PLAN UTILITIES ####
+#################################
+def roundDesignLow(D, n):
+    '''
+    Takes a proposed design, D, and number of new tests, n, to produce an integer tests array by removing tests from
+    design traces with the highest number of tests or adding tests to traces with the lowest number of tests.
+    '''
+    roundMat = np.round(n*D).flatten()
+    if np.sum(roundMat) > n: # Too many tests; remove from highest represented traces
+        sortinds = np.argsort(-roundMat,axis=None).tolist()
+        currSortInd = -1
+        while int(np.sum(roundMat)-n) > 0:
+            currSortInd += 1
+            if roundMat[sortinds[currSortInd]] > 0: # Don't pull from zero
+                roundMat[sortinds[currSortInd]] += -1
+    elif np.sum(roundMat) < n: # Too few tests; add to lowest represented traces
+        sortinds = np.argsort(roundMat, axis=None).tolist()
+        currSortInd = -1
+        while int(n-np.sum(roundMat)) > 0:
+            currSortInd += 1
+            if roundMat[sortinds[currSortInd]] > 0: # Don't add to zero
+                roundMat[sortinds[currSortInd]] += 1
+    if D.ndim == 2:
+        roundMat = roundMat.reshape(D.shape[0],D.shape[1])
+    return roundMat
+
+def roundDesignHigh(D, n):
+    '''
+    Takes a proposed design, D, and number of new tests, n, to produce an integer tests array by removing tests from
+    design traces with the lowest number of tests or adding tests to traces with the highest number of tests.
+    '''
+    roundMat = np.round(n*D).flatten()
+    if np.sum(roundMat) > n: # Too many tests; remove from lowest represented traces
+        sortinds = np.argsort(roundMat,axis=None).tolist()
+        currSortInd = -1
+        while int(np.sum(roundMat)-n) > 0:
+            currSortInd += 1
+            if roundMat[sortinds[currSortInd]] > 0: # Don't pull from zero
+                roundMat[sortinds[currSortInd]] += -1
+    elif np.sum(roundMat) < n: # Too few tests; add to highest represented traces
+        sortinds = np.argsort(-roundMat, axis=None).tolist()
+        currSortInd = -1
+        while int(n - np.sum(roundMat)) > 0:
+            currSortInd += 1
+            if roundMat[sortinds[currSortInd]] > 0: # Don't add to zero
+                roundMat[sortinds[currSortInd]] += 1
+    if D.ndim == 2:
+        roundMat = roundMat.reshape(D.shape[0],D.shape[1])
+    return roundMat
+
+def balancedesign(N, ntilde):
+    '''
+    Uses matrix of original batch (N) and next batch (ntilde) to return a balanced design where the target is an even
+    number of tests from each (TN,SN) arc for the total tests done
+    '''
+    n = np.sum(N)
+    r,c = N.shape
+    D = np.repeat(1/(r*c),r*c)*(n+ntilde)
+    D.shape = (r,c)
+    D = D - N
+    D[D < 0] = 0.
+    D = D/np.sum(D)
+
+    return D
+
 
 #### Necessary NUTS functions ####
 """
@@ -727,7 +795,7 @@ reference: arXiv:1111.4246
 "The No-U-Turn Sampler: Adaptively Setting Path Lengths in Hamiltonian Monte
 Carlo", Matthew D. Hoffman & Andrew Gelman
 """
-
+'''
 from numpy import log, exp, sqrt
 
 
@@ -1016,3 +1084,4 @@ def nuts6(f, M, Madapt, theta0, delta=0.25):
     samples = samples[Madapt:, :]
     lnprob = lnprob[Madapt:]
     return samples, lnprob, epsilon
+'''
