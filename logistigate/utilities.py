@@ -246,10 +246,8 @@ def generateRandSystem(numImp=20, numOut=100, sourcingMatLambda=1.1, randSeed=-1
 
     return systemDict
 
-def generateRandDataDict(numImp=5, numOut=50, diagSens=0.90,
-                         diagSpec=0.99, numSamples=50 * 20,
-                         dataType='Tracked', transMatLambda=1.1,
-                         randSeed=-1,trueRates=[]):
+def generateRandDataDict(numImp=5, numOut=50, diagSens=0.90, diagSpec=0.99, numSamples=50 * 20, dataType='Tracked',
+                         transMatLambda=1.1, randSeed=-1,trueRates=[]):
     """
     Randomly generates an example input data dictionary for the entered inputs.
     SFP rates are generated according to a beta(2,9) distribution, while
@@ -359,7 +357,6 @@ def generateRandDataDict(numImp=5, numOut=50, diagSens=0.90,
 
     return dataTblDict
 
-
 def scorePostSamplesIntervals(logistigateDict):
     """
     Checks if posterior SFP rate sample intervals contain the underlying
@@ -422,7 +419,6 @@ def scorePostSamplesIntervals(logistigateDict):
                             'gnLoss_95': gnLoss_95, 'gnLoss_99': gnLoss_99})
 
     return logistigateDict
-
 
 def plotPostSamples(logistigateDict, plotType='hist', importerIndsSubset=[],
                     outletIndsSubset=[], subTitleStr=['',''], sortBy = 'midpoint'):
@@ -673,9 +669,6 @@ def Summarize(inputDict):
           str(inputDict['diagSens']) + ' and a specificity of ' + str(inputDict['diagSpec']) + '.')
 
     return
-
-
-
 
 
 #### Necessary NUTS functions ####
