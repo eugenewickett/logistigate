@@ -22,9 +22,9 @@ else:
 import numpy as np
 from numpy.random import choice
 
-def getDesignUtility(priordatadict, lossdict, design, numtests, utildict={}):
+def sampling_plan_loss(priordatadict, lossdict, design, numtests, utildict={}):
     '''
-    Produces a list of loss vectors for entered design choices under a given data set and specified loss. Each loss
+    Produces the sampling plan loss for entered design choices under a given data set and specified loss. Each loss
         vector has numdatadraws Monte Carlo iterations
     Designed for use with plotLossVecs() to plot Bayesian risk associated with each design.
     priordatadict: dictionary capturing all prior data. should have posterior draws from initial data set already
