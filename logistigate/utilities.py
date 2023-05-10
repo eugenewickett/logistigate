@@ -929,6 +929,21 @@ def nVecs(length, target):
     return retSet
 
 
+def zProbTr(tnInd, snInd, snNum, gammaVec, sens=1., spec=1.):
+    """Provides consolidated SFP probability for the entered TN, SN indices; gammaVec should start with SN rates"""
+    zStar = gammaVec[snNum+tnInd]+(1-gammaVec[snNum+tnInd])*gammaVec[snInd]
+    return sens*zStar+(1-spec)*zStar
+
+
+def zProbTrVec(snNum, gammaMat, sens=1., spec=1.):
+    """Provides consolidated SFP probability for the entered TN, SN indices; gammaVec should start with SN rates"""
+    th, py = gammaMat[:, :snNum], gammaMat[:, snNum:]
+    n, m, k = len(gammaMat[0])-snNum, snNum, gammaMat.shape[0]
+    zMat = np.reshape(np.tile(th, (n)), (k, n, m)) + np.reshape(np.tile(1 - th, (n)), (k, n, m)) * \
+           np.transpose(np.reshape(np.tile(py, (m)), (k, m, n)), (0, 2, 1))
+    # each term is a k-by-n-by-m array
+    return sens * zMat + (1 - spec) * (1 - zMat)
+
 
 #### Necessary NUTS functions ####
 """
