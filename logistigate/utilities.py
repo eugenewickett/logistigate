@@ -692,11 +692,25 @@ def Summarize(inputDict):
 #################################
 #### SAMPLING PLAN UTILITIES ####
 #################################
-def roundDesignLow(D, n):
-    '''
+
+
+def generate_sampling_array(design, numtests, roundalg = 'roundDesignLow'):
+    """Uses design and budget with designated rounding algorithm to produce a sampling array across traces"""
+    if roundalg == 'roundDesignLow':
+        samplearray = round_design_low(design, numtests)
+    elif roundalg == 'roundDesignHigh':
+        samplearray = round_design_high(design, numtests)
+    else:
+        print('Nonvalid rounding algorithm entered')
+        return
+    return samplearray
+
+
+def round_design_low(D, n):
+    """
     Takes a proposed design, D, and number of new tests, n, to produce an integer tests array by removing tests from
     design traces with the highest number of tests or adding tests to traces with the lowest number of tests.
-    '''
+    """
     roundMat = np.round(n*D).flatten()
     if np.sum(roundMat) > n: # Too many tests; remove from highest represented traces
         sortinds = np.argsort(-roundMat,axis=None).tolist()
@@ -716,11 +730,12 @@ def roundDesignLow(D, n):
         roundMat = roundMat.reshape(D.shape[0],D.shape[1])
     return roundMat
 
-def roundDesignHigh(D, n):
-    '''
+
+def round_design_high(D, n):
+    """
     Takes a proposed design, D, and number of new tests, n, to produce an integer tests array by removing tests from
     design traces with the lowest number of tests or adding tests to traces with the highest number of tests.
-    '''
+    """
     roundMat = np.round(n*D).flatten()
     if np.sum(roundMat) > n: # Too many tests; remove from lowest represented traces
         sortinds = np.argsort(roundMat,axis=None).tolist()
@@ -740,11 +755,12 @@ def roundDesignHigh(D, n):
         roundMat = roundMat.reshape(D.shape[0],D.shape[1])
     return roundMat
 
-def balancedesign(N, ntilde):
-    '''
+
+def balance_design(N, ntilde):
+    """
     Uses matrix of original batch (N) and next batch (ntilde) to return a balanced design where the target is an even
     number of tests from each (TN,SN) arc for the total tests done
-    '''
+    """
     n = np.sum(N)
     r,c = N.shape
     D = np.repeat(1/(r*c),r*c)*(n+ntilde)
@@ -754,6 +770,7 @@ def balancedesign(N, ntilde):
     D = D/np.sum(D)
 
     return D
+
 
 def plotLossVecs(lveclist, lvecnames=[], type='CI', CIalpha = 0.05,legendlabel=[],
                  plottitle='Confidence Intervals for Loss Averages', plotlim=[]):
@@ -871,6 +888,47 @@ def plotLossVecs(lveclist, lvecnames=[], type='CI', CIalpha = 0.05,legendlabel=[
         plt.close()
 
     return
+
+
+def possibleYSets(n, Q=np.array([])):
+    """
+    Return all combinatorially possible data outcomes for allocation n.
+    If n is 1-dimensional, Q is used to establish possible outcomes along each trace
+    """
+    if len(Q) == 0:
+        Y = [np.zeros(n.shape)]
+        # Initialize set of indices with positive testing probability
+        J = [(a,b) for a in range(n.shape[0]) for b in range(n.shape[1]) if n[a][b]>0]
+    else:
+        Y = [np.zeros(Q.shape)]
+        Qdotn = np.multiply(np.tile(n.reshape(Q.shape[0],1),Q.shape[1]),Q)
+        J = [(a, b) for a in range(Qdotn.shape[0]) for b in range(Qdotn.shape[1]) if Qdotn[a][b] > 0]
+
+    for (a,b) in J:
+        Ycopy = Y.copy()
+        for curry in range(1,int(n[a][b])+1):
+            addArray = np.zeros(n.shape)
+            addArray[a][b] += curry
+            Ynext = [y+addArray for y in Ycopy]
+            for y in Ynext:
+                Y.append(y)
+
+    return Y
+
+
+def nVecs(length, target):
+    """Return all possible positive integer vectors with size 'length', that sum to 'target'"""
+    if length == 1:
+        return [[target]]
+    else:
+        retSet = []
+        for nexttarg in range(target+1):
+            for nextset in nVecs(length-1,target-nexttarg):
+                retSet.append([nexttarg]+nextset)
+
+    return retSet
+
+
 
 #### Necessary NUTS functions ####
 """
