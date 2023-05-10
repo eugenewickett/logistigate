@@ -5,9 +5,26 @@ import csv
 import numpy as np
 import random
 from tabulate import tabulate
+import matplotlib
 import matplotlib.pyplot as plt
+import scipy.stats as spstat
 
+###########################
+#### GENERAL UTILITIES ####
+###########################
+
+def writeObjToPickle(obj, objname='pickleObject'):
+    '''Writes an object as a 'pickle' object, to be loaded later with pickle.load()'''
+    import pickle
+    import os
+    outputFilePath = os.getcwd()
+    outputFileName = os.path.join(outputFilePath, objname)
+    pickle.dump(obj, open(outputFileName, 'wb'))
+    return
+
+#############################
 #### INFERENCE UTILITIES ####
+#############################
 
 def testresultsfiletotable(testDataFile, transitionMatrixFile='', csvName=True):
     """
@@ -738,6 +755,122 @@ def balancedesign(N, ntilde):
 
     return D
 
+def plotLossVecs(lveclist, lvecnames=[], type='CI', CIalpha = 0.05,legendlabel=[],
+                 plottitle='Confidence Intervals for Loss Averages', plotlim=[]):
+    '''
+    Takes a list of loss vectors and produces either a series of histograms or a single plot marking average confidence
+    intervals
+    lveclist: list of lists
+    type: 'CI' (default) or 'hist'
+    CIalpha: alpha for confidence intervals
+    '''
+    numvecs = len(lveclist)
+    # Make dummy names if none entered
+    if lvecnames==[]: #empty
+        for ind in range(numvecs):
+            lvecnames.append('Design '+str(ind+1))
+    numDups = 1
+    orignamelen = len(lvecnames)
+    if orignamelen<len(lveclist): # We have multiple entries per design
+        numDups = int(len(lveclist)/len(lvecnames))
+        lvecnames = numDups*lvecnames
+    # For color palette
+    from matplotlib.pyplot import cm
+
+    # Make designated plot type
+    if type=='CI':
+        lossavgs = []
+        lossint_hi = []
+        lossint_lo = []
+        for lvec in lveclist:
+            currN = len(lvec)
+            curravg = np.average(lvec)
+            lossavgs.append(curravg)
+            std = np.std(lvec)
+            z = spstat.norm.ppf(1 - (CIalpha / 2))
+            intval = z * (std) / np.sqrt(currN)
+            lossint_hi.append(curravg + intval)
+            lossint_lo.append(curravg - intval)
+
+        # Plot intervals for loss averages
+        if lossavgs[0]>0: # We have losses
+            xaxislab = 'Loss'
+            limmin = 0
+            limmax = max(lossint_hi)*1.1
+        elif lossavgs[0]<0: # We have utilities
+            xaxislab = 'Utility'
+            limmin = min(lossint_lo)*1.1
+            limmax = 0
+        fig, ax = plt.subplots(figsize=(7,7))
+        #color = iter(cm.rainbow(np.linspace(0, 1, numvecs/numDups)))
+        #for ind in range(numvecs):
+
+        if plotlim==[]:
+            plt.xlim([limmin,limmax])
+        else:
+            plt.xlim(plotlim)
+        for ind in range(numvecs):
+            if np.mod(ind,orignamelen)==0:
+                color = iter(cm.rainbow(np.linspace(0, 1, int(numvecs / numDups))))
+            currcolor = next(color)
+            if ind<orignamelen:
+
+                plt.plot(lossavgs[ind], lvecnames[ind], 'D', color=currcolor, markersize=6)
+            elif ind>=orignamelen and ind<2*orignamelen:
+                plt.plot(lossavgs[ind], lvecnames[ind], 'v', color=currcolor, markersize=8)
+            elif ind>=2*orignamelen and ind<3*orignamelen:
+                plt.plot(lossavgs[ind], lvecnames[ind], 'o', color=currcolor, markersize=6)
+            else:
+                plt.plot(lossavgs[ind], lvecnames[ind], '^', color=currcolor, markersize=8)
+            line = ax.add_line(matplotlib.lines.Line2D(
+                 (lossint_hi[ind], lossint_lo[ind]),(lvecnames[ind], lvecnames[ind])))
+            line.set(color=currcolor)
+            anno_args = {'ha': 'center', 'va': 'center', 'size': 12, 'color': currcolor }
+            _ = ax.annotate("|", xy=(lossint_hi[ind], lvecnames[ind]), **anno_args)
+            _ = ax.annotate("|", xy=(lossint_lo[ind], lvecnames[ind]), **anno_args)
+            #plt.plot((lvecnames[ind], lvecnames[ind]), (lossint_hi[ind], lossint_lo[ind]), '_-',
+             #        color=next(color), alpha=0.7, linewidth=3)
+        plt.ylabel('Design Name', fontdict={'fontsize': 14, 'fontname': 'Trebuchet MS'})
+        plt.xlabel(xaxislab, fontdict={'fontsize': 14, 'fontname': 'Trebuchet MS'})
+        for label in (ax.get_xticklabels() + ax.get_yticklabels()):
+            label.set_fontname('Times New Roman')
+            label.set_fontsize(12)
+        #plt.xticks(rotation=90)
+        plt.title(plottitle,fontdict={'fontsize':16,'fontname':'Trebuchet MS'})
+        if orignamelen<numvecs: # Add a legend if multiple utilities associated with each design
+            import matplotlib.lines as mlines
+            diamond = mlines.Line2D([], [], color='black', marker='D', linestyle='None', markersize=8, label=legendlabel[0])
+            downtriangle = mlines.Line2D([], [], color='black', marker='v', linestyle='None', markersize=10, label=legendlabel[1])
+            if numDups>=3:
+                circle = mlines.Line2D([], [], color='black', marker='o', linestyle='None', markersize=8, label=legendlabel[2])
+                if numDups>=4:
+                    uptriangle = mlines.Line2D([], [], color='black', marker='^', linestyle='None', markersize=10, label=legendlabel[3])
+                    plt.legend(handles=[diamond, downtriangle, circle,uptriangle])
+                else:
+                    plt.legend(handles=[diamond, downtriangle, circle])
+            else:
+                plt.legend(handles=[diamond, downtriangle],loc='lower right')
+        fig.tight_layout()
+        plt.show()
+        plt.close()
+    # HISTOGRAMS
+    elif type=='hist':
+        maxval = max([max(lveclist[i]) for i in range(numvecs)])
+        maxbinnum = max([len(lveclist[i]) for i in range(numvecs)])/5
+        bins = np.linspace(0.0, maxval*1.1, 100)
+        fig, axs = plt.subplots(numvecs, figsize=(5, 10))
+        plt.rcParams["figure.autolayout"] = True
+        color = iter(cm.rainbow(np.linspace(0, 1, len(lveclist))))
+        for ind in range(numvecs):
+            axs[ind].hist(lveclist[ind],bins, alpha=0.5, color=next(color),label=lvecnames[ind])
+            axs[ind].set_title(lvecnames[ind])
+            axs[ind].set_ylim([0,maxbinnum])
+        fig.suptitle(plottitle,fontsize=16)
+        fig.tight_layout()
+        plt.show()
+        plt.close()
+
+    return
 
 #### Necessary NUTS functions ####
 """
