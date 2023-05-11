@@ -31,27 +31,63 @@ def sampling_plan_loss_fast(design, numtests, priordatadict, paramdict):
     """
     Produces the sampling plan loss for a test budget under a given data set and specified parameters, using the fast
     estimation algorithm.
-    priordatadict: logistigate data dictionary capturing known data
-    paramdict: parameter dictionary containing loss characteristics, MCMC draws, a loss matrix, and the method for
-                loss estimation
     design: sampling probability vector along all test nodes/traces
     numtests: test budget
+    priordatadict: logistigate data dictionary capturing known data
+    paramdict: parameter dictionary containing a loss matrix, truth and data MCMC draws, and an optional method for
+        rounding the design to an integer allocation
     """
-    # Retrieve utility parameters or set defaults
-    if 'priordraws' in utildict:
-        priordraws = utildict['priordraws'].copy()
+    if 'roundalg' in paramdict: # Set default rounding algorithm for plan
+        roundalg = paramdict['roundalg'].copy()
     else:
-        priordraws = priordatadict['postSamples']
-    if 'method' in utildict:
-        method = utildict['method']
-    else:
-        method = 'MCMC'
-    if 'numdatadraws' in utildict:
-        numdatadraws = utildict['numdatadraws']
-    elif 'dataDraws' in utildict:
-        numdatadraws = len(utildict['dataDraws'])
-    else:
-        numdatadraws = 1
+        roundalg = 'roundDesignLow'
+    # Initialize samples to be drawn from traces, per the design, using a rounding algorithm
+    sampMat = util.generate_sampling_array(design, numtests, roundalg)
+
+    # Get weights matrix
+    W = build_weights_matrix(paramdict['truthdraws'], paramdict['datadraws'], sampMat, priordatadict)
+    # Get weighted loss and retrieve average minimum
+    wtLossMat = np.matmul(paramdict['lossMat'], W)
+    wtLossMins = wtLossMat.min(axis=0)
+    return np.average(wtLossMins)
+
+
+def build_weights_matrix(truthdraws, datadraws, allocarr, datadict):
+    """
+    Build a binomial likelihood weights matrix; datadraws generates data according to parameters in datadict and the
+    sampling plan reflected in allocarr; weights for these data are then calculated for each member of truthdraws
+    """
+    (numTN, numSN), Q, s, r = datadict['N'].shape, datadict['transMat'], datadict['diagSens'], datadict['diagSpec']
+    numtruthdraws, numdatadraws = truthdraws.shape[0], datadraws.shape[0]
+    zMatTruth = util.zProbTrVec(numSN, truthdraws, sens=s, spec=r) # Matrix of SFP probabilities, as a function of SFP rate draws
+    zMatData = util.zProbTrVec(numSN, datadraws, sens=s, spec=r) # Probs. using data draws
+    NMat = np.moveaxis(np.array([np.random.multinomial(allocarr[tnInd], Q[tnInd], size=numdatadraws)
+                                 for tnInd in range(numTN)]), 1, 0).astype(int)
+    YMat = np.random.binomial(NMat, zMatData)
+    tempW = np.zeros(shape=(numtruthdraws, numdatadraws))
+    for snInd in range(numSN):  # Loop through each SN and TN combination; DON'T vectorize as resulting matrix can be too big
+        for tnInd in range(numTN):
+            if allocarr[tnInd] > 0 and Q[tnInd, snInd] > 0:  # Save processing by only looking at feasible traces
+                # Get zProbs corresponding to current trace
+                bigZtemp = np.transpose(np.reshape(np.tile(zMatTruth[:, tnInd, snInd], numdatadraws), (numdatadraws, numtruthdraws)))
+                bigNtemp = np.reshape(np.tile(NMat[:, tnInd, snInd], numtruthdraws), (numtruthdraws, numdatadraws))
+                bigYtemp = np.reshape(np.tile(YMat[:, tnInd, snInd], numtruthdraws), (numtruthdraws, numdatadraws))
+                combNYtemp = np.reshape(np.tile(sps.comb(NMat[:, tnInd, snInd], YMat[:, tnInd, snInd]), numtruthdraws),
+                                        (numtruthdraws, numdatadraws))
+                tempW += (bigYtemp * np.log(bigZtemp)) + ((bigNtemp - bigYtemp) * np.log(1 - bigZtemp)) + np.log(
+                    combNYtemp)
+    W = np.exp(tempW)  # Turn weights into likelihoods
+    # Normalize so each column sums to 1; the likelihood of each data set is accounted for in the data draws
+    W = np.divide(W * 1, np.reshape(np.tile(np.sum(W, axis=0), numtruthdraws), (numtruthdraws, numdatadraws)))
+    return W
+
+'''BELOW ARE OTHER WEIGHTS MATRIX METHODS THAT WORK BUT HAVE NOT BEEN CLEANED UP; ESP 'PARALLEL', WHICH CAN PROCESS L/W MATRICES IN BLOCKS 
+def sampling_plan_loss_mcmc(design, numtests, priordatadict, paramdict):
+    """
+    Produces the sampling plan loss for a test budget under a given data set and specified parameters, using MCMC
+    integration.
+    """
+    retval = 0.
     if 'priorindstouse' in utildict:
         priorindstouse = utildict['priorindstouse'].copy()
     else:
@@ -60,36 +96,221 @@ def sampling_plan_loss_fast(design, numtests, priordatadict, paramdict):
         numpostdraws = utildict['numpostdraws']
     else:
         numpostdraws = priordatadict['numPostSamples']
-    if 'numdrawsfordata' in utildict:
-        numdrawsfordata = utildict['numdrawsfordata']
-    elif 'dataDraws' in utildict:
-        numdrawsfordata = len(utildict['dataDraws'])
-    else:
-        numdrawsfordata = len(priordraws)
-    if 'roundAlg' in utildict:
-        roundAlg = utildict['roundAlg'].copy()
-    else:
-        roundAlg = 'roundDesignLow'
     if 'type' in utildict:
         type = utildict['type'].copy()
     else:
         type = ['path']
-    if 'printUpdate' in utildict:
-        printUpdate = utildict['printUpdate']
-    else:
-        printUpdate = True
-    # Get key supply-chain elements from priordatadict
-    (numTN, numSN) = priordatadict['N'].shape
-    Q = priordatadict['transMat'] #May be empty
-    s, r = priordatadict['diagSens'], priordatadict['diagSpec']
-    numpriordraws = len(priordraws)
+    if method == 'MCMC':
+        for omega in range(numdatadraws):
+            TNsamps = sampMat.copy()
+            # Grab a draw from the prior
+            currpriordraw = priordraws[priorindstouse[omega]]  # [SN rates, TN rates]
 
-    currlossvec = []
+            # Initialize Ntilde and Ytilde
+            Ntilde = np.zeros(shape=priordatadict['N'].shape)
+            Ytilde = Ntilde.copy()
+            while np.sum(TNsamps) > 0.:
+                # Go to first non-empty row of TN samps
+                i, j = 0, 0
+                while np.sum(TNsamps[i]) == 0:
+                    i += 1
+                if type[0] == 'path':
+                    # Go to first non-empty column of this row
+                    while TNsamps[i][j] == 0:
+                        j += 1
+                    TNsamps[i][j] -= 1
+                if type[0] == 'node':
+                    # Pick a supply node according to Qest
+                    j = choice([i for i in range(numSN)], p=type[1][i] / np.sum(type[1][i]).tolist())
+                    TNsamps[i] -= 1
+                # Generate test result
+                currTNrate = currpriordraw[numSN + i]
+                currSNrate = currpriordraw[j]
+                currrealrate = currTNrate + (1 - currTNrate) * currSNrate  # z_star for this sample
+                currposrate = s * currrealrate + (1 - r) * (1 - currrealrate)  # z for this sample
+                result = np.random.binomial(1, p=currposrate)
+                Ntilde[i, j] += 1
+                Ytilde[i, j] += result
+            # We have a new set of data d_tilde
+            Nomega = priordatadict['N'] + Ntilde
+            Yomega = priordatadict['Y'] + Ytilde
 
-    # Initialize samples to be drawn from traces, per the design, using a rounding algorithm
-    sampMat = util.generate_sampling_array(design, numtests, roundAlg)
+            postdatadict = priordatadict.copy()
+            postdatadict['N'] = Nomega
+            postdatadict['Y'] = Yomega
 
-    if method == 'weightsNodeDraw': # Weight each prior draw by the likelihood of a new data set
+            # Writes over previous MCMC draws
+            postdatadict.update({'numPostSamples':numpostdraws})
+            postdatadict = methods.GeneratePostSamples(postdatadict)
+
+            # Get the Bayes estimate
+            currEst = lf.bayesEst(postdatadict['postSamples'], lossdict['scoreDict'])
+
+            sumloss = 0
+            for currsampind, currsamp in enumerate(postdatadict['postSamples']):
+                currloss = lf.loss_pms(currEst, currsamp, lossdict['scoreFunc'], lossdict['scoreDict'],
+                                    lossdict['riskFunc'], lossdict['riskDict'], lossdict['marketVec'])
+                sumloss += currloss
+            avgloss = sumloss / len(postdatadict['postSamples'])
+
+            # Append to loss storage vector
+            currlossvec.append(avgloss)
+            #if printUpdate==True:
+            #   print(designnames[designind] + ', ' + 'omega ' + str(omega) + ' complete')
+
+        retval = currlossvec  # Add the loss vector for this design
+    # END IF FOR MCMC
+
+    elif method == 'weightsPathEnumerate': # Weight each prior draw by the likelihood of a new data set
+        Ntilde = sampMat.copy()
+        sumloss = 0
+        Yset = util.possibleYSets(Ntilde)
+        for Ytilde in Yset: # Enumerating all possible data sets, so DO NOT normalize weights (they will sum to unity)
+            # Get weights for each prior draw
+            zMat = util.zProbTrVec(numSN, priordraws, sens=s, spec=r)[:, :, :]
+            wts = np.prod((zMat ** Ytilde) * ((1 - zMat) ** (Ntilde - Ytilde)) * sps.comb(Ntilde, Ytilde), axis=(1,2))
+            ########
+            wts = []
+            for currpriordraw in priordraws:
+                # Use current new data to get a weight for the current prior draw
+                currwt=1.0
+                for TNind in range(numTN):
+                    for SNind in range(numSN):
+                        curry, currn = int(Ytilde[TNind][SNind]), int(Ntilde[TNind][SNind])
+                        currz = zProbTr(TNind,SNind,numSN,currpriordraw,sens=s,spec=r)
+                        currwt = currwt * (currz**curry) * ((1-currz)**(currn-curry)) * comb(currn, curry)
+                wts.append(currwt) # Add weight for this gamma draw
+            ########
+            # Obtain Bayes estimate
+            currest = lf.bayesEstAdapt(priordraws,wts,lossdict['scoreDict'],printUpdate=False)
+            # Sum the weighted loss under each prior draw
+            sumloss += np.sum(lf.loss_pmsArr(currest, priordraws, lossdict) * wts)  # VECTORIZED
+            ########
+            for currsampind, currsamp in enumerate(priordraws):
+                currloss = loss_pms(currest,currsamp, score_diff, lossdict['scoreDict'],
+                                    risk_parabolic, lossdict['riskDict'], lossdict['marketVec'])
+                sumloss += currloss * wts[currsampind]
+            ########
+        retval = sumloss / len(priordraws)
+    # END ELIF FOR WEIGHTSPATHENUMERATE
+
+    elif method == 'weightsNodeEnumerate': # Weight each prior draw by the likelihood of a new data set
+        #IMPORTANT!!! CAN ONLY HANDLE DESIGNS WITH 1 TEST NODE
+        Ntilde = sampMat.copy()
+        sampNodeInd = 0
+        for currind in range(numTN):
+            if Ntilde[currind] > 0:
+                sampNodeInd = currind
+        Ntotal = int(Ntilde[sampNodeInd])
+        if printUpdate==True:
+            print('Generating possible N sets...')
+        NvecSet = util.nVecs(numSN,Ntotal)
+        # Remove any Nset members that have positive tests at supply nodes with no sourcing probability
+        removeInds = [j for j in range(numSN) if Q[sampNodeInd][j]==0.]
+        if len(removeInds) > 0:
+            for currRemoveInd in removeInds:
+                NvecSet = [item for item in NvecSet if item[currRemoveInd]==0]
+        # Iterate through each possible data set
+        NvecProbs = [] # Initialize a list capturing the probability of each data set
+        NvecLosses = [] # Initialize a list for the loss under each N vector
+        for Nvec in NvecSet:
+            if printUpdate == True:
+                print('Looking at N set: ' + str(Nvec))
+            currNprob = math.factorial(Ntotal) # Initialize with n!
+            for currSN in range(numSN):
+                Qab, Nab = Q[sampNodeInd][currSN], Nvec[currSN]
+                currNprob = currNprob * (Qab**Nab) / (math.factorial(Nab))
+            NvecProbs.append(currNprob)
+            # Define the possible data results for the current Nvec
+            Yset = util.possibleYSets(np.array(Nvec).reshape(1,numSN))
+            Yset = [i[0] for i in Yset]
+            sumloss = 0.
+            for Ytilde in Yset:
+
+                zMat = util.zProbTrVec(numSN, priordraws, sens=s, spec=r)[:, sampNodeInd, :]
+                wts = np.prod((zMat ** Ytilde) * ((1 - zMat) ** (Nvec - Ytilde)) * sps.comb(Nvec, Ytilde), axis=1)
+                ########
+                wts = []
+                for currpriordraw in priordraws:
+                    currwt = 1.0
+                    for SNind in range(numSN):
+                        curry, currn = int(Ytilde[SNind]), int(Nvec[SNind])
+                        currz = zProbTr(sampNodeInd,SNind,numSN,currpriordraw,sens=s,spec=r)
+                        currwt = currwt * (currz ** curry) * ((1 - currz) ** (currn - curry)) * comb(currn, curry)
+                    wts.append(currwt) # Add weight for this gamma draw
+                ########
+                # Get Bayes estimate
+                currest = lf.bayesEstAdapt(priordraws,wts,lossdict['scoreDict'],printUpdate=False)
+                # Sum the weighted loss under each prior draw
+                sumloss += np.sum(lf.loss_pmsArr(currest, priordraws, lossdict) * wts)  # VECTORIZED
+                ########
+                for currsampind, currsamp in enumerate(priordraws):
+                    currloss = loss_pms(currest, currsamp, score_diff, lossdict['scoreDict'],
+                                        risk_parabolic, lossdict['riskDict'], lossdict['marketVec'])
+                    sumloss += currloss * wts[currsampind]
+                ########
+            NvecLosses.append(sumloss / len(priordraws))
+        # Weight each Nvec loss by the occurence probability
+        finalLoss = 0.
+        for Nind in range(len(NvecSet)):
+            finalLoss += NvecLosses[Nind] * NvecProbs[Nind]
+        retval = finalLoss
+    # END ELIF FOR WEIGHTSNODEENUMERATE
+
+    elif method == 'weightsNodeEnumerateY': # Weight each prior draw by the likelihood of a new data set
+        # Differs from 'weightsNodeEnumerate' in that only possible data sets (Y) are enumerated, and N is randomly drawn
+        #IMPORTANT!!! CAN ONLY HANDLE DESIGNS WITH 1 TEST NODE
+        Ntilde = sampMat.copy()
+        sampNodeInd = 0
+        for currind in range(numTN):
+            if Ntilde[currind] > 0:
+                sampNodeInd = currind
+        Ntotal, Qvec = int(Ntilde[sampNodeInd]), Q[sampNodeInd]
+        # Initialize NvecSet with numdatadraws different data sets
+        NvecSet = []
+        for i in range(numdatadraws):
+            sampSNvec = choice([i for i in range(numSN)], size=Ntotal, p=Qvec) # Sample according to the sourcing probabilities
+            sampSNvecSums = [sampSNvec.tolist().count(j) for j in range(numSN)] # Consolidate samples by supply node
+            NvecSet.append(sampSNvecSums)
+        NvecLosses = []  # Initialize a list for the loss under each N vector
+        for Nvecind, Nvec in enumerate(NvecSet):
+            ######## CODE FOR DOING MULTIPLE Y REALIZATIONS UNDER EACH NVEC
+            YvecSet = [] #Initialize a list of possible data outcomes
+            if numYdraws > len(priordraws):
+                print('numYdraws exceeds the number of prior draws')
+                return
+            priorIndsForY = random.sample(range(len(priordraws)), numYdraws)  # Grab numYdraws gammas from prior
+            for i in range(numYdraws):
+                zVec = [zProbTr(sampNodeInd, sn, numSN, priordraws[priorIndsForY[i]], sens=s, spec=r) for sn in range(numSN)]
+                ySNvec = [choice([j for j in range(Nvec[sn])],p=zVec[sn]) for sn in range(numSN)]
+                YvecSet.append(ySNvec)
+            ########
+            Yset = util.possibleYSets(np.array(Nvec).reshape(1, numSN))
+            Yset = [i[0] for i in Yset]
+            sumloss = 0.
+            for Ytilde in Yset:
+                wts = []
+                for currpriordraw in priordraws:
+                    currwt = 1.0
+                    for SNind in range(numSN):
+                        curry, currn = int(Ytilde[SNind]), int(Nvec[SNind])
+                        currz = util.zProbTr(sampNodeInd, SNind, numSN, currpriordraw, sens=s, spec=r)
+                        currwt = currwt * (currz ** curry) * ((1 - currz) ** (currn - curry)) * comb(currn, curry)
+                    wts.append(currwt)  # Add weight for this gamma draw
+                # Get Bayes estimate
+                currest = lf.bayesEstAdapt(priordraws, wts, lossdict['scoreDict'], printUpdate=False)
+                # Sum the weighted loss under each prior draw
+                for currsampind, currsamp in enumerate(priordraws):
+                    currloss = lf.loss_pms(currest, currsamp, lossdict['scoreFunc'], lossdict['scoreDict'],
+                                        lossdict['riskFunc'], lossdict['riskDict'], lossdict['marketVec'])
+                    sumloss += currloss * wts[currsampind]
+            NvecLosses.append(sumloss / len(priordraws))
+            if printUpdate == True and Nvecind % 5 == 0:
+                print('Finished Nvecind of '+str(Nvecind))
+        retval = np.average(NvecLosses)
+    # END ELIF FOR WEIGHTSNODEENUMERATEY
+
+    elif method == 'weightsNodeDraw': # Weight each prior draw by the likelihood of a new data set
         # Differs from 'weightsNodeEnumerate' in that rather than enumerate every possible data set, numdatadraws data
         #   sets are drawn
         #IMPORTANT!!! CAN ONLY HANDLE DESIGNS WITH 1 TEST NODE
@@ -107,7 +328,7 @@ def sampling_plan_loss_fast(design, numtests, priordatadict, paramdict):
             NvecSet.append(sampSNvecSums)
         NvecLosses = []  # Initialize a list for the loss under each N vector
         for Nvecind, Nvec in enumerate(NvecSet):
-            ''' CODE FOR DOING MULTIPLE Y REALIZATIONS UNDER EACH NVEC
+            ######## CODE FOR DOING MULTIPLE Y REALIZATIONS UNDER EACH NVEC
             YvecSet = [] #Initialize a list of possible data outcomes
             if numYdraws > len(priordraws):
                 print('numYdraws exceeds the number of prior draws')
@@ -117,7 +338,7 @@ def sampling_plan_loss_fast(design, numtests, priordatadict, paramdict):
                 zVec = [zProbTr(sampNodeInd, sn, numSN, priordraws[priorIndsForY[i]], sens=s, spec=r) for sn in range(numSN)]
                 ySNvec = [choice([j for j in range(Nvec[sn])],p=zVec[sn]) for sn in range(numSN)]
                 YvecSet.append(ySNvec)
-            '''
+            ########
             randprior = priordraws[random.sample(range(numpriordraws),k=1)][0]
             zVec = [util.zProbTr(sampNodeInd, sn, numSN, randprior, sens=s, spec=r) for sn in range(numSN)]
             Yvec = np.array([np.random.binomial(Nvec[sn],zVec[sn]) for sn in range(numSN)])
@@ -171,6 +392,38 @@ def sampling_plan_loss_fast(design, numtests, priordatadict, paramdict):
         retval = np.average(losses)
     # END ELIF FOR WEIGHTSNODEDRAW2
 
+    elif method == 'weightsNodeDraw3linear': # Weight each prior draw by the likelihood of a new data set; NODE SAMPLING
+        # Differs from 'weightsNodeDraw3' in that the 'big' matrices are NOT vectorized; we iterate through each SN
+        #IMPORTANT!!! CAN ONLY HANDLE DESIGNS WITH 1 TEST NODE
+        Ntilde = sampMat.copy()
+        sampNodeInd = 0
+        for currind in range(numTN): # Identify the test node we're analyzing
+            if Ntilde[currind] > 0:
+                sampNodeInd = currind # TN of focus
+        Ntotal, Qvec = int(Ntilde[sampNodeInd]), Q[sampNodeInd]
+
+        datadraws = paramdict['dataDraws']
+        zMatTarg = util.zProbTrVec(numSN, truthdraws, sens=s, spec=r)[:, sampNodeInd, :]  # Matrix of SFP probabilities, as a function of SFP rate draws
+        zMatData = util.zProbTrVec(numSN, datadraws, sens=s, spec=r)[:, sampNodeInd, :] # Probs. using data draws
+        NMat = np.random.multinomial(Ntotal, Qvec, size=numdrawsfordata)  # How many samples from each SN
+        YMat = np.random.binomial(NMat, zMatData)  # How many samples were positive
+        tempW = np.zeros(shape=(numtruthdraws, numdrawsfordata))
+        for nodeInd in range(numSN): # Loop through each SN
+            # Get zProbs corresponding to current SN
+            bigZtemp = np.transpose(np.reshape(np.tile(zMatTarg[:,nodeInd], numdrawsfordata), (numdrawsfordata, numtruthdraws )))
+            bigNtemp = np.reshape(np.tile(NMat[:, nodeInd], numtruthdraws), (numtruthdraws, numdrawsfordata))
+            bigYtemp = np.reshape(np.tile(YMat[:, nodeInd], numtruthdraws), (numtruthdraws, numdrawsfordata))
+            combNYtemp = np.reshape(np.tile(sps.comb(NMat[:, nodeInd], YMat[:, nodeInd]),numtruthdraws), (numtruthdraws, numdrawsfordata))
+            tempW += (bigYtemp*np.log(bigZtemp))+((bigNtemp-bigYtemp)*np.log(1-bigZtemp))+np.log(combNYtemp)
+
+        wtsMat = np.exp(tempW) # Turn weights into likelihoods
+        # Normalize so each column sums to 1; the likelihood of each data set is accounted for in the data draws
+        wtsMat = np.divide(wtsMat * 1, np.reshape(np.tile(np.sum(wtsMat, axis=0), numtruthdraws), (numtruthdraws, numdrawsfordata)))
+        wtLossMat = np.matmul(paramdict['lossMat'],wtsMat)
+        wtLossMins = wtLossMat.min(axis=0)
+        retval = np.average(wtLossMins)
+    # END ELIF FOR WEIGHTSNODEDRAW3LINEAR
+
     elif method == 'weightsNodeDraw3': # Weight each prior draw by the likelihood of a new data set; NODE SAMPLING
         # Differs from 'weightsNodeDraw2' in 3 areas:
         #   1) Able to use a subset of prior draws for generating data
@@ -203,51 +456,6 @@ def sampling_plan_loss_fast(design, numtests, priordatadict, paramdict):
         retval = np.average(wtLossMins)
     # END ELIF FOR WEIGHTSNODEDRAW3
 
-    elif method == 'weightsNodeDraw3linear': # Weight each prior draw by the likelihood of a new data set; NODE SAMPLING
-        # Differs from 'weightsNodeDraw3' in that the 'big' matrices are NOT vectorized
-        #IMPORTANT!!! CAN ONLY HANDLE DESIGNS WITH 1 TEST NODE
-        Ntilde = sampMat.copy()
-        sampNodeInd = 0
-        for currind in range(numTN): # Identify the test node we're analyzing
-            if Ntilde[currind] > 0:
-                sampNodeInd = currind # TN of focus
-        Ntotal, Qvec = int(Ntilde[sampNodeInd]), Q[sampNodeInd]
-        if 'dataDraws' in utildict: # Use data draws included in the utility dictionary
-            datadraws = utildict['dataDraws']
-            zMatTarg = util.zProbTrVec(numSN, priordraws, sens=s, spec=r)[:, sampNodeInd, :]  # Matrix of SFP probabilities, as a function of SFP rate draws
-            zMatData = util.zProbTrVec(numSN, datadraws, sens=s, spec=r)[:, sampNodeInd, :] # Probs. using data draws
-            NMat = np.random.multinomial(Ntotal, Qvec, size=numdrawsfordata)  # How many samples from each SN
-            YMat = np.random.binomial(NMat, zMatData)  # How many samples were positive
-            tempW = np.zeros(shape=(numpriordraws, numdrawsfordata))
-            for nodeInd in range(numSN): # Loop through each SN
-                # Get zProbs corresponding to current SN
-                bigZtemp = np.transpose(np.reshape(np.tile(zMatTarg[:,nodeInd], numdrawsfordata), (numdrawsfordata, numpriordraws )))
-                bigNtemp = np.reshape(np.tile(NMat[:, nodeInd], numpriordraws), (numpriordraws, numdrawsfordata))
-                bigYtemp = np.reshape(np.tile(YMat[:, nodeInd], numpriordraws), (numpriordraws, numdrawsfordata))
-                combNYtemp = np.reshape(np.tile(sps.comb(NMat[:, nodeInd], YMat[:, nodeInd]),numpriordraws), (numpriordraws, numdrawsfordata))
-                tempW += (bigYtemp*np.log(bigZtemp))+((bigNtemp-bigYtemp)*np.log(1-bigZtemp))+np.log(combNYtemp)
-        else: # Use numdrawsfordata draws randomly selected from the set of prior (target) draws
-            datadrawinds = choice([j for j in range(numpriordraws)], size=numdrawsfordata, replace=False)
-            zMat = util.zProbTrVec(numSN, priordraws, sens=s, spec=r)[:, sampNodeInd, :] # Matrix of SFP probabilities, as a function of SFP rate draws
-            NMat = np.random.multinomial(Ntotal,Qvec,size=numdrawsfordata) # How many samples from each SN
-            YMat = np.random.binomial(NMat, zMat[datadrawinds]) # How many samples were positive
-            tempW = np.zeros(shape=(numpriordraws,numdrawsfordata))
-            for nodeInd in range(numSN): # Loop through each SN
-                # Get zProbs corresponding to current SN
-                bigZtemp = np.transpose(np.reshape(np.tile(zMat[:,nodeInd], numdrawsfordata), (numdrawsfordata, numpriordraws )))
-                bigNtemp = np.reshape(np.tile(NMat[:, nodeInd], numpriordraws), (numpriordraws, numdrawsfordata))
-                bigYtemp = np.reshape(np.tile(YMat[:, nodeInd], numpriordraws), (numpriordraws, numdrawsfordata))
-                combNYtemp = np.reshape(np.tile(sps.comb(NMat[:, nodeInd], YMat[:, nodeInd]),numpriordraws), (numpriordraws, numdrawsfordata))
-                tempW += (bigYtemp*np.log(bigZtemp))+((bigNtemp-bigYtemp)*np.log(1-bigZtemp))+np.log(combNYtemp)
-
-        wtsMat = np.exp(tempW) # Turn weights into likelihoods
-        # Normalize so each column sums to 1; the likelihood of each data set is accounted for in the data draws
-        wtsMat = np.divide(wtsMat * 1, np.reshape(np.tile(np.sum(wtsMat, axis=0), numpriordraws), (numpriordraws, numdrawsfordata)))
-        wtLossMat = np.matmul(lossdict['lossMat'],wtsMat)
-        wtLossMins = wtLossMat.min(axis=0)
-        retval = np.average(wtLossMins)
-    # END ELIF FOR WEIGHTSNODEDRAW3LINEAR
-
     elif method == 'weightsNodeDraw4': # Weight each prior draw by the likelihood of a new data set
         # Differs from 'weightsNodeDraw3' in that it allows any type of design, not just one test node designs
         # Use numdrawsfordata draws randomly selected from the set of prior draws
@@ -278,61 +486,7 @@ def sampling_plan_loss_fast(design, numtests, priordatadict, paramdict):
         retval = np.average(wtLossMins)
     # END ELIF FOR WEIGHTSNODEDRAW4
 
-    elif method == 'weightsNodeDraw4linear': # Weight each prior draw by the likelihood of a new data set; NODE SAMPLING
-        # Can handle multiple-test node designs
-        # Differs from 'weightsNodeDraw4' in that the 'big' matrices are NOT vectorized
-        if 'dataDraws' in utildict: # Use data draws included in the utility dictionary
-            datadraws = utildict['dataDraws']
-            zMatTarg = util.zProbTrVec(numSN, priordraws, sens=s, spec=r)[:, :, :]  # Matrix of SFP probabilities, as a function of SFP rate draws
-            zMatData = util.zProbTrVec(numSN, datadraws, sens=s, spec=r)[:, :, :] # Probs. using data draws
-            if sampMat.ndim == 1:  # Node sampling
-                NMat = np.moveaxis(np.array([np.random.multinomial(sampMat[tnInd], Q[tnInd], size=numdrawsfordata)
-                                             for tnInd in range(len(sampMat))]), 1, 0)
-                YMat = np.random.binomial(NMat.astype(int), zMatData)
-            elif sampMat.ndim == 2:  # Path sampling; todo: NEED TO PROGRAM LATER
-                NMat = np.moveaxis(np.reshape(np.tile(sampMat, numdrawsfordata), (numTN, numdrawsfordata, numSN)), 1, 0)
-                YMat = np.random.binomial(NMat.astype(int), zMatData)
-            tempW = np.zeros(shape=(numpriordraws, numdrawsfordata))
-            for snInd in range(numSN): # Loop through each SN and TN combination
-                for tnInd in range(numTN):
-                    if sampMat[tnInd] > 0:
-                        # Get zProbs corresponding to current SN-TN combo
-                        bigZtemp = np.transpose(np.reshape(np.tile(zMatTarg[:, tnInd, snInd], numdrawsfordata), (numdrawsfordata, numpriordraws )))
-                        bigNtemp = np.reshape(np.tile(NMat[:, tnInd, snInd], numpriordraws), (numpriordraws, numdrawsfordata))
-                        bigYtemp = np.reshape(np.tile(YMat[:, tnInd, snInd], numpriordraws), (numpriordraws, numdrawsfordata))
-                        combNYtemp = np.reshape(np.tile(sps.comb(NMat[:, tnInd, snInd], YMat[:, tnInd, snInd]),numpriordraws), (numpriordraws, numdrawsfordata))
-                        tempW += (bigYtemp*np.log(bigZtemp)) + ((bigNtemp-bigYtemp)*np.log(1-bigZtemp)) + np.log(combNYtemp)
-
-        else: # Use numdrawsfordata draws randomly selected from the set of prior (target) draws
-            datadrawinds = choice([j for j in range(numpriordraws)], size=numdrawsfordata, replace=False)
-            zMat = util.zProbTrVec(numSN, priordraws, sens=s, spec=r)[:, :, :] # Matrix of SFP probabilities, as a function of SFP rate draws
-            if sampMat.ndim == 1:  # Node sampling
-                NMat = np.moveaxis(np.array([np.random.multinomial(sampMat[tnInd], Q[tnInd], size=numdrawsfordata)
-                                             for tnInd in range(len(sampMat))]), 1, 0)
-                YMat = np.random.binomial(NMat.astype(int), zMat[datadrawinds])
-            elif sampMat.ndim == 2:  # Path sampling; todo: NEED TO PROGRAM LATER
-                NMat = np.moveaxis(np.reshape(np.tile(sampMat, numdrawsfordata), (numTN, numdrawsfordata, numSN)), 1, 0)
-                YMat = np.random.binomial(NMat.astype(int), zMat[datadrawinds])
-            tempW = np.zeros(shape=(numpriordraws,numdrawsfordata))
-            for snInd in range(numSN): # Loop through each SN and TN combination
-                for tnInd in range(numTN):
-                    if sampMat[tnInd] > 0:
-                        # Get zProbs corresponding to current SN-TN combo
-                        bigZtemp = np.transpose(np.reshape(np.tile(zMat[:, tnInd, snInd], numdrawsfordata), (numdrawsfordata, numpriordraws )))
-                        bigNtemp = np.reshape(np.tile(NMat[:, tnInd, snInd], numpriordraws), (numpriordraws, numdrawsfordata))
-                        bigYtemp = np.reshape(np.tile(YMat[:, tnInd, snInd], numpriordraws), (numpriordraws, numdrawsfordata))
-                        combNYtemp = np.reshape(np.tile(sps.comb(NMat[:, tnInd, snInd], YMat[:, tnInd, snInd]),numpriordraws), (numpriordraws, numdrawsfordata))
-                        tempW += (bigYtemp*np.log(bigZtemp)) + ((bigNtemp-bigYtemp)*np.log(1-bigZtemp)) + np.log(combNYtemp)
-
-        wtsMat = np.exp(tempW) # Turn weights into likelihoods
-        # Normalize so each column sums to 1; the likelihood of each data set is accounted for in the data draws
-        wtsMat = np.divide(wtsMat * 1, np.reshape(np.tile(np.sum(wtsMat, axis=0), numpriordraws), (numpriordraws, numdrawsfordata)))
-        wtLossMat = np.matmul(lossdict['lossMat'],wtsMat)
-        wtLossMins = wtLossMat.min(axis=0)
-        retval = np.average(wtLossMins)
-    # END ELIF FOR WEIGHTSNODEDRAW4LINEAR
-
-    elif method == 'parallel': # Same as weightsNodeDraw3linear but structured to handle large matrix sizes; NODE SAMPLING
+    if method == 'parallel': # Same as weightsNodeDraw3linear but structured to handle large matrix sizes; NODE SAMPLING
         # This method handles very large matrices by breaking them into smaller blocks and processing them sequentially
         Ntilde = sampMat.copy()
         sampNodeInd = 0
@@ -416,7 +570,7 @@ def sampling_plan_loss_fast(design, numtests, priordatadict, paramdict):
             #numChangeMat.append(numChangeList)
             #improveTotMat.append(improveTotList)
             #wtLossMinsRA2 = np.cumsum(wtLossMins)/(np.arange(numpriordraws)+1)
-            '''
+            ###########
             RUN 1
             numChangeMat = [[552, 338, 147, 244, 80, 255, 71, 51, 52, 84, 78, 47, 73, 80, 50, 91, 54, 49, 61], [708, 338, 147, 233, 71, 247, 66, 33, 41, 89, 76, 49, 83, 77, 32, 98, 58, 49, 50], [632, 481, 141, 256, 61, 226, 62, 39, 40, 87, 78, 49, 92, 59, 36, 79, 37, 36, 57], [622, 341, 254, 230, 55, 265, 74, 44, 42, 84, 71, 35, 95, 79, 40, 102, 61, 40, 60], [608, 394, 176, 375, 70, 233, 54, 39, 51, 86, 66, 54, 79, 86, 29, 105, 42, 38, 49], [619, 374, 172, 275, 168, 236, 64, 38, 54, 89, 68, 47, 86, 97, 37, 87, 43, 35, 64], [629, 392, 153, 318, 90, 353, 50, 47, 52, 91, 59, 47, 85, 73, 33, 71, 42, 33, 50], [622, 420, 165, 311, 76, 226, 203, 32, 48, 94, 68, 53, 81, 82, 29, 96, 49, 36, 47], [623, 402, 179, 261, 73, 256, 81, 167, 45, 91, 65, 58, 94, 74, 33, 69, 44, 46, 52], [624, 375, 170, 297, 90, 255, 78, 57, 154, 69, 66, 38, 66, 78, 41, 75, 56, 49, 47], [598, 378, 168, 290, 68, 260, 88, 50, 51, 201, 69, 45, 81, 81, 34, 91, 50, 50, 60], [626, 363, 172, 266, 67, 265, 92, 56, 60, 105, 172, 54, 83, 74, 41, 85, 51, 37, 54], [636, 378, 170, 268, 73, 283, 86, 61, 63, 100, 62, 143, 81, 89, 30, 108, 43, 50, 41], [615, 364, 149, 274, 95, 273, 90, 47, 67, 97, 70, 40, 162, 76, 37, 95, 63, 46, 51], [611, 384, 180, 284, 83, 241, 89, 48, 60, 121, 102, 59, 68, 175, 25, 92, 49, 44, 52], [654, 364, 188, 304, 87, 263, 66, 42, 62, 105, 73, 51, 88, 91, 139, 99, 49, 46, 57], [627, 380, 181, 305, 66, 257, 79, 40, 53, 104, 80, 53, 80, 78, 42, 200, 45, 37, 65], [622, 426, 168, 273, 81, 274, 74, 47, 46, 96, 67, 62, 89, 99, 42, 97, 159, 37, 53], [602, 400, 169, 252, 90, 262, 68, 46, 54, 102, 70, 51, 96, 100, 34, 102, 60, 132, 62], [629, 398, 170, 279, 82, 270, 91, 49, 58, 90, 70, 54, 100, 85, 42, 94, 64, 51, 171]]
             improveTotMat = [[3.5584830652114023, 2.57310814041589, 1.001414885210391, 1.6152284377872808, 1.5102699817035234, 1.7777027051029262, 1.0217108775360186, 1.3452970027780167, 1.110624793420617, 0.6386410234446614, 0.9449531924173471, 1.6575856421605186, 0.8300409919187333, 0.7339947309804963, 0.4816062567868944, 0.9570364027835392, 0.6462454917269771, 1.1274597360905547, 1.3048295638173433], [11.945706528785017, 2.3093296073308904, 1.8080372512537282, 1.9027004733190882, 1.1717833072340755, 1.8017792739150957, 1.3925704845801592, 0.7169578847278036, 1.1553607054342734, 1.245963966839054, 0.7579048778121606, 0.91045494137356, 1.0492854607599686, 0.8790206849079863, 0.9338372489079767, 1.4069985444234705, 1.7464428399575387, 1.196393520127384, 1.1270295993380937], [4.43848220439956, 9.54131086604329, 1.7160066302514319, 2.0994504380296823, 1.1222414541063725, 1.639938514642387, 1.6545510182969267, 0.5683440894383018, 1.1106843046589032, 0.8506876732403883, 0.8743668095579262, 0.672695663420789, 1.020798171011466, 1.0886464724000369, 0.7433846533345935, 1.0559139371407025, 1.5050094592319803, 0.6373592202064903, 0.9986647774890453], [4.275420804682883, 2.6636669035946574, 9.308930419464616, 1.562224169144557, 0.9509888400410198, 2.214017915501196, 0.8716848023967981, 1.0332430244045556, 1.6594943119430345, 0.7188262487318999, 1.0697015469670281, 0.666711879455956, 0.864159412994439, 0.6914125810698892, 1.509098667386605, 1.1673974267887877, 1.642894730988648, 0.9538641423743146, 1.178664082847266], [4.185174909729279, 2.7051402519193775, 1.7934219541333933, 9.72174665622708, 1.1016789881305118, 1.7371174167143117, 0.7306366643966441, 0.679797507678073, 1.2531385673199167, 0.6799627392111128, 0.658595710808503, 0.8517017733817074, 1.1950948889682502, 0.937840263691029, 0.5549532803881331, 1.0603351150609222, 1.1139263973181253, 0.2995137328895537, 0.4899267982861137], [4.677234121069346, 3.1141301492058986, 2.007096422874832, 1.8550159601905307, 7.609400197922345, 1.7135615513064812, 0.7065006129078337, 1.0619106467684476, 1.3988866051901279, 1.283668929872394, 0.928609546185147, 0.9377117071205442, 0.8763928373996146, 1.0570748260488567, 0.9413741940025852, 1.5231085104534485, 0.38044587711449, 0.539167767301244, 0.7727787743614153], [4.172989888984348, 3.0753287778064133, 1.378580415751982, 2.28419503736346, 2.216300163968026, 9.68227585929123, 0.5264538009746418, 0.8533683490975232, 1.2207754342467152, 1.2717390903610395, 1.0371613723765547, 0.6980017268311747, 1.1172285151396226, 0.8582106405681766, 0.45272839620012173, 0.9280880841662155, 1.0976546389347015, 0.9222885791857677, 0.38984194118526216], [4.127897026630144, 3.155878612176002, 1.420163498219987, 2.6731868415414564, 0.7958307046684125, 1.8304637732947187, 8.225137350645403, 0.7983286418452605, 1.203319699780836, 1.5725641189512225, 1.3559493601442114, 1.7604225118866665, 0.8616990299544792, 0.8331251234286295, 1.129879329158826, 2.0055403399786087, 0.5249373660971274, 0.5300077684940394, 0.5466622118933874], [4.097907108298209, 2.803004515554965, 2.311566814707615, 1.89060492058812, 1.4857540453951856, 1.575226472151195, 0.9710777035068207, 9.063169451664008, 0.7994550111651005, 0.970309548543245, 0.6191383535213678, 1.3358519795541424, 1.0684834697319225, 1.4842892748121603, 0.7628169726770379, 0.8837556646523009, 0.8227542594386444, 0.8822663144827744, 0.9624450044105237], [3.7659432621463433, 2.7979694316659853, 1.5503581805751545, 2.168993794997048, 1.3065640677096124, 1.964050276512913, 1.560625615462066, 1.1581249533905429, 7.402048575349012, 0.6952511649568267, 0.7161567329544108, 0.5318920336243822, 1.156220349704041, 1.387114124354925, 0.6939053619209281, 0.7973920693850219, 0.6023459722164168, 0.6935291506845744, 1.42401022388616], [4.18608233485962, 2.9091984845392407, 1.5087042636251875, 1.7331694484793314, 1.1257669935366887, 2.501478324470225, 0.9620431560988164, 1.6983835719102407, 0.8047049546722254, 8.599270091275251, 1.0892364148128448, 1.1046981230034152, 1.5719528175003048, 1.3224061374708782, 1.0572393602176031, 0.9218980450129828, 0.6939250565954417, 0.7705771945136725, 0.6168770029611642], [4.0686952592430625, 2.949554885976101, 2.0352567629444236, 2.1325300454273757, 0.9277466777486406, 1.718067479236565, 1.396497331442487, 0.8642282148682833, 1.1877131179373266, 1.5213005598535314, 7.806001309725226, 0.8740182472365258, 0.904433948302415, 0.8258322525386328, 1.1755411964195746, 0.6021445102363884, 1.004786687742713, 0.6966042662103223, 0.5868735884069688], [4.161398914373215, 2.7024495221353915, 2.4620529084850253, 2.2467163308263816, 1.1695425397371815, 1.6744774910617226, 1.2981360745731292, 1.4916765878277882, 1.2419402020508115, 1.0494278528798426, 1.9253580857373733, 7.7005857604541, 1.3962625423166408, 1.014220071512799, 0.9902994782365272, 1.2598789849308933, 0.6742773167807786, 1.4302829094321725, 0.7964061007128993], [4.110554710423497, 3.181322823466238, 1.5191019122659055, 1.7978335177404132, 1.3283479892861032, 1.7493363959313766, 1.299564255463856, 1.3677610577199817, 2.07287467845759, 1.4985601733878877, 0.9436211276556667, 0.7628915485159186, 6.4188181928460235, 0.8620352914764728, 1.176146347471784, 1.462397738558916, 0.8783328768864267, 1.8842158672087166, 0.9906028125667774], [4.082306381406175, 2.514665770202042, 2.4451929264997623, 2.0046692968697117, 1.5726972171067364, 1.966048282567673, 1.0936454033102208, 1.7147444420847573, 1.7868690319319966, 1.410948686219731, 1.9468992755376309, 0.929168600361366, 0.7025049793182043, 6.665650398118942, 0.6278993141983268, 0.8868879469169002, 0.9208361369949875, 1.2605328867404317, 0.7663514182041492], [4.2793456374762275, 2.7291002078158106, 1.4234143190706408, 2.2583569049463694, 1.1335372729548847, 1.8345769962683462, 0.9585617692948935, 1.0382176452356575, 1.1085385419842166, 1.588172062067008, 0.9816174313340099, 1.6548219305363792, 0.9212929884886673, 1.3444051372164838, 7.6243660785046465, 0.7735659271086789, 1.135149856274548, 0.6890472448206724, 0.5817717570077616], [4.55340107085524, 3.0563660022846313, 1.7601767444426426, 2.0432443045779247, 1.5190626053817997, 2.478058136469034, 1.1681239520742286, 0.968664704509152, 1.64164078410082, 0.745102432125007, 0.9064378392394727, 1.833473155688058, 1.1030446578984472, 1.751598818712085, 0.9960181258896724, 7.306540657251315, 1.2520052664817403, 0.5735224033041312, 0.5547317087074023], [4.104693726237147, 3.1224857894385867, 1.4956249861513666, 1.9066450227466183, 1.542076332786196, 2.4214376798953183, 1.237127742255154, 1.1440474834570356, 0.8120803692673686, 1.0738105844910744, 0.5086104185562847, 0.7913462230573898, 0.9272668371496455, 1.6332035282353994, 1.2446317620513765, 1.5848400597798455, 8.071660423461461, 0.9486579596598209, 0.9388047850846651], [4.162007654286387, 2.980091715646451, 1.4865603582991458, 1.9346591638899115, 1.6382527719015825, 2.1559147548249133, 1.2394183942333736, 0.8674456749334768, 0.9881169890531214, 1.4366424078245537, 1.1644441039871989, 1.278551485057171, 1.3980587023722892, 1.1055583271793046, 0.4215517240267473, 0.7116829148821613, 0.9132774297145666, 7.502990894270184, 0.9937435970424022], [4.241708376232252, 2.6487663740589533, 1.6455419863654106, 1.9806123357405019, 2.4030775843014487, 2.0892221490543696, 1.2452256516274767, 0.7708732059442786, 1.1485826410642541, 0.813349579115066, 0.6858312666163316, 0.6090018353459224, 1.1875309595609356, 1.0556434645603272, 1.141117127345453, 1.2040273225126215, 1.2226238775804055, 2.0852918264703004, 7.3807952485664075]]
@@ -473,232 +627,14 @@ def sampling_plan_loss_fast(design, numtests, priordatadict, paramdict):
             plt.ylim([0,12])
             plt.title('Change in norm of vector of Bayes minimizers\nAcross batches of 1,000 (Run 3)')
             plt.show()
-            '''
+            ###########
 
             ### END REMOVE LATER
         retval = np.average(wtLossMins)
     # END ELIF FOR PARALLEL
 
-    elif method == 'weightsNodeEnumerateY': # Weight each prior draw by the likelihood of a new data set
-        # Differs from 'weightsNodeEnumerate' in that only possible data sets (Y) are enumerated, and N is randomly drawn
-        #IMPORTANT!!! CAN ONLY HANDLE DESIGNS WITH 1 TEST NODE
-        Ntilde = sampMat.copy()
-        sampNodeInd = 0
-        for currind in range(numTN):
-            if Ntilde[currind] > 0:
-                sampNodeInd = currind
-        Ntotal, Qvec = int(Ntilde[sampNodeInd]), Q[sampNodeInd]
-        # Initialize NvecSet with numdatadraws different data sets
-        NvecSet = []
-        for i in range(numdatadraws):
-            sampSNvec = choice([i for i in range(numSN)], size=Ntotal, p=Qvec) # Sample according to the sourcing probabilities
-            sampSNvecSums = [sampSNvec.tolist().count(j) for j in range(numSN)] # Consolidate samples by supply node
-            NvecSet.append(sampSNvecSums)
-        NvecLosses = []  # Initialize a list for the loss under each N vector
-        for Nvecind, Nvec in enumerate(NvecSet):
-            ''' CODE FOR DOING MULTIPLE Y REALIZATIONS UNDER EACH NVEC
-            YvecSet = [] #Initialize a list of possible data outcomes
-            if numYdraws > len(priordraws):
-                print('numYdraws exceeds the number of prior draws')
-                return
-            priorIndsForY = random.sample(range(len(priordraws)), numYdraws)  # Grab numYdraws gammas from prior
-            for i in range(numYdraws):
-                zVec = [zProbTr(sampNodeInd, sn, numSN, priordraws[priorIndsForY[i]], sens=s, spec=r) for sn in range(numSN)]
-                ySNvec = [choice([j for j in range(Nvec[sn])],p=zVec[sn]) for sn in range(numSN)]
-                YvecSet.append(ySNvec)
-            '''
-            Yset = util.possibleYSets(np.array(Nvec).reshape(1, numSN))
-            Yset = [i[0] for i in Yset]
-            sumloss = 0.
-            for Ytilde in Yset:
-                wts = []
-                for currpriordraw in priordraws:
-                    currwt = 1.0
-                    for SNind in range(numSN):
-                        curry, currn = int(Ytilde[SNind]), int(Nvec[SNind])
-                        currz = util.zProbTr(sampNodeInd, SNind, numSN, currpriordraw, sens=s, spec=r)
-                        currwt = currwt * (currz ** curry) * ((1 - currz) ** (currn - curry)) * comb(currn, curry)
-                    wts.append(currwt)  # Add weight for this gamma draw
-                # Get Bayes estimate
-                currest = lf.bayesEstAdapt(priordraws, wts, lossdict['scoreDict'], printUpdate=False)
-                # Sum the weighted loss under each prior draw
-                for currsampind, currsamp in enumerate(priordraws):
-                    currloss = lf.loss_pms(currest, currsamp, lossdict['scoreFunc'], lossdict['scoreDict'],
-                                        lossdict['riskFunc'], lossdict['riskDict'], lossdict['marketVec'])
-                    sumloss += currloss * wts[currsampind]
-            NvecLosses.append(sumloss / len(priordraws))
-            if printUpdate == True and Nvecind % 5 == 0:
-                print('Finished Nvecind of '+str(Nvecind))
-        retval = np.average(NvecLosses)
-    # END ELIF FOR WEIGHTSNODEENUMERATEY
-
     return retval
-
-
-def sampling_plan_loss_mcmc(design, numtests, priordatadict, paramdict):
-    """
-    Produces the sampling plan loss for a test budget under a given data set and specified parameters, using MCMC
-    integration.
-    """
-    retval = 0.
-    if method == 'MCMC':
-        for omega in range(numdatadraws):
-            TNsamps = sampMat.copy()
-            # Grab a draw from the prior
-            currpriordraw = priordraws[priorindstouse[omega]]  # [SN rates, TN rates]
-
-            # Initialize Ntilde and Ytilde
-            Ntilde = np.zeros(shape=priordatadict['N'].shape)
-            Ytilde = Ntilde.copy()
-            while np.sum(TNsamps) > 0.:
-                # Go to first non-empty row of TN samps
-                i, j = 0, 0
-                while np.sum(TNsamps[i]) == 0:
-                    i += 1
-                if type[0] == 'path':
-                    # Go to first non-empty column of this row
-                    while TNsamps[i][j] == 0:
-                        j += 1
-                    TNsamps[i][j] -= 1
-                if type[0] == 'node':
-                    # Pick a supply node according to Qest
-                    j = choice([i for i in range(numSN)], p=type[1][i] / np.sum(type[1][i]).tolist())
-                    TNsamps[i] -= 1
-                # Generate test result
-                currTNrate = currpriordraw[numSN + i]
-                currSNrate = currpriordraw[j]
-                currrealrate = currTNrate + (1 - currTNrate) * currSNrate  # z_star for this sample
-                currposrate = s * currrealrate + (1 - r) * (1 - currrealrate)  # z for this sample
-                result = np.random.binomial(1, p=currposrate)
-                Ntilde[i, j] += 1
-                Ytilde[i, j] += result
-            # We have a new set of data d_tilde
-            Nomega = priordatadict['N'] + Ntilde
-            Yomega = priordatadict['Y'] + Ytilde
-
-            postdatadict = priordatadict.copy()
-            postdatadict['N'] = Nomega
-            postdatadict['Y'] = Yomega
-
-            # Writes over previous MCMC draws
-            postdatadict.update({'numPostSamples':numpostdraws})
-            postdatadict = methods.GeneratePostSamples(postdatadict)
-
-            # Get the Bayes estimate
-            currEst = lf.bayesEst(postdatadict['postSamples'], lossdict['scoreDict'])
-
-            sumloss = 0
-            for currsampind, currsamp in enumerate(postdatadict['postSamples']):
-                currloss = lf.loss_pms(currEst, currsamp, lossdict['scoreFunc'], lossdict['scoreDict'],
-                                    lossdict['riskFunc'], lossdict['riskDict'], lossdict['marketVec'])
-                sumloss += currloss
-            avgloss = sumloss / len(postdatadict['postSamples'])
-
-            # Append to loss storage vector
-            currlossvec.append(avgloss)
-            #if printUpdate==True:
-            #   print(designnames[designind] + ', ' + 'omega ' + str(omega) + ' complete')
-
-        retval = currlossvec  # Add the loss vector for this design
-    # END IF FOR MCMC
-
-    elif method == 'weightsPathEnumerate': # Weight each prior draw by the likelihood of a new data set
-        Ntilde = sampMat.copy()
-        sumloss = 0
-        Yset = util.possibleYSets(Ntilde)
-        for Ytilde in Yset: # Enumerating all possible data sets, so DO NOT normalize weights (they will sum to unity)
-            # Get weights for each prior draw
-            zMat = util.zProbTrVec(numSN, priordraws, sens=s, spec=r)[:, :, :]
-            wts = np.prod((zMat ** Ytilde) * ((1 - zMat) ** (Ntilde - Ytilde)) * sps.comb(Ntilde, Ytilde), axis=(1,2))
-            '''
-            wts = []
-            for currpriordraw in priordraws:
-                # Use current new data to get a weight for the current prior draw
-                currwt=1.0
-                for TNind in range(numTN):
-                    for SNind in range(numSN):
-                        curry, currn = int(Ytilde[TNind][SNind]), int(Ntilde[TNind][SNind])
-                        currz = zProbTr(TNind,SNind,numSN,currpriordraw,sens=s,spec=r)
-                        currwt = currwt * (currz**curry) * ((1-currz)**(currn-curry)) * comb(currn, curry)
-                wts.append(currwt) # Add weight for this gamma draw
-            '''
-            # Obtain Bayes estimate
-            currest = lf.bayesEstAdapt(priordraws,wts,lossdict['scoreDict'],printUpdate=False)
-            # Sum the weighted loss under each prior draw
-            sumloss += np.sum(lf.loss_pmsArr(currest, priordraws, lossdict) * wts)  # VECTORIZED
-            '''
-            for currsampind, currsamp in enumerate(priordraws):
-                currloss = loss_pms(currest,currsamp, score_diff, lossdict['scoreDict'],
-                                    risk_parabolic, lossdict['riskDict'], lossdict['marketVec'])
-                sumloss += currloss * wts[currsampind]
-            '''
-        retval = sumloss / len(priordraws)
-    # END ELIF FOR WEIGHTSPATHENUMERATE
-
-    elif method == 'weightsNodeEnumerate': # Weight each prior draw by the likelihood of a new data set
-        #IMPORTANT!!! CAN ONLY HANDLE DESIGNS WITH 1 TEST NODE
-        Ntilde = sampMat.copy()
-        sampNodeInd = 0
-        for currind in range(numTN):
-            if Ntilde[currind] > 0:
-                sampNodeInd = currind
-        Ntotal = int(Ntilde[sampNodeInd])
-        if printUpdate==True:
-            print('Generating possible N sets...')
-        NvecSet = util.nVecs(numSN,Ntotal)
-        # Remove any Nset members that have positive tests at supply nodes with no sourcing probability
-        removeInds = [j for j in range(numSN) if Q[sampNodeInd][j]==0.]
-        if len(removeInds) > 0:
-            for currRemoveInd in removeInds:
-                NvecSet = [item for item in NvecSet if item[currRemoveInd]==0]
-        # Iterate through each possible data set
-        NvecProbs = [] # Initialize a list capturing the probability of each data set
-        NvecLosses = [] # Initialize a list for the loss under each N vector
-        for Nvec in NvecSet:
-            if printUpdate == True:
-                print('Looking at N set: ' + str(Nvec))
-            currNprob = math.factorial(Ntotal) # Initialize with n!
-            for currSN in range(numSN):
-                Qab, Nab = Q[sampNodeInd][currSN], Nvec[currSN]
-                currNprob = currNprob * (Qab**Nab) / (math.factorial(Nab))
-            NvecProbs.append(currNprob)
-            # Define the possible data results for the current Nvec
-            Yset = util.possibleYSets(np.array(Nvec).reshape(1,numSN))
-            Yset = [i[0] for i in Yset]
-            sumloss = 0.
-            for Ytilde in Yset:
-
-                zMat = util.zProbTrVec(numSN, priordraws, sens=s, spec=r)[:, sampNodeInd, :]
-                wts = np.prod((zMat ** Ytilde) * ((1 - zMat) ** (Nvec - Ytilde)) * sps.comb(Nvec, Ytilde), axis=1)
-                '''
-                wts = []
-                for currpriordraw in priordraws:
-                    currwt = 1.0
-                    for SNind in range(numSN):
-                        curry, currn = int(Ytilde[SNind]), int(Nvec[SNind])
-                        currz = zProbTr(sampNodeInd,SNind,numSN,currpriordraw,sens=s,spec=r)
-                        currwt = currwt * (currz ** curry) * ((1 - currz) ** (currn - curry)) * comb(currn, curry)
-                    wts.append(currwt) # Add weight for this gamma draw
-                '''
-                # Get Bayes estimate
-                currest = lf.bayesEstAdapt(priordraws,wts,lossdict['scoreDict'],printUpdate=False)
-                # Sum the weighted loss under each prior draw
-                sumloss += np.sum(lf.loss_pmsArr(currest, priordraws, lossdict) * wts)  # VECTORIZED
-                '''
-                for currsampind, currsamp in enumerate(priordraws):
-                    currloss = loss_pms(currest, currsamp, score_diff, lossdict['scoreDict'],
-                                        risk_parabolic, lossdict['riskDict'], lossdict['marketVec'])
-                    sumloss += currloss * wts[currsampind]
-                '''
-            NvecLosses.append(sumloss / len(priordraws))
-        # Weight each Nvec loss by the occurence probability
-        finalLoss = 0.
-        for Nind in range(len(NvecSet)):
-            finalLoss += NvecLosses[Nind] * NvecProbs[Nind]
-        retval = finalLoss
-    # END ELIF FOR WEIGHTSNODEENUMERATE
-    return retval
-
+'''
 
 def GetOptAllocation(U):
     '''
