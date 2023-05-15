@@ -377,6 +377,63 @@ def generateRandDataDict(numImp=5, numOut=50, diagSens=0.90, diagSpec=0.99, numS
 
     return dataTblDict
 
+def initDataDict(N, Y, diagSens=1., diagSpec=1., dataType='Tracked', trueRates=[], Q=[]):
+    """
+    Initializes a logistigate data dictionary for the entered data that has keys for later processing
+
+    INPUTS
+    ------
+    Takes the following arguments:
+        numImp, numOut: integer
+            Number of importers and outlets
+        diagSens, diagSpec: float
+            Diagnostic sensitivity, specificity
+        numSamples: integer
+            Total number of data points to generate
+        dataType: string
+            'Tracked' or 'Untracked'
+
+    OUTPUTS
+    -------
+    Returns dataTblDict dictionary with the following keys:
+        dataTbl: list
+            If Tracked, each list entry should have three elements, as follows:
+                Element 1: string; Name of outlet/lower echelon entity
+                Element 2: string; Name of importer/upper echelon entity
+                Element 3: integer; 0 or 1, where 1 signifies SFP detection
+            If Untracked, each list entry should have two elements, as follows:
+                Element 1: string; Name of outlet/lower echelon entity
+                Element 2: integer; 0 or 1, where 1 signifies SFP detection
+        outletNames/importerNames: list of strings
+        transMat: Numpy matrix
+            Matrix of transition probabilities between importers and outlets
+        diagSens, diagSpec, type
+            From inputs, where 'type' = 'dataType'
+    """
+    dataTblDict = {}
+
+    (numTN, numSN) = N.shape
+
+    impNames = ['Supply Node ' + str(i + 1) for i in range(numSN)]
+    outNames = ['Test Node ' + str(i + 1) for i in range(numTN)]
+
+    # Generate random true SFP rates
+    if trueRates == []:
+        trueRates = np.zeros(numSN + numTN)  # importers first, outlets second
+
+    # Generate random transition matrix
+    if len(Q) < 1:
+        transMat = np.zeros(shape=(numTN, numSN))
+    else:
+        transMat = Q.copy()
+
+    dataTblDict.update({'N': N, 'Y': Y, 'outletNames': outNames, 'importerNames': impNames, 'diagSens': diagSens,
+                        'diagSpec': diagSpec, 'type': dataType, 'transMat': transMat, 'trueRates': trueRates})
+
+    dataTblDict = GetVectorForms(dataTblDict)
+
+    return dataTblDict
+
 def scorePostSamplesIntervals(logistigateDict):
     """
     Checks if posterior SFP rate sample intervals contain the underlying
