@@ -1,6 +1,6 @@
 """
-This file contains the methods used for estimating aberration prevalence in a
-two-echelon supply chain. See descriptions for particular inputs.
+This file contains the methods used for inferring SFP rates in two
+echelons of a supply chain. See descriptions for particular inputs.
 """
 
 #todo: Need to add capacity to handle different diagnostic devices at different data points
@@ -134,134 +134,134 @@ class prior_normal:
 ########################### END PRIOR CLASSES ###########################
 
 ########################## UNTRACKED FUNCTIONS ##########################
-def Untracked_LogLike(beta,numVec,posVec,sens,spec,transMat):
-    # for array of beta; beta should be [importers, outlets]
+def Untracked_LogLike(beta,numVec,posVec,sens,spec,Q):
+    # for array of beta; beta should be [supply nodes, test nodes]
     if beta.ndim == 1: # reshape to 2d
         beta = np.reshape(beta,(1,-1))
-    n,m = transMat.shape
+    n,m = Q.shape
     th, py = sps.expit(beta[:,:m]), sps.expit(beta[:,m:])  
-    pMat = py + (1-py)*np.matmul(th,transMat.T)        
+    pMat = py + (1-py)*np.matmul(th,Q.T)
     pMatTilde = sens*pMat+(1-spec)*(1-pMat)    
     L = np.sum(np.multiply(posVec,np.log(pMatTilde))+np.multiply(np.subtract(numVec,posVec),\
                np.log(1-pMatTilde)),axis=1)
     return np.squeeze(L)
 
-def Untracked_LogLike_Jac(beta,numVec,posVec,sens,spec,transMat):
-    # betaVec should be [importers, outlets]; can be used with array beta
+def Untracked_LogLike_Jac(beta,numVec,posVec,sens,spec,Q):
+    # betaVec should be [supply nodes, test nodes]; can be used with array beta
     if beta.ndim == 1: # reshape to 2d
         beta = np.reshape(beta,(1,-1))
-    n,m = transMat.shape
+    n,m = Q.shape
     k = beta.shape[0]
     th, py = sps.expit(beta[:,:m]), sps.expit(beta[:,m:])
-    pMat = py + (1-py)*np.matmul(th,transMat.T)        
+    pMat = py + (1-py)*np.matmul(th,Q.T)
     pMatTilde = sens*pMat+(1-spec)*(1-pMat)
-    #Grab importers partials first, then outlets
-    impPartials = (sens+spec-1)*np.sum(  np.reshape([transMat]*k,(k,n,m))*\
+    #Grab supply node partials first, then test nodes
+    SNpartials = (sens+spec-1)*np.sum(  np.reshape([Q]*k,(k,n,m))*\
                    np.reshape((th-th**2),(k,1,m))*np.tile(np.reshape((1-py),(k,n,1)),(m))*\
                    np.reshape((posVec[:,None]/pMatTilde.T-(numVec-posVec)[:,None]/(1-pMatTilde).T).T,(k,n,1)),axis=1)
-    outletPartials = (sens+spec-1)*(1-np.matmul(transMat,th.T)).T*(py-py**2)*\
+    TNpartials = (sens+spec-1)*(1-np.matmul(Q,th.T)).T*(py-py**2)*\
                         (posVec/pMatTilde-(numVec-posVec)/(1-pMatTilde))             
 
-    return np.squeeze(np.concatenate((impPartials,outletPartials),axis=1))
+    return np.squeeze(np.concatenate((SNpartials, TNpartials),axis=1))
 
-def Untracked_LogLike_Hess(betaVec,numVec,posVec,sens,spec,transMat):
-    # betaVec should be [importers, outlets]; NOT for array beta
-    n,m = transMat.shape
+def Untracked_LogLike_Hess(betaVec,numVec,posVec,sens,spec,Q):
+    # betaVec should be [supply nodes, test nodes]; NOT for array beta
+    n,m = Q.shape
     th = betaVec[:m]
     py = betaVec[m:]
     
-    zVec = sps.expit(py)+(1-sps.expit(py))*np.matmul(transMat,sps.expit(th))
+    zVec = sps.expit(py)+(1-sps.expit(py))*np.matmul(Q,sps.expit(th))
     zVecTilde = sens*zVec+(1-spec)*(1-zVec)
-    sumVec = np.matmul(transMat,sps.expit(th))
+    sumVec = np.matmul(Q,sps.expit(th))
     
     #initialize a Hessian matrix
     hess = np.zeros((n+m,n+m))
-    # get off-diagonal entries first; importer-outlet entries
+    # get off-diagonal entries first; supply node-test node entries
     for triRow in range(n):
         for triCol in range(m):
-            outBeta,impBeta = py[triRow],th[triCol]
-            outP,impP = sps.expit(outBeta),sps.expit(impBeta)
+            TNbeta, SNbeta = py[triRow],th[triCol]
+            TNp, SNp = sps.expit(TNbeta),sps.expit(SNbeta)
             s,r=sens,spec
-            c1 = transMat[triRow,triCol]*(s+r-1)*(sps.expit(impBeta)-sps.expit(impBeta)**2)
+            c1 = Q[triRow,triCol]*(s+r-1)*(sps.expit(SNbeta)-sps.expit(SNbeta)**2)
             yDat,nSam = posVec[triRow],numVec[triRow]
-            elem = c1*(1-outP)*(yDat*( (s+r-1)*(-sumVec[triRow]*(outP**2-outP) - outP + outP**2) )\
-                    /( s*(sumVec[triRow]*(1 - outP) + outP) +\
-                   (1-r)*(-sumVec[triRow]*(1 - outP) + 1 - outP) )**2 -\
-                    (nSam - yDat)*((-r + 1-s)*(-sumVec[triRow]*(-outP + outP**2)-outP+outP**2))\
-                     /(-s*(sumVec[triRow]*(1 - outP) + outP) - (1-r)*(-sumVec[triRow]*(1 - outP) +\
-                   1 - outP) + 1)**2) +\
-                    c1*(yDat/(s*(sumVec[triRow]*(1 - outP) + outP) + (-r + 1)*(-sumVec[triRow]*(1 - outP) +\
-                   1 - outP)) - (nSam - yDat)/( -s*(sumVec[triRow]*(1 - outP) +\
-                   outP) - (1-r)*(-sumVec[triRow]*(1 - outP) + 1 - outP) + 1))*( outP**2 - outP)
+            elem = c1*(1-TNp)*(yDat*( (s+r-1)*(-sumVec[triRow]*(TNp**2-TNp) - TNp + TNp**2) )\
+                    /( s*(sumVec[triRow]*(1 - TNp) + TNp) +\
+                   (1-r)*(-sumVec[triRow]*(1 - TNp) + 1 - TNp) )**2 -\
+                    (nSam - yDat)*((-r + 1-s)*(-sumVec[triRow]*(-TNp + TNp**2)-TNp+TNp**2))\
+                     /(-s*(sumVec[triRow]*(1 - TNp) + TNp) - (1-r)*(-sumVec[triRow]*(1 - TNp) +\
+                   1 - TNp) + 1)**2) +\
+                    c1*(yDat/(s*(sumVec[triRow]*(1 - TNp) + TNp) + (-r + 1)*(-sumVec[triRow]*(1 - TNp) +\
+                   1 - TNp)) - (nSam - yDat)/( -s*(sumVec[triRow]*(1 - TNp) +\
+                   TNp) - (1-r)*(-sumVec[triRow]*(1 - TNp) + 1 - TNp) + 1))*(TNp**2 - TNp)
             hess[m+triRow,triCol] = elem
             hess[triCol,m+triRow] = elem
-    # get off-diagonals for importer-importer entries
+    # get off-diagonals for supply node-supply node entries
     for triCol in range(m-1):
         for triCol2 in range(triCol+1,m):
             elem = 0
             for i in range(n):
-                nextPart = (sens+spec-1)*transMat[i,triCol]*(1-sps.expit(py[i]))*(sps.expit(th[triCol])-sps.expit(th[triCol])**2)*\
-                (-posVec[i]*(sens+spec-1)*(1-sps.expit(py[i]))*transMat[i,triCol2]*(sps.expit(th[triCol2]) - sps.expit(th[triCol2])**2)            /\
+                nextPart = (sens+spec-1)*Q[i,triCol]*(1-sps.expit(py[i]))*(sps.expit(th[triCol])-sps.expit(th[triCol])**2)*\
+                (-posVec[i]*(sens+spec-1)*(1-sps.expit(py[i]))*Q[i,triCol2]*(sps.expit(th[triCol2]) - sps.expit(th[triCol2])**2)            /\
                  (zVecTilde[i]**2)
-                - (numVec[i]-posVec[i])*(sens+spec-1)*(1-sps.expit(py[i]))*transMat[i,triCol2]*(sps.expit(th[triCol2]) - sps.expit(th[triCol2])**2) /\
+                - (numVec[i]-posVec[i])*(sens+spec-1)*(1-sps.expit(py[i]))*Q[i,triCol2]*(sps.expit(th[triCol2]) - sps.expit(th[triCol2])**2) /\
                 ((1-zVecTilde[i])**2) )
                 
                 elem += nextPart
             hess[triCol,triCol2] = elem
             hess[triCol2,triCol] = elem
-    # importer diagonals next
-    impPartials = np.zeros(m)
-    for imp in range(m):
+    # supply node diagonals next
+    SNpartials = np.zeros(m)
+    for sn in range(m):
         currPartial = 0
-        for outlet in range(n):
-            outBeta,impBeta = py[outlet],th[imp]
-            outP,impP = sps.expit(outBeta),sps.expit(impBeta)
+        for tn in range(n):
+            TNbeta, SNbeta = py[tn],th[sn]
+            TNp, SNp = sps.expit(TNbeta),sps.expit(SNbeta)
             s,r=sens,spec                      
-            c1 = transMat[outlet,imp]*(s+r-1)*(1-outP)            
-            c3 = (1-outP)*transMat[outlet,imp]
-            yDat,nSam = posVec[outlet],numVec[outlet]
-            currElem = c1*(yDat/(zVecTilde[outlet]) - (nSam - yDat)/(1-zVecTilde[outlet]))\
-                       *(impP - 3*(impP**2) + 2*(impP**3)) +\
-                       c1*(impP - impP**2)*(yDat*((s+r-1)*c3*(\
-                       (impP**2)-impP) )/(zVecTilde[outlet])**2 -\
-                       (nSam - yDat)*((s+r-1)*(c3*impP - c3*(impP**2)))/\
-                       (1-zVecTilde[outlet])**2)
+            c1 = Q[tn, sn]*(s+r-1)*(1-TNp)
+            c3 = (1-TNp)*Q[tn, sn]
+            yDat,nSam = posVec[tn],numVec[tn]
+            currElem = c1*(yDat/(zVecTilde[tn]) - (nSam - yDat)/(1-zVecTilde[tn]))\
+                       *(SNp - 3*(SNp**2) + 2*(SNp**3)) +\
+                       c1*(SNp - SNp**2)*(yDat*((s+r-1)*c3*(\
+                       (SNp**2)-SNp) )/(zVecTilde[tn])**2 -\
+                       (nSam - yDat)*((s+r-1)*(c3*SNp - c3*(SNp**2)))/\
+                       (1-zVecTilde[tn])**2)
             currPartial += currElem
-        impPartials[imp] = currPartial
+        SNpartials[sn] = currPartial
     
-    # outlet diagonals next
-    outletPartials = np.zeros(n)
-    for outlet in range(n):
-        outBeta = py[outlet]
-        outP = sps.expit(outBeta)
+    # test node diagonals next
+    TNpartials = np.zeros(n)
+    for tn in range(n):
+        TNbeta = py[tn]
+        TNp = sps.expit(TNbeta)
         s,r=sens,spec
-        c1 = sumVec[outlet]
+        c1 = sumVec[tn]
         c2 = (r + s - 1)
-        yDat,nSam = posVec[outlet],numVec[outlet]
-        currPartial = (1-c1)*(yDat/(zVecTilde[outlet]) -\
-                    (nSam - yDat)/(1-zVecTilde[outlet]))*c2*(outP -\
-                    3*(outP**2) + 2*(outP**3)) + \
-                      (1-c1)*(outP - outP**2 )*(yDat*(-c2*(c1*(-outP + outP**2 )+ outP -outP**2 ) )/\
-                    (zVecTilde[outlet])**2 - (nSam - yDat)*(c2*(c1*(-outP + outP**2) +\
-                     outP - outP**2 ))/( -s*(c1*(1 - outP) +\
-                     outP) - (1-r)*(1-c1*(1 - outP)  - outP) + 1 )**2)*c2
-        outletPartials[outlet] = currPartial
+        yDat,nSam = posVec[tn],numVec[tn]
+        currPartial = (1-c1)*(yDat/(zVecTilde[tn]) -\
+                    (nSam - yDat)/(1-zVecTilde[tn]))*c2*(TNp -\
+                    3*(TNp**2) + 2*(TNp**3)) + \
+                      (1-c1)*(TNp - TNp**2 )*(yDat*(-c2*(c1*(-TNp + TNp**2 )+ TNp -TNp**2 ) )/\
+                    (zVecTilde[tn])**2 - (nSam - yDat)*(c2*(c1*(-TNp + TNp**2) +\
+                     TNp - TNp**2 ))/( -s*(c1*(1 - TNp) +\
+                     TNp) - (1-r)*(1-c1*(1 - TNp)  - TNp) + 1 )**2)*c2
+        TNpartials[tn] = currPartial
     
-    diags = np.diag(np.concatenate((impPartials,outletPartials)))
+    diags = np.diag(np.concatenate((SNpartials,TNpartials)))
     
     hess = (hess + diags)
     return hess
 
-def Untracked_NegLogLike(betaVec,numVec,posVec,sens,spec,transMat):
-    return -1*Untracked_LogLike(betaVec,numVec,posVec,sens,spec,transMat)
-def Untracked_NegLogLike_Jac(betaVec,numVec,posVec,sens,spec,transMat):
-    return -1*Untracked_LogLike_Jac(betaVec,numVec,posVec,sens,spec,transMat)
-def Untracked_NegLogLike_Hess(betaVec,numVec,posVec,sens,spec,transMat):
-    return -1*Untracked_LogLike_Hess(betaVec,numVec,posVec,sens,spec,transMat)
+def Untracked_NegLogLike(betaVec,numVec,posVec,sens,spec,Q):
+    return -1*Untracked_LogLike(betaVec,numVec,posVec,sens,spec,Q)
+def Untracked_NegLogLike_Jac(betaVec,numVec,posVec,sens,spec,Q):
+    return -1*Untracked_LogLike_Jac(betaVec,numVec,posVec,sens,spec,Q)
+def Untracked_NegLogLike_Hess(betaVec,numVec,posVec,sens,spec,Q):
+    return -1*Untracked_LogLike_Hess(betaVec,numVec,posVec,sens,spec,Q)
 
-def Untracked_LogPost(beta,numVec,posVec,sens,spec,transMat,prior):
+def Untracked_LogPost(beta,numVec,posVec,sens,spec,Q,prior):
     return prior.lpdf(beta)\
-           +Untracked_LogLike(beta,numVec,posVec,sens,spec,transMat)
+           +Untracked_LogLike(beta,numVec,posVec,sens,spec,Q)
 def Untracked_LogPost_Grad(beta, nsamp, ydata, sens, spec, A,prior):
     return prior.lpdf_jac(beta)\
            +Untracked_LogLike_Jac(beta,nsamp,ydata,sens,spec,A)
@@ -269,8 +269,8 @@ def Untracked_LogPost_Hess(beta, nsamp, ydata, sens, spec, A,prior):
     return prior.lpdf_hess(beta)\
            +Untracked_LogLike_Hess(beta,nsamp,ydata,sens,spec,A)           
 
-def Untracked_NegLogPost(betaVec,numVec,posVec,sens,spec,transMat,prior):
-    return -1*Untracked_LogPost(betaVec,numVec,posVec,sens,spec,transMat,prior)
+def Untracked_NegLogPost(betaVec,numVec,posVec,sens,spec,Q,prior):
+    return -1*Untracked_LogPost(betaVec,numVec,posVec,sens,spec,Q,prior)
 def Untracked_NegLogPost_Grad(beta, nsamp, ydata, sens, spec, A,prior):
     return -1*Untracked_LogPost_Grad(beta, nsamp, ydata, sens, spec, A,prior)
 def Untracked_NegLogPost_Hess(beta, nsamp, ydata, sens, spec, A,prior):
@@ -280,7 +280,7 @@ def Untracked_NegLogPost_Hess(beta, nsamp, ydata, sens, spec, A,prior):
     
 ########################### TRACKED FUNCTIONS ###########################
 def Tracked_LogLike(beta,numMat,posMat,sens,spec):
-    # betaVec should be [importers, outlets]; can be used with array beta
+    # betaVec should be [supply nodes, test nodes]; can be used with array beta
     if beta.ndim == 1: # reshape to 2d
         beta = np.reshape(beta,(1,-1))
     n,m = numMat.shape
@@ -296,29 +296,29 @@ def Tracked_LogLike(beta,numMat,posMat,sens,spec):
     return np.squeeze(L)
 
 
-def Tracked_LogLike_Jac(beta, numMat, posMat, sens, spec):
-    # betaVec should be [importers, outlets]; can be used with array beta
+def Tracked_LogLike_Jac(beta, N, Y, sens, spec):
+    # betaVec should be [supply nodes, test nodes]; can be used with array beta
     if beta.ndim == 1: # reshape to 2d
         beta = np.reshape(beta,(1,-1))
-    n,m = numMat.shape
+    n,m = N.shape
     k = beta.shape[0]
     th, py = sps.expit(beta[:,:m]), sps.expit(beta[:,m:])
     pMat = np.reshape(np.tile(th,(n)),(k,n,m)) + np.reshape(np.tile(1-th,(n)),(k,n,m)) *\
             np.transpose(np.reshape(np.tile(py,(m)),(k,m,n)),(0,2,1))
     pMatTilde = sens*pMat+(1-spec)*(1-pMat)
-    #Grab importers partials first, then outlets
-    impPartials = (sens+spec-1)*np.sum(np.reshape((th-th**2),(k,1,m))*\
-                    np.tile(np.reshape((1-py),(k,n,1)),(m))*(posMat/pMatTilde\
-                     - (numMat-posMat)/(1-pMatTilde)),axis=1)
-    outletPartials = (sens+spec-1)*np.sum(np.reshape((py-py**2),(k,n,1))*\
+    #Grab supply node partials first, then test nodes
+    SNpartials = (sens+spec-1)*np.sum(np.reshape((th-th**2),(k,1,m))*\
+                    np.tile(np.reshape((1-py),(k,n,1)),(m))*(Y/pMatTilde\
+                     - (N-Y)/(1-pMatTilde)),axis=1)
+    TNpartials = (sens+spec-1)*np.sum(np.reshape((py-py**2),(k,n,1))*\
                        np.transpose(np.tile(np.reshape((1-th),(k,m,1)),(n)),(0,2,1))\
-                       *(posMat/pMatTilde-(numMat-posMat)/(1-pMatTilde)),axis=2)    
+                       *(Y/pMatTilde-(N-Y)/(1-pMatTilde)),axis=2)
     
-    return np.squeeze(np.concatenate((impPartials,outletPartials),axis=1))
+    return np.squeeze(np.concatenate((SNpartials, TNpartials),axis=1))
 
-def Tracked_LogLike_Hess(betaVec,numMat,posMat,sens,spec):
-    # betaVec should be [importers, outlets]; NOT for array beta
-    n,m = numMat.shape
+def Tracked_LogLike_Hess(betaVec, N, Y, sens, spec):
+    # betaVec should be [supply nodes, test nodes]; NOT for array beta
+    n,m = N.shape
     th = betaVec[:m]
     py = betaVec[m:]
     
@@ -330,58 +330,58 @@ def Tracked_LogLike_Hess(betaVec,numMat,posMat,sens,spec):
     # get off-diagonal entries first
     for triRow in range(n):
         for triCol in range(m):
-            outBeta,impBeta = py[triRow],th[triCol]
-            outP,impP = sps.expit(outBeta),sps.expit(impBeta)
-            s,r=sens,spec
-            z = outP + impP - outP*impP
+            TNbeta, SNbeta = py[triRow],th[triCol]
+            TNp, SNp = sps.expit(TNbeta),sps.expit(SNbeta)
+            s, r = sens, spec
+            z = TNp + SNp - TNp*SNp
             zTilde = zMatTilde[triRow,triCol]
-            yDat,nSam = posMat[triRow,triCol],numMat[triRow,triCol]
-            elem = (1-impP)*(outP - outP**2)*(yDat*((1-r-s)*(impP-impP**2)*(1-outP))/\
-                    zTilde**2-(nSam-yDat)*((s+r-1)*(impP-impP**2-outP*impP+outP*\
-                    (impP**2)))/(1-zTilde)**2)*\
+            yDat,nSam = Y[triRow,triCol], N[triRow,triCol]
+            elem = (1-SNp)*(TNp - TNp**2)*(yDat*((1-r-s)*(SNp-SNp**2)*(1-TNp))/\
+                    zTilde**2-(nSam-yDat)*((s+r-1)*(SNp-SNp**2-TNp*SNp+TNp*\
+                    (SNp**2)))/(1-zTilde)**2)*\
                     (r+s-1) + (yDat/zTilde - (nSam - yDat)/(1-zTilde))\
-                    *(outP - outP**2)*(impP**2 -impP)*(r + s - 1)
+                    *(TNp - TNp**2)*(SNp**2 -SNp)*(r + s - 1)
             hess[m+triRow,triCol] = elem
             hess[triCol,m+triRow] = elem
     
-    # importer diagonals next
-    impPartials = np.zeros(m)
-    for imp in range(m):
+    # supply node diagonals next
+    SNpartials = np.zeros(m)
+    for sn in range(m):
         currPartial = 0
-        for outlet in range(n):
-            outBeta,impBeta = py[outlet],th[imp]
-            outP,impP = sps.expit(outBeta),sps.expit(impBeta)
+        for tn in range(n):
+            TNbeta, SNbeta = py[tn], th[sn]
+            TNp, SNp = sps.expit(TNbeta), sps.expit(SNbeta)
             s,r=sens,spec
-            z = outP + impP - outP*impP
+            z = TNp + SNp - TNp*SNp
             zTilde = s*z + (1-r)*(1-z)
-            yDat,nSam = posMat[outlet,imp],numMat[outlet,imp]
-            currElem = (1-outP)*(s+r-1)*(yDat/zTilde-(nSam-yDat)/(1-zTilde))*\
-                        (impP - 3*(impP)**2 + 2*(impP)**3)+\
-                        (((1-outP)*(impP-impP**2)*(s+r-1))**2)*\
+            yDat,nSam = Y[tn, sn], N[tn, sn]
+            currElem = (1-TNp)*(s+r-1)*(yDat/zTilde-(nSam-yDat)/(1-zTilde))*\
+                        (SNp - 3*(SNp)**2 + 2*(SNp)**3)+\
+                        (((1-TNp)*(SNp-SNp**2)*(s+r-1))**2)*\
                         (-yDat/zTilde**2-(nSam-yDat)/(1-zTilde)**2)
             currPartial += currElem
-        impPartials[imp] = currPartial
+        SNpartials[sn] = currPartial
     
-    # outlet diagonals next
-    outletPartials = np.zeros(n)
-    for outlet in range(n):
+    # test node diagonals next
+    TNpartials = np.zeros(n)
+    for tn in range(n):
         currPartial = 0
-        for imp in range(m):
-            outBeta,impBeta = py[outlet],th[imp]
-            outP,impP = sps.expit(outBeta),sps.expit(impBeta)
+        for sn in range(m):
+            TNbeta, SNbeta = py[tn], th[sn]
+            TNp, SNp = sps.expit(TNbeta), sps.expit(SNbeta)
             s,r=sens,spec
-            z = outP + impP - outP*impP
+            z = TNp + SNp - TNp*SNp
             zTilde = s*z + (1-r)*(1-z)
-            yDat,nSam = posMat[outlet,imp],numMat[outlet,imp]
-            currElem = (1 - impP)*(yDat/zTilde-(nSam-yDat)/(1-zTilde))*\
-                        (r+s-1)*(outP - 3*(outP**2) + 2*(outP**3)) +\
-                        (1-impP)*(outP - outP**2 )*(s+r-1)*\
-                        (yDat*((1-r-s)*(outP-outP**2)*(1-impP) )/(zTilde**2) -\
-                        (nSam-yDat)*((s+r-1)*(outP-outP**2)*(1-impP))/(1-zTilde)**2)
+            yDat,nSam = Y[tn, sn], N[tn, sn]
+            currElem = (1 - SNp)*(yDat/zTilde-(nSam-yDat)/(1-zTilde))*\
+                        (r+s-1)*(TNp - 3*(TNp**2) + 2*(TNp**3)) +\
+                        (1-SNp)*(TNp - TNp**2 )*(s+r-1)*\
+                        (yDat*((1-r-s)*(TNp-TNp**2)*(1-SNp) )/(zTilde**2) -\
+                        (nSam-yDat)*((s+r-1)*(TNp-TNp**2)*(1-SNp))/(1-zTilde)**2)
             currPartial += currElem
-        outletPartials[outlet] = currPartial
+        TNpartials[tn] = currPartial
     
-    diags = np.diag(np.concatenate((impPartials,outletPartials)))
+    diags = np.diag(np.concatenate((SNpartials, TNpartials)))
      
     return hess + diags
 
@@ -417,8 +417,8 @@ def GeneratePostSamples(dataTblDict):
     INPUTS
     ------
     dataTblDict is an input dictionary with the following keys:
-        N,Y: Number of tests, number of positive tests on each outlet-importer
-             track (Tracked) or outlet (Untracked)
+        N,Y: Number of tests, number of positive tests on each test node-supply node
+             track (Tracked) or test node (Untracked)
         diagSens,diagSpec: Diagnostic sensitivity and specificity
         prior: Prior distribution object with lpdf,lpdf_jac methods
         numPostSamples: Number of posterior distribution samples to generate
@@ -457,11 +457,11 @@ def GeneratePostSamples(dataTblDict):
                 return Tracked_LogPost(beta,N,Y,sens,spec,prior),\
                        Tracked_LogPost_Grad(beta,N,Y,sens,spec,prior)     
         elif dataTblDict['type'] == 'Untracked':
-            transMat = dataTblDict['transMat']
-            beta0 = -2 * np.ones(transMat.shape[1] + transMat.shape[0])
+            Q = dataTblDict['Q']
+            beta0 = -2 * np.ones(Q.shape[1] + Q.shape[0])
             def TargetForNUTS(beta):
-                return Untracked_LogPost(beta,N,Y,sens,spec,transMat,prior),\
-                       Untracked_LogPost_Grad(beta,N,Y,sens,spec,transMat,prior) 
+                return Untracked_LogPost(beta,N,Y,sens,spec,Q,prior),\
+                       Untracked_LogPost_Grad(beta,N,Y,sens,spec,Q,prior)
         
         samples, lnprob, epsilon = adjnuts.nuts6(TargetForNUTS,M,Madapt,beta0,delta)
         
@@ -479,15 +479,15 @@ def GeneratePostSamples(dataTblDict):
                 return Tracked_LogPost(beta,N,Y,sens,spec,prior),\
                        Tracked_LogPost_Grad(beta,N,Y,sens,spec,prior)            
         elif dataTblDict['type'] == 'Untracked':
-            transMat = dataTblDict['transMat']
-            dimens = transMat.shape[1] + transMat.shape[0]
+            Q = dataTblDict['Q']
+            dimens = Q.shape[1] + Q.shape[0]
             theta0 = np.empty((100, dimens), dtype=float)
             for ind in range(100):
                 theta0[ind,:] = prior.rand(n=dimens)
             LMCoptions = {'theta0': theta0, 'numsamp':dataTblDict['numPostSamples']}
             def TargetForLMC(beta):
-                return Untracked_LogPost(beta,N,Y,sens,spec,transMat,prior),\
-                       Untracked_LogPost_Grad(beta,N,Y,sens,spec,transMat,prior)
+                return Untracked_LogPost(beta,N,Y,sens,spec,Q,prior),\
+                       Untracked_LogPost_Grad(beta,N,Y,sens,spec,Q,prior)
         # Call LangevinMC
         samplerDict = langevinMC.sampler(TargetForLMC,LMCoptions)
         samples = samplerDict['theta']
@@ -509,8 +509,8 @@ def GeneratePostSamples(dataTblDict):
             def TargetForMH(beta):
                 return Tracked_LogPost(beta,N,Y,sens,spec,prior)
         elif dataTblDict['type'] == 'Untracked':
-            transMat = dataTblDict['transMat']
-            dimens = transMat.shape[1] + transMat.shape[0]
+            Q = dataTblDict['Q']
+            dimens = Q.shape[1] + Q.shape[0]
             theta0 = np.empty((100, dimens), dtype=float)
             for ind in range(100):
                 theta0[ind,:] = prior.rand(n=dimens)
@@ -519,7 +519,7 @@ def GeneratePostSamples(dataTblDict):
                          'stepParam': MCMCdict['stepParam'],
                          'adaptNum': MCMCdict['adaptNum']}
             def TargetForMH(beta):
-                return Untracked_LogPost(beta,N,Y,sens,spec,transMat,prior)
+                return Untracked_LogPost(beta,N,Y,sens,spec,Q,prior)
         # Call Metropolis-Hastings
         samplerDict = mh.sampler(TargetForMH,MHoptions)
         print(samplerDict['acc_rate'])
@@ -549,14 +549,14 @@ def FormEstimates(dataTblDict, retOptStatus=True, printUpdate=True):
         type: string
             'Tracked' or 'Untracked'
         N, Y: Numpy array
-            If Tracked, it should be a matrix of size (outletNum, importerNum).
-            If Untracked, it should a vector of size (outletNum).
+            If Tracked, it should be a matrix of size (TNnum, SNnum).
+            If Untracked, it should a vector of size (TNnum).
             N is for the number of total tests conducted, Y is for the number of 
             positive tests.
-        transMat: Numpy 2-D array
-            Matrix rows/columns should signify outlets/importers; values should
+        Q: Numpy 2-D array
+            Matrix rows/columns should signify test nodes/supply nodes; values should
             be between 0 and 1, and rows must sum to 1. Required for Untracked.
-        outletNames, importerNames: list of strings
+        TNnames, SNnames: list of strings
             Should correspond to the order of the transition matrix
         diagSens, diagSpec: float
             Diagnostic characteristics for the data compiled in dataTbl
@@ -568,13 +568,13 @@ def FormEstimates(dataTblDict, retOptStatus=True, printUpdate=True):
     OUTPUTS
     -------
     Returns an estimate dictionary containing the following keys:
-        impEst:    Maximizers of posterior likelihood for importer echelon
-        outEst:    Maximizers of posterior likelihood for outlet echelon
+        SNest:    Maximizers of posterior likelihood for supply nodes
+        TNest:    Maximizers of posterior likelihood for test nodes
         90upper_imp, 90lower_imp, 95upper_imp, 95lower_imp,
         99upper_imp, 99lower_imp, 90upper_out, 90lower_out,
         95upper_out, 95lower_out, 99upper_out, 99lower_out:
                    Upper and lower values for the 90%, 95%, and 99% 
-                   intervals on importer and outlet aberration rates
+                   intervals on supply node and test node SFP rates
         hess:      Hessian matrix at the maximum
     '''
     # CHECK THAT ALL NECESSARY KEYS ARE IN THE INPUT DICTIONARY
@@ -592,19 +592,19 @@ def FormEstimates(dataTblDict, retOptStatus=True, printUpdate=True):
     if dataTblDict['type'] == 'Tracked':
         (numOut,numImp) = N.shape
     elif dataTblDict['type'] == 'Untracked':
-        transMat = dataTblDict['transMat']
-        (numOut,numImp) = transMat.shape
+        Q = dataTblDict['Q']
+        (TNnum, SNnum) = Q.shape
     
     beta0_List=[]
     for sampNum in range(10): # Choose 10 random samples from the prior
-        beta0_List.append(prior.rand(numImp + numOut))
+        beta0_List.append(prior.rand(SNnum + TNnum))
 
     #Loop through each possible initial point and store the optimal solution likelihood values
     likelihoodsList = []
     solsList = []
     if retOptStatus:
         OptStatusList = []
-    bds = spo.Bounds(np.zeros(numImp+numOut)-8, np.zeros(numImp+numOut)+8)
+    bds = spo.Bounds(np.zeros(SNnum + TNnum)-8, np.zeros(SNnum + TNnum)+8)
     if dataTblDict['type'] == 'Tracked':
         for curr_beta0 in beta0_List:
             opVal = spo.minimize(Tracked_NegLogPost, curr_beta0,
@@ -620,7 +620,7 @@ def FormEstimates(dataTblDict, retOptStatus=True, printUpdate=True):
     elif dataTblDict['type'] == 'Untracked':
         for curr_beta0 in beta0_List:
             opVal = spo.minimize(Untracked_NegLogPost,curr_beta0,
-                             args=(N,Y,Sens,Spec,transMat,prior),
+                             args=(N,Y,Sens,Spec,Q,prior),
                              method='L-BFGS-B', jac = Untracked_NegLogPost_Grad,
                              options={'disp': False}, bounds=bds)
             likelihoodsList.append(opVal.fun)
@@ -628,7 +628,7 @@ def FormEstimates(dataTblDict, retOptStatus=True, printUpdate=True):
             if retOptStatus:
                 OptStatusList.append(opVal.status)
         best_x = solsList[np.argmin(likelihoodsList)]
-        hess = Untracked_NegLogPost_Hess(best_x,N,Y,Sens,Spec,transMat,prior)
+        hess = Untracked_NegLogPost_Hess(best_x,N,Y,Sens,Spec,Q,prior)
     # Generate confidence intervals
     impEst = sps.expit(best_x[:numImp])
     outEst = sps.expit(best_x[numImp:])
@@ -649,7 +649,7 @@ def FormEstimates(dataTblDict, retOptStatus=True, printUpdate=True):
     outDict['95lower_out'] = sps.expit(best_x[numImp:] - out_Int95)
     outDict['99upper_out'] = sps.expit(best_x[numImp:] + out_Int99)
     outDict['99lower_out'] = sps.expit(best_x[numImp:] - out_Int99)
-    outDict['impEst'],outDict['outEst'] = impEst,outEst
+    outDict['SNest'],outDict['TNest'] = impEst,outEst
     outDict['hess'], outDict['hessinv'] = hess, hessinv
     if retOptStatus:
         outDict['optStatus'] = OptStatusList

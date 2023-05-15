@@ -75,7 +75,7 @@ def runlogistigate(dataTblDict):
     """
     This function reads a data input dictionary and returns an estimation
     dictionary containing 90%,95%, and 99% confidence intervals for the
-    SFP proportions at the importer and outlet echelons, in addition to
+    SFP proportions at the supply node and test node echelons, in addition to
     posterior samples of the SFP rates.
 
     INPUTS
@@ -86,16 +86,16 @@ def runlogistigate(dataTblDict):
         dataTbl: list
             Each row of the list should signify a single sample point.
             For Tracked, each row should have three entries:
-                column 1: string; Name of outlet/lower echelon entity
-                column 2: string; Name of importer/upper echelon entity
-                column 3: integer; 0 or 1, where 1 signifies aberration detection
+                column 1: string; Name of test node
+                column 2: string; Name of supply node
+                column 3: integer; 0 or 1, where 1 signifies SFP detection
             For Untracked, each row should have two entries:
-                column 1: string; Name of outlet/lower echelon entity
-                column 2: integer; 0 or 1, where 1 signifies aberration detection
-        transMat: Numpy 2-D matrix
-            Matrix rows/columns should signify outlets/importers; values should
+                column 1: string; Name of test node
+                column 2: integer; 0 or 1, where 1 signifies SFP detection
+        Q: Numpy 2-D matrix
+            Matrix rows/columns should signify test nodes/supply nodes; values should
             be between 0 and 1, and rows must sum to 1.
-        outletNames, importerNames: list of strings
+        TNnames, SNnames: list of strings
             Should correspond to the order of the transition matrix
         diagSens, diagSpec: float
             Diagnostic characteristics for the data compiled in dataTbl
@@ -111,23 +111,23 @@ def runlogistigate(dataTblDict):
     -------
     Returns logistigateDict with the following keys:
         dataTbl: List of testing results from input file
-        importerNames, outletNames: Ordered lists of importer and outlet names
-        importerNum, outletNum: Number of unique importers and outlets from input file
+        SNnames, TNnames: Ordered lists of supply node and test node names
+        SNnum, TNnum: Number of unique supply nodes and test nodes from input file
         estDict: Dictionary of estimation results, with the following keys:
-                impEst:    Maximizers of posterior likelihood for importer echelon
-                outEst:    Maximizers of posterior likelihood for outlet echelon
+                SNest:    Maximizers of posterior likelihood for supply node echelon
+                TNest:    Maximizers of posterior likelihood for test node echelon
                 90upper_imp, 90lower_imp, 95upper_imp, 95lower_imp,
                 99upper_imp, 99lower_imp, 90upper_out, 90lower_out,
                 95upper_out, 95lower_out, 99upper_out, 99lower_out:
                             Upper and lower values for the 90%, 95%, and 99%
-                            intervals on importer and outlet aberration rates
+                            intervals on supply node and test node SFP rates
 
         postSamples: List of posterior samples, generated using the desired
         sampler
     """
     # Check that all necessary keys are present
-    if not all(key in dataTblDict for key in ['type', 'dataTbl', 'transMat',
-                                              'outletNames', 'importerNames',
+    if not all(key in dataTblDict for key in ['type', 'dataTbl', 'Q',
+                                              'TNnames', 'SNnames',
                                               'diagSens', 'diagSpec',
                                               'numPostSamples']):
         print('The input dictionary does not contain all required information.' +
@@ -145,11 +145,11 @@ def runlogistigate(dataTblDict):
     
     logistigateDict.update({'type':dataTblDict['type'],
                      'dataTbl':dataTblDict['dataTbl'],
-                     'transMat':dataTblDict['transMat'],
-                     'outletNames':dataTblDict['outletNames'],
-                     'importerNames':dataTblDict['importerNames'],
-                     'outletNum':len(dataTblDict['outletNames']),
-                     'importerNum':len(dataTblDict['importerNames']),
+                     'Q':dataTblDict['Q'],
+                     'TNnames':dataTblDict['TNnames'],
+                     'SNnames':dataTblDict['SNnames'],
+                     'TNnum':len(dataTblDict['TNnames']),
+                     'SNnum':len(dataTblDict['SNnames']),
                      'diagSens':dataTblDict['diagSens'],
                      'diagSpec':dataTblDict['diagSpec'],
                      'N':dataTblDict['N'], 'Y':dataTblDict['Y'],
@@ -165,7 +165,7 @@ def runlogistigate(dataTblDict):
 def Example1():
     '''
     This example provides a illustration of logistigate's capabilities,
-    conducted on a small system of 3 importers and 12 outlets.
+    conducted on a small system of 3 supply nodes and 12 test nodes.
     '''
     
     dataTblDict = util.testresultsfiletotable('../examples/data/example1bTestData.csv')
@@ -271,7 +271,7 @@ def Example1e():
 
 def Example2():
     '''
-    Same test data as example 1, but with unknown importers (i.e., Untracked).
+    Same test data as example 1, but with unknown supply nodes (i.e., Untracked).
     Instead, the transition matrix is known.
     '''
     dataTblDict = util.testresultsfiletotable('examples/data/example2TestData.csv',
@@ -288,46 +288,4 @@ def Example2():
     util.plotPostSamples(logistigateDict, plotType='int90')
     #util.printEstimates(logistigateDict)
     
-    return
-
-def identifyingnonidentifiableexample():
-    '''
-    Aim is to identify an example where the posterior retains mass away from theta^* as n-->inf
-    '''
-    dict = util.generateRandDataDict(numImp=2, numOut=3, diagSens=0.90,
-                         diagSpec=0.99, numSamples=500,
-                         dataType='Tracked', transMatLambda=1.1,
-                         randSeed=5, trueRates=[0.3,0.6,0.2,0.4,0.7])
-    MCMCdict = {'MCMCtype': 'NUTS', 'Madapt': 5000, 'delta': 0.4}
-    dict.update({'numPostSamples': 1000, 'prior': methods.prior_normal(), 'MCMCdict': MCMCdict})
-    lgDict = runlogistigate(dict)
-    util.plotPostSamples(lgDict)
-
-    dict = util.generateRandDataDict(numImp=2, numOut=3, diagSens=0.90,
-                                     diagSpec=0.99, numSamples=5000,
-                                     dataType='Tracked', transMatLambda=1.1,
-                                     randSeed=5, trueRates=[0.3, 0.6, 0.2, 0.4, 0.7])
-    MCMCdict = {'MCMCtype': 'NUTS', 'Madapt': 5000, 'delta': 0.4}
-    dict.update({'numPostSamples': 1000, 'prior': methods.prior_normal(), 'MCMCdict': MCMCdict})
-    lgDict = runlogistigate(dict)
-    util.plotPostSamples(lgDict)
-
-    dict = util.generateRandDataDict(numImp=2, numOut=3, diagSens=0.90,
-                                     diagSpec=0.99, numSamples=50000,
-                                     dataType='Tracked', transMatLambda=1.1,
-                                     randSeed=5, trueRates=[0.3, 0.6, 0.2, 0.4, 0.7])
-    MCMCdict = {'MCMCtype': 'NUTS', 'Madapt': 5000, 'delta': 0.4}
-    dict.update({'numPostSamples': 1000, 'prior': methods.prior_normal(), 'MCMCdict': MCMCdict})
-    lgDict = runlogistigate(dict)
-    util.plotPostSamples(lgDict)
-
-    dict = util.generateRandDataDict(numImp=2, numOut=3, diagSens=0.90,
-                                     diagSpec=0.99, numSamples=500000,
-                                     dataType='Tracked', transMatLambda=1.1,
-                                     randSeed=5, trueRates=[0.3, 0.6, 0.2, 0.4, 0.7])
-    MCMCdict = {'MCMCtype': 'NUTS', 'Madapt': 5000, 'delta': 0.4}
-    dict.update({'numPostSamples': 1000, 'prior': methods.prior_normal(), 'MCMCdict': MCMCdict})
-    lgDict = runlogistigate(dict)
-    util.plotPostSamples(lgDict)
-
     return

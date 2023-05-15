@@ -57,7 +57,7 @@ def build_weights_matrix(truthdraws, datadraws, allocarr, datadict):
     Build a binomial likelihood weights matrix; datadraws generates data according to parameters in datadict and the
     sampling plan reflected in allocarr; weights for these data are then calculated for each member of truthdraws
     """
-    (numTN, numSN), Q, s, r = datadict['N'].shape, datadict['transMat'], datadict['diagSens'], datadict['diagSpec']
+    (numTN, numSN), Q, s, r = datadict['N'].shape, datadict['Q'], datadict['diagSens'], datadict['diagSpec']
     numtruthdraws, numdatadraws = truthdraws.shape[0], datadraws.shape[0]
     zMatTruth = util.zProbTrVec(numSN, truthdraws, sens=s, spec=r) # Matrix of SFP probabilities, as a function of SFP rate draws
     zMatData = util.zProbTrVec(numSN, datadraws, sens=s, spec=r) # Probs. using data draws

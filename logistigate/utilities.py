@@ -23,6 +23,7 @@ def writeObjToPickle(obj, objname='pickleObject'):
     pickle.dump(obj, open(outputFileName, 'wb'))
     return
 
+
 #############################
 #### INFERENCE UTILITIES ####
 #############################
@@ -30,7 +31,7 @@ def writeObjToPickle(obj, objname='pickleObject'):
 def testresultsfiletotable(testDataFile, transitionMatrixFile='', csvName=True):
     """
     Takes a CSV file name as input and returns a usable Python dictionary of
-    testing results, in addition to lists of the outlet names and importer names,
+    testing results, in addition to lists of the test node names and supply node names,
     depending on whether tracked or untracked data was entered.
 
     INPUTS
@@ -40,21 +41,21 @@ def testresultsfiletotable(testDataFile, transitionMatrixFile='', csvName=True):
         testresultsfiletotable() is called. There should not be a header row.
         Each row of the file should signify a single sample point.
         For tracked data, each row should have three columns, as follows:
-            column 1: string; Name of outlet/lower echelon entity
-            column 2: string; Name of importer/upper echelon entity
+            column 1: string; Name of test node entity
+            column 2: string; Name of supply node entity
             column 3: integer; 0 or 1, where 1 signifies SFP detection
         For untracked data, each row should have two columns, as follows:
-            column 1: string; Name of outlet/lower echelon entity
+            column 1: string; Name of test node entity
             column 2: integer; 0 or 1, where 1 signifies SFP detection
     transitionMatrixFile: CSV file name string or Python list (if csvName=True)
         If using tracked data, leave transitionMatrixFile=''.
         CSV file must be located within the current working directory when
         testresultsfiletotable() is called. Columns and rows should be named,
-        with rows correspodning to the outlets (lower echelon), and columns
-        corresponding to the importers (upper echelon). It will be checked
+        with rows correspodning to the test nodes (lower echelon), and columns
+        corresponding to the supply nodes (upper echelon). It will be checked
         that no entity occurring in testDataFile is not accounted for in
-        transitionMatrixFile. Each outlet's row should correspond to the
-        likelihood of procurement from the corresponding importer, and should
+        transitionMatrixFile. Each test node's row should correspond to the
+        likelihood of procurement from the corresponding supply node, and should
         sum to 1. No negative values are permitted.
     csvName: Boolean indicating whether the inputs are CSV file names (True) or Python lists (False)
 
@@ -62,12 +63,12 @@ def testresultsfiletotable(testDataFile, transitionMatrixFile='', csvName=True):
     -------
     Returns dataTblDict with the following keys:
         dataTbl: Python list of testing results, with each entry organized as
-            [OUTLETNAME, IMPORTERNAME, TESTRESULT] (for tracked data) or
-            [OUTLETNAME, TESTRESULT] (for untracked data)
+            [TNNAME, SNNAME, TESTRESULT] (for tracked data) or
+            [TNNAME, TESTRESULT] (for untracked data)
         type: 'Tracked' or 'Untracked'
-        transMat: Numpy matrix of the transition like
-        outletNames: Sorted list of unique outlet names
-        importerNames: Sorted list of unique importer names
+        Q: Numpy matrix of the sourcing probability matrix
+        TNnames: Sorted list of unique test node names
+        SNnames: Sorted list of unique supply node names
     """
     dataTblDict = {}
     if csvName == True:
@@ -85,23 +86,23 @@ def testresultsfiletotable(testDataFile, transitionMatrixFile='', csvName=True):
         except ValueError:
             print('There seems to be something wrong with your data. Check that' + \
                   ' your CSV file is correctly formatted, with each row having' + \
-                  ' entries [OUTLETNAME,IMPORTERNAME,TESTRESULT], and that the' + \
+                  ' entries [TNNAME,SNNAME,TESTRESULT], and that the' + \
                   ' test results are all either 0 or 1.')
             return
     else: # csvName is False
         dataTbl = testDataFile
 
-    # Grab list of unique outlet and importer names
-    outletNames = []
-    importerNames = []
+    # Grab list of unique test node and supply node names
+    TNnames = []
+    SNnames = []
     for row in dataTbl:
-        if row[0] not in outletNames:
-            outletNames.append(row[0])
+        if row[0] not in TNnames:
+            TNnames.append(row[0])
         if transitionMatrixFile == '':
-            if row[1] not in importerNames:
-                importerNames.append(row[1])
-    outletNames.sort()
-    importerNames.sort()
+            if row[1] not in SNnames:
+                SNnames.append(row[1])
+    TNnames.sort()
+    SNnames.sort()
 
     if not transitionMatrixFile == '':
         if csvName == True:
@@ -112,46 +113,47 @@ def testresultsfiletotable(testDataFile, transitionMatrixFile='', csvName=True):
                     counter = 0
                     for row in reader:
                         if counter == 0:
-                            importerNames = row[1:]
-                            transitionMatrix = np.zeros(shape=(len(outletNames), len(importerNames)))
+                            SNnames = row[1:]
+                            transitionMatrix = np.zeros(shape=(len(TNnames), len(SNnames)))
                         else:
                             transitionMatrix[counter - 1] = np.array([float(row[i]) \
-                                                                      for i in range(1, len(importerNames) + 1)])
+                                                                      for i in range(1, len(SNnames) + 1)])
                         counter += 1
-                dataTblDict['transMat'] = transitionMatrix
+                dataTblDict['Q'] = transitionMatrix
             except FileNotFoundError:
                 print('Unable to locate file ' + str(testDataFile) + ' in the current directory.' + \
                       ' Make sure the directory is set to the location of the CSV file.')
                 return
             except ValueError:
-                print('There seems to be something wrong with your transition matrix. Check that' + \
+                print('There seems to be something wrong with your sourcing matrix. Check that' + \
                       ' your CSV file is correctly formatted, with only values between' + \
                       ' 0 and 1 included.')
                 return
         else: # csvName is False
             transitionMatrix = transitionMatrixFile
-            dataTblDict['transMat'] = transitionMatrix
+            dataTblDict['Q'] = transitionMatrix
     else:
         dataTblDict['type'] = 'Tracked'
-        dataTblDict['transMat'] = np.zeros(shape=(len(outletNames), len(importerNames)))
+        dataTblDict['Q'] = np.zeros(shape=(len(TNnames), len(SNnames)))
 
     dataTblDict['dataTbl'] = dataTbl
-    dataTblDict['outletNames'] = outletNames
-    dataTblDict['importerNames'] = importerNames
+    dataTblDict['TNnames'] = TNnames
+    dataTblDict['SNnames'] = SNnames
 
     # Generate necessary Tracked/Untracked matrices necessary for different methods
     dataTblDict = GetVectorForms(dataTblDict)
 
     return dataTblDict
 
+
 def GetVectorForms(dataTblDict):
     """
     Takes a dictionary that has a list of testing results and appends the N,Y
     matrices/vectors necessary for the Tracked/Untracked methods.
     For Tracked, element (i,j) of N/Y signifies the number of samples/SFPs
-    collected from each (outlet i, importer j) track.
+    collected from each (test node i, supply node j) track.
     For Untracked, element i of N/Y signifies the number of samples/SFPs
-    collected from each outlet i.
+    collected from each test node i.
 
     INPUTS
     ------
@@ -160,52 +162,52 @@ def GetVectorForms(dataTblDict):
             'Tracked' or 'Untracked'
         dataTbl: list
             If Tracked, each list entry should have three elements, as follows:
-                Element 1: string; Name of outlet/lower echelon entity
-                Element 2: string; Name of importer/upper echelon entity
+                Element 1: string; Name of test node/lower echelon entity
+                Element 2: string; Name of supply node/upper echelon entity
                 Element 3: integer; 0 or 1, where 1 signifies SFPs detection
             If Untracked, each list entry should have two elements, as follows:
-                Element 1: string; Name of outlet/lower echelon entity
+                Element 1: string; Name of test node/lower echelon entity
                 Element 2: integer; 0 or 1, where 1 signifies SFPs detection
-        outletNames/importerNames: list of strings
+        TNnames/SNnames: list of strings
 
     OUTPUTS
     -------
     Appends the following keys to dataTblDict:
         N: Numpy matrix/vector where element (i,j)/i corresponds to the number
-           of tests done from the (outlet i, importer j) path/from outlet i,
+           of tests done from the (test node i, supply node j) path/from test node i,
            for Tracked/Untracked
         Y: Numpy matrix/vector where element (i,j)/i corresponds to the number
-           of test positives from the (outlet i, importer j) path/from outlet i,
+           of test positives from the (test node i, supply node j) path/from test node i,
            for Tracked/Untracked
     """
-    if not all(key in dataTblDict for key in ['type', 'dataTbl', 'outletNames',
-                                              'importerNames']):
+    if not all(key in dataTblDict for key in ['type', 'dataTbl', 'TNnames', 'SNnames']):
         print('The input dictionary does not contain all required information.' +
               ' Please check and try again.')
         return {}
 
-    outletNames = dataTblDict['outletNames']
-    importerNames = dataTblDict['importerNames']
+    TNnames = dataTblDict['TNnames']
+    SNnames = dataTblDict['SNnames']
     dataTbl = dataTblDict['dataTbl']
     # Initialize N and Y
     if dataTblDict['type'] == 'Tracked':
-        N = np.zeros(shape=(len(outletNames), len(importerNames)))
-        Y = np.zeros(shape=(len(outletNames), len(importerNames)))
+        N = np.zeros(shape=(len(TNnames), len(SNnames)))
+        Y = np.zeros(shape=(len(TNnames), len(SNnames)))
         for row in dataTbl:
-            N[outletNames.index(row[0]), importerNames.index(row[1])] += 1
-            Y[outletNames.index(row[0]), importerNames.index(row[1])] += row[2]
+            N[TNnames.index(row[0]), SNnames.index(row[1])] += 1
+            Y[TNnames.index(row[0]), SNnames.index(row[1])] += row[2]
     elif dataTblDict['type'] == 'Untracked':
-        N = np.zeros(shape=(len(outletNames)))
-        Y = np.zeros(shape=(len(outletNames)))
+        N = np.zeros(shape=(len(TNnames)))
+        Y = np.zeros(shape=(len(TNnames)))
         for row in dataTbl:
-            N[outletNames.index(row[0])] += 1
-            Y[outletNames.index(row[0])] += row[1]
+            N[TNnames.index(row[0])] += 1
+            Y[TNnames.index(row[0])] += row[1]
 
     dataTblDict.update({'N': N, 'Y': Y})
 
     return dataTblDict
 
-def generateRandSystem(numImp=20, numOut=100, sourcingMatLambda=1.1, randSeed=-1,trueRates=[]):
+
+def generateRandSystem(SNnum=20, TNnum=100, sourcingMatLambda=1.1, randSeed=-1,trueRates=[]):
     '''
     Randomly generates a two-echelon system with the entered characteristics.
 
@@ -213,8 +215,8 @@ def generateRandSystem(numImp=20, numOut=100, sourcingMatLambda=1.1, randSeed=-1
     ------
     Takes the following arguments:
         numImp, numOut: integer
-            Number of importers and outlets
-        transMatLambda: float
+            Number of supply and test nodes
+        sourcingMatLambda: float
             The parameter for the Pareto distribution that generates the sourcing matrix
         randSeed: integer
         trueRates: float
@@ -224,60 +226,60 @@ def generateRandSystem(numImp=20, numOut=100, sourcingMatLambda=1.1, randSeed=-1
     OUTPUTS
     -------
     Returns systemDict dictionary with the following keys:
-        outletNames/importerNames: list of strings
-        sourcingMat: Numpy matrix
-            Matrix of sourcing probabilities between importers and outlets
+        TNnames/SNnames: list of strings
+        Q: Numpy matrix
+            Matrix of sourcing probabilities between test and supply nodes
         trueRates: list
-            List of true SFP manifestation rates, in [importers, outlets] form
+            List of true SFP manifestation rates, in [supply nodes, test nodes] form
     '''
     systemDict = {}
 
-    impNames = ['Importer ' + str(i + 1) for i in range(numImp)]
-    outNames = ['Outlet ' + str(i + 1) for i in range(numOut)]
+    SNnames = ['SN ' + str(i + 1) for i in range(SNnum)]
+    TNnames = ['TN ' + str(i + 1) for i in range(TNnum)]
 
     # Generate random true SFP rates
     if trueRates == []:
-        trueRates = np.zeros(numImp + numOut)  # importers first, outlets second
+        trueRates = np.zeros(SNnum + TNnum)  # supply nodes first, test nodes second
         if randSeed >= 0:
             random.seed(randSeed)
-        trueRates[:numImp] = [random.betavariate(1, 7) for i in range(numImp)]
-        trueRates[numImp:] = [random.betavariate(1, 7) for i in range(numOut)]
+        trueRates[:SNnum] = [random.betavariate(1, 7) for i in range(SNnum)]
+        trueRates[SNnum:] = [random.betavariate(1, 7) for i in range(TNnum)]
 
-    # Generate random transition matrix
-    sourcingMat = np.zeros(shape=(numOut, numImp))
+    # Generate random sourcing matrix
+    sourcingMat = np.zeros(shape=(TNnum, SNnum))
     if randSeed >= 0:
         random.seed(randSeed + 1) # Distinguish this seed from the one generating the true SFP rates
-    for outInd in range(numOut):
-        rowRands = [random.paretovariate(sourcingMatLambda) for i in range(numImp)]
-        if numImp > 10:  # Only keep 10 randomly chosen importers, if numImp > 10
-            rowRands[10:] = [0.0 for i in range(numImp - 10)]
+    for TNind in range(TNnum):
+        rowRands = [random.paretovariate(sourcingMatLambda) for i in range(SNnum)]
+        if SNnum > 10:  # Only keep 10 randomly chosen supply node, if numImp > 10
+            rowRands[10:] = [0.0 for i in range(SNnum - 10)]
             random.shuffle(rowRands)
-
-        normalizedRands = [rowRands[i] / sum(rowRands) for i in range(numImp)]
-        # only keep transition probabilities above 2%
+        normalizedRands = [rowRands[i] / sum(rowRands) for i in range(SNnum)]
+        # only keep sourcing probabilities above 2%
         # normalizedRands = [normalizedRands[i] if normalizedRands[i]>0.02 else 0.0 for i in range(numImp)]
 
         # normalizedRands = [normalizedRands[i] / sum(normalizedRands) for i in range(numImp)]
-        sourcingMat[outInd, :] = normalizedRands
+        sourcingMat[TNind, :] = normalizedRands
 
     # Update dictionary before returning
-    systemDict.update({'outletNames': outNames, 'importerNames': impNames,
-                        'sourcingMat': sourcingMat, 'trueRates': trueRates})
+    systemDict.update({'TNnames': TNnames, 'SNnames': SNnames,
+                        'Q': sourcingMat, 'trueRates': trueRates})
 
     return systemDict
 
-def generateRandDataDict(numImp=5, numOut=50, diagSens=0.90, diagSpec=0.99, numSamples=50 * 20, dataType='Tracked',
-                         transMatLambda=1.1, randSeed=-1,trueRates=[]):
+
+def generateRandDataDict(SNnum=5, TNnum=50, diagSens=0.90, diagSpec=0.99, numSamples=50 * 20, dataType='Tracked',
+                         sourcingMatLambda=1.1, randSeed=-1,trueRates=[]):
     """
     Randomly generates an example input data dictionary for the entered inputs.
     SFP rates are generated according to a beta(2,9) distribution, while
-    transition rates are distributed according to a scaled Pareto(1.1) distribution.
+    sourcing rates are distributed according to a scaled Pareto(1.1) distribution.
 
     INPUTS
     ------
     Takes the following arguments:
-        numImp, numOut: integer
-            Number of importers and outlets
+        TNnum, SNnum: integer
+            Number of test and supply nodes
         diagSens, diagSpec: float
             Diagnostic sensitivity, specificity
         numSamples: integer
@@ -290,50 +292,47 @@ def generateRandDataDict(numImp=5, numOut=50, diagSens=0.90, diagSpec=0.99, numS
     Returns dataTblDict dictionary with the following keys:
         dataTbl: list
             If Tracked, each list entry should have three elements, as follows:
-                Element 1: string; Name of outlet/lower echelon entity
-                Element 2: string; Name of importer/upper echelon entity
+                Element 1: string; Name of test node entity
+                Element 2: string; Name of supply node entity
                 Element 3: integer; 0 or 1, where 1 signifies SFP detection
             If Untracked, each list entry should have two elements, as follows:
-                Element 1: string; Name of outlet/lower echelon entity
+                Element 1: string; Name of test node entity
                 Element 2: integer; 0 or 1, where 1 signifies SFP detection
-        outletNames/importerNames: list of strings
-        transMat: Numpy matrix
-            Matrix of transition probabilities between importers and outlets
+        TNnames/SNnames: list of strings
+        Q: Numpy matrix
+            Matrix of sourcing probabilities between test and supply nodes
         diagSens, diagSpec, type
             From inputs, where 'type' = 'dataType'
     """
     dataTblDict = {}
 
-    impNames = ['Importer ' + str(i + 1) for i in range(numImp)]
-    outNames = ['Outlet ' + str(i + 1) for i in range(numOut)]
+    SNnames = ['Supply Node ' + str(i + 1) for i in range(SNnum)]
+    TNnames = ['Test Node ' + str(i + 1) for i in range(TNnum)]
 
     # Generate random true SFP rates
     if trueRates == []:
-        trueRates = np.zeros(numImp + numOut)  # importers first, outlets second
+        trueRates = np.zeros(SNnum + TNnum)  # supply nodes first, test nodes second
         if randSeed >= 0:
             random.seed(randSeed)
-        trueRates[:numImp] = [random.betavariate(1, 9) for i in range(numImp)]
-        trueRates[numImp:] = [random.betavariate(1, 9) for i in range(numOut)]
+        trueRates[:SNnum] = [random.betavariate(1, 9) for i in range(SNnum)]
+        trueRates[SNnum:] = [random.betavariate(1, 9) for i in range(TNnum)]
 
-    # Generate random transition matrix
-    transMat = np.zeros(shape=(numOut, numImp))
+    # Generate random sourcing matrix
+    sourcMat = np.zeros(shape=(TNnum, SNnum))
     if randSeed >= 0:
         random.seed(randSeed + 1)
-    for outInd in range(numOut):
-        rowRands = [random.paretovariate(transMatLambda) for i in range(numImp)]
-        if numImp > 10:  # Only keep 10 randomly chosen importers, if numImp > 10
-            rowRands[10:] = [0.0 for i in range(numImp - 10)]
+    for tnInd in range(TNnum):
+        rowRands = [random.paretovariate(sourcingMatLambda) for i in range(SNnum)]
+        if SNnum > 10:  # Only keep 10 randomly chosen supply node, if numImp > 10
+            rowRands[10:] = [0.0 for i in range(SNnum - 10)]
             random.shuffle(rowRands)
 
-        normalizedRands = [rowRands[i] / sum(rowRands) for i in range(numImp)]
-        # only keep transition probabilities above 2%
+        normalizedRands = [rowRands[i] / sum(rowRands) for i in range(SNnum)]
+        # only keep sourcing probabilities above 2%
         # normalizedRands = [normalizedRands[i] if normalizedRands[i]>0.02 else 0.0 for i in range(numImp)]
 
         # normalizedRands = [normalizedRands[i] / sum(normalizedRands) for i in range(numImp)]
-        transMat[outInd, :] = normalizedRands
-
-    # np.linalg.det(transMat.T @ transMat) / numOut
-    # 1.297 for n=50
+        sourcMat[tnInd, :] = normalizedRands
 
     # Generate testing data    
     testingDataList = []
@@ -342,40 +341,41 @@ def generateRandDataDict(numImp=5, numOut=50, diagSens=0.90, diagSpec=0.99, numS
             random.seed(randSeed + 2)
             np.random.seed(randSeed)
         for currSamp in range(numSamples):
-            currOutlet = random.sample(outNames, 1)[0]
-            currImporter = random.choices(impNames, weights=transMat[outNames.index(currOutlet)], k=1)[0]
-            currOutRate = trueRates[numImp + outNames.index(currOutlet)]
-            currImpRate = trueRates[impNames.index(currImporter)]
-            realRate = currOutRate + currImpRate - currOutRate * currImpRate
+            currTN = random.sample(TNnames, 1)[0]
+            currSN = random.choices(SNnames, weights=sourcMat[TNnames.index(currTN)], k=1)[0]
+            currTNrate = trueRates[SNnum + TNnames.index(currTN)]
+            currSNrate = trueRates[SNnames.index(currSN)]
+            realRate = currTNrate + currSNrate - currTNrate * currSNrate
             realResult = np.random.binomial(1, p=realRate)
             if realResult == 1:
                 result = np.random.binomial(1, p=diagSens)
             if realResult == 0:
                 result = np.random.binomial(1, p=1 - diagSpec)
-            testingDataList.append([currOutlet, currImporter, result])
+            testingDataList.append([currTN, currSN, result])
     elif dataType == 'Untracked':
         if randSeed >= 0:
             random.seed(randSeed + 3)
             np.random.seed(randSeed)
         for currSamp in range(numSamples):
-            currOutlet = random.sample(outNames, 1)[0]
-            currImporter = random.choices(impNames, weights=transMat[outNames.index(currOutlet)], k=1)[0]
-            currOutRate = trueRates[numImp + outNames.index(currOutlet)]
-            currImpRate = trueRates[impNames.index(currImporter)]
-            realRate = currOutRate + currImpRate - currOutRate * currImpRate
+            currTN = random.sample(TNnames, 1)[0]
+            currSN = random.choices(SNnames, weights=sourcMat[TNnames.index(currTN)], k=1)[0]
+            currTNrate = trueRates[SNnum + TNnames.index(currTN)]
+            currSNrate = trueRates[SNnames.index(currSN)]
+            realRate = currTNrate + currSNrate - currTNrate * currSNrate
             realResult = np.random.binomial(1, p=realRate)
             if realResult == 1:
                 result = np.random.binomial(1, p=diagSens)
             if realResult == 0:
                 result = np.random.binomial(1, p=1 - diagSpec)
-            testingDataList.append([currOutlet, result])
+            testingDataList.append([currTN, result])
 
-    dataTblDict.update({'outletNames': outNames, 'importerNames': impNames,
+    dataTblDict.update({'TNnames': TNnames, 'SNnames': SNnames, 'TNnum': TNnum, 'SNnum': SNnum,
                         'diagSens': diagSens, 'diagSpec': diagSpec, 'type': dataType,
-                        'dataTbl': testingDataList, 'transMat': transMat,
+                        'dataTbl': testingDataList, 'Q': sourcMat,
                         'trueRates': trueRates})
 
     return dataTblDict
+
 
 def initDataDict(N, Y, diagSens=1., diagSpec=1., dataType='Tracked', trueRates=[], Q=[]):
     """
@@ -384,8 +384,8 @@ def initDataDict(N, Y, diagSens=1., diagSpec=1., dataType='Tracked', trueRates=[
     INPUTS
     ------
     Takes the following arguments:
-        numImp, numOut: integer
-            Number of importers and outlets
+        TNnum, SNnum: integer
+            Number of test and supply nodes
         diagSens, diagSpec: float
             Diagnostic sensitivity, specificity
         numSamples: integer
@@ -398,39 +398,41 @@ def initDataDict(N, Y, diagSens=1., diagSpec=1., dataType='Tracked', trueRates=[
     Returns dataTblDict dictionary with the following keys:
         dataTbl: list
             If Tracked, each list entry should have three elements, as follows:
-                Element 1: string; Name of outlet/lower echelon entity
-                Element 2: string; Name of importer/upper echelon entity
+                Element 1: string; Name of test node entity
+                Element 2: string; Name of supply node entity
                 Element 3: integer; 0 or 1, where 1 signifies SFP detection
             If Untracked, each list entry should have two elements, as follows:
-                Element 1: string; Name of outlet/lower echelon entity
+                Element 1: string; Name of test node entity
                 Element 2: integer; 0 or 1, where 1 signifies SFP detection
-        outletNames/importerNames: list of strings
-        transMat: Numpy matrix
-            Matrix of transition probabilities between importers and outlets
+        TNnames/SNnames: list of strings
+        Q: Numpy matrix
+            Matrix of sourcing probabilities between SNs and TNs
         diagSens, diagSpec, type
             From inputs, where 'type' = 'dataType'
     """
     dataTblDict = {}
 
-    (numTN, numSN) = N.shape
+    (TNnum, SNnum) = N.shape
 
-    impNames = ['Supply Node ' + str(i + 1) for i in range(numSN)]
-    outNames = ['Test Node ' + str(i + 1) for i in range(numTN)]
+    SNnames = ['Supply Node ' + str(i + 1) for i in range(SNnum)]
+    TNnames = ['Test Node ' + str(i + 1) for i in range(TNnum)]
 
     # Generate random true SFP rates
     if trueRates == []:
-        trueRates = np.zeros(numSN + numTN)  # importers first, outlets second
+        trueRates = np.zeros(SNnum + TNnum)  # SNs first, TNs second
 
-    # Generate random transition matrix
+    # Generate random sourcing matrix
     if len(Q) < 1:
-        transMat = np.zeros(shape=(numTN, numSN))
+        sourcMat = np.zeros(shape=(TNnum, SNnum))
     else:
-        transMat = Q.copy()
+        sourcMat = Q.copy()
 
-    dataTblDict.update({'N': N, 'Y': Y, 'outletNames': outNames, 'importerNames': impNames, 'diagSens': diagSens,
-                        'diagSpec': diagSpec, 'type': dataType, 'transMat': transMat, 'trueRates': trueRates})
+    dataTblDict.update({'N': N, 'Y': Y, 'TNnames': TNnames, 'SNnames': SNnames, 'TNnum': TNnum, 'SNnum': SNnum,
+                        'diagSens': diagSens, 'diagSpec': diagSpec, 'type': dataType, 'Q': sourcMat,
+                        'trueRates': trueRates})
 
     return dataTblDict
+
 
 def scorePostSamplesIntervals(logistigateDict):
     """
@@ -439,7 +441,7 @@ def scorePostSamplesIntervals(logistigateDict):
     INPUTS
     ------
     logistigateDict with the following keys:
-        postSamples: List of posterior sample lists, with importer values entered first.
+        postSamples: List of posterior sample lists, with supply node values entered first.
         trueRates:   List of true underlying poor-quality rates
 
     OUTPUTS
@@ -455,7 +457,7 @@ def scorePostSamplesIntervals(logistigateDict):
 
     trueRates = logistigateDict['trueRates']
     samples = logistigateDict['postSamples']
-    # trueRates and samples need to be ordered with importers first
+    # trueRates and samples need to be ordered with supply nodes first
     numInInt90 = 0
     numInInt95 = 0
     numInInt99 = 0
@@ -495,25 +497,26 @@ def scorePostSamplesIntervals(logistigateDict):
 
     return logistigateDict
 
-def plotPostSamples(logistigateDict, plotType='hist', importerIndsSubset=[],
-                    outletIndsSubset=[], subTitleStr=['',''], sortBy = 'midpoint'):
+
+def plotPostSamples(logistigateDict, plotType='hist', SNindsSubset=[],
+                    TNindsSubset=[], subTitleStr=['',''], sortBy = 'midpoint'):
     '''
-    Plots the distribution of posterior SFP rate samples, with importer
-    and outlet distributions plotted distinctly.
+    Plots the distribution of posterior SFP rate samples, with supply node
+    and test node distributions plotted distinctly.
     
     INPUTS
     ------
     logistigateDict with the following keys:
-        postSamples: List of posterior sample lists, with importer values entered first.
-        numImp:    Number of importers/upper echelon entities
-        numOut:    Number of outlets/lower echelon entities
+        postSamples: List of posterior sample lists, with supply node values entered first.
+        numImp:    Number of supply nodes
+        numOut:    Number of test nodes
     plotType string from the following options:
-        'hist': histograms for importer entities and outlet entities
-        'int90'/'int95'/'int99': plot of 90%/95%/99% confidence intervals with importers
-    importerIndsSubset, outletIndsSubset:
+        'hist': histograms for supply nodes and test nodes
+        'int90'/'int95'/'int99': plot of 90%/95%/99% confidence intervals with supply nodes
+    SNindsSubset, TNindsSubset:
         List of a subset of entities to be plotted
     subTitleStr:
-        List of strings to be added to plot titles for importers, outlets
+        List of strings to be added to plot titles for supply nodes, test nodes
         respectively
     sortBy:
         'lower'/'upper'/'midpoint': Whether to sort interval plots by their lower or upper interval values
@@ -521,17 +524,17 @@ def plotPostSamples(logistigateDict, plotType='hist', importerIndsSubset=[],
     -------
     No values are returned
     '''
-    if not all(key in logistigateDict for key in ['importerNum', 'outletNum',
+    if not all(key in logistigateDict for key in ['SNnum', 'TNnum',
                                                   'postSamples' ]):
         print('The input dictionary does not contain all required information.' +
               ' Please check and try again.')
         return {}
-    numImp, numOut = logistigateDict['importerNum'], logistigateDict['outletNum']
+    SNnum, TNnum = logistigateDict['SNnum'], logistigateDict['TNnum']
 
     if plotType == 'hist': # Plot histograms
-        if importerIndsSubset == []:
-            importerIndsSubset = range(numImp)
-        for i in importerIndsSubset:
+        if SNindsSubset == []:
+            SNindsSubset = range(SNnum)
+        for i in SNindsSubset:
             plt.hist(logistigateDict['postSamples'][:, i], alpha=0.2)
         plt.xlim([0,1])
         plt.title('Supply Nodes'+subTitleStr[0], fontdict={'fontsize': 18})
@@ -540,10 +543,10 @@ def plotPostSamples(logistigateDict, plotType='hist', importerIndsSubset=[],
         plt.show()
         plt.close()
 
-        if outletIndsSubset == []:
-            outletIndsSubset = range(numOut)
-        for i in outletIndsSubset:
-            plt.hist(logistigateDict['postSamples'][:, numImp + i], alpha=0.2)
+        if TNindsSubset == []:
+            TNindsSubset = range(TNnum)
+        for i in TNindsSubset:
+            plt.hist(logistigateDict['postSamples'][:, SNnum + i], alpha=0.2)
         plt.xlim([0,1])
         plt.title('Test Nodes'+subTitleStr[1], fontdict={'fontsize': 18})
         plt.xlabel('SFP rate',fontdict={'fontsize': 14})
@@ -561,26 +564,26 @@ def plotPostSamples(logistigateDict, plotType='hist', importerIndsSubset=[],
             lowerQuant, upperQuant = 0.005, 0.995
             intStr = '99'
         priorSamps = logistigateDict['prior'].expitrand(5000)
-        priorLower, priorUpper = np.quantile(priorSamps,lowerQuant), np.quantile(priorSamps,upperQuant)
+        priorLower, priorUpper = np.quantile(priorSamps, lowerQuant), np.quantile(priorSamps, upperQuant)
 
-        if importerIndsSubset == []:
-            importerIndsSubset = range(numImp)
-            impNames = [logistigateDict['importerNames'][i] for i in importerIndsSubset]
+        if SNindsSubset == []:
+            SNindsSubset = range(SNnum)
+            SNnames = [logistigateDict['SNnames'][i] for i in SNindsSubset]
         else:
-            impNames = [logistigateDict['importerNames'][i] for i in importerIndsSubset]
-        impLowers = [np.quantile(logistigateDict['postSamples'][:, l], lowerQuant) for l in importerIndsSubset]
-        impUppers = [np.quantile(logistigateDict['postSamples'][:, l], upperQuant) for l in importerIndsSubset]
+            SNnames = [logistigateDict['SNnames'][i] for i in SNindsSubset]
+        impLowers = [np.quantile(logistigateDict['postSamples'][:, l], lowerQuant) for l in SNindsSubset]
+        impUppers = [np.quantile(logistigateDict['postSamples'][:, l], upperQuant) for l in SNindsSubset]
         if sortBy == 'lower':
-            zippedList = zip(impLowers, impUppers, impNames)
+            zippedList = zip(impLowers, impUppers, SNnames)
         elif sortBy == 'upper':
-            zippedList = zip(impUppers, impLowers, impNames)
+            zippedList = zip(impUppers, impLowers, SNnames)
         elif sortBy == 'midpoint':
             midpoints = [impUppers[i] - (impUppers[i]-impLowers[i])/2 for i in range(len(impUppers))]
-            zippedList = zip(midpoints, impUppers, impLowers, impNames)
+            zippedList = zip(midpoints, impUppers, impLowers, SNnames)
         sorted_pairs = sorted(zippedList, reverse=True)
-        impNamesSorted = [tup[-1] for tup in sorted_pairs]
-        impNamesSorted.append('')
-        impNamesSorted.append('(Prior)')
+        SNnamesSorted = [tup[-1] for tup in sorted_pairs]
+        SNnamesSorted.append('')
+        SNnamesSorted.append('(Prior)')
         # Plot
         fig, (ax) = plt.subplots(figsize=(10, 10), ncols=1)
         if sortBy == 'lower':
@@ -595,9 +598,9 @@ def plotPostSamples(logistigateDict, plotType='hist', importerIndsSubset=[],
             sorted_pairs.append((np.nan,np.nan, np.nan, ' '))  # for spacing
             for _, upper, lower, name in sorted_pairs:
                 plt.plot((name, name), (lower, upper), 'o-', color='red')
-        plt.plot((impNamesSorted[-1], impNamesSorted[-1]), (priorLower, priorUpper), 'o--', color='gray')
+        plt.plot((SNnamesSorted[-1], SNnamesSorted[-1]), (priorLower, priorUpper), 'o--', color='gray')
         plt.ylim([0,1])
-        plt.xticks(range(len(impNamesSorted)),impNamesSorted,rotation=90)
+        plt.xticks(range(len(SNnamesSorted)),SNnamesSorted,rotation=90)
         plt.title('Supply Nodes - ' + intStr + '% Intervals'+subTitleStr[0], fontdict={'fontsize': 18, 'fontname':'Trebuchet MS'})
         plt.xlabel('Supply Node Name', fontdict={'fontsize': 14,'fontname':'Trebuchet MS'})
         plt.ylabel('Interval value', fontdict={'fontsize': 14, 'fontname':'Trebuchet MS'})
@@ -608,24 +611,24 @@ def plotPostSamples(logistigateDict, plotType='hist', importerIndsSubset=[],
         plt.show()
         plt.close()
 
-        if outletIndsSubset == []:
-            outletIndsSubset = range(numOut)
-            outNames = [logistigateDict['outletNames'][i] for i in outletIndsSubset]
+        if TNindsSubset == []:
+            TNindsSubset = range(TNnum)
+            TNnames = [logistigateDict['TNnames'][i] for i in TNindsSubset]
         else:
-            outNames = [logistigateDict['outletNames'][i] for i in outletIndsSubset]
-        outLowers = [np.quantile(logistigateDict['postSamples'][:, numImp + l], lowerQuant) for l in outletIndsSubset]
-        outUppers = [np.quantile(logistigateDict['postSamples'][:, numImp + l], upperQuant) for l in outletIndsSubset]
+            TNnames = [logistigateDict['TNnames'][i] for i in TNindsSubset]
+        outLowers = [np.quantile(logistigateDict['postSamples'][:, SNnum + l], lowerQuant) for l in TNindsSubset]
+        outUppers = [np.quantile(logistigateDict['postSamples'][:, SNnum + l], upperQuant) for l in TNindsSubset]
         if sortBy == 'lower':
-            zippedList = zip(outLowers, outUppers, impNames)
+            zippedList = zip(outLowers, outUppers, SNnames)
         elif sortBy == 'upper':
-            zippedList = zip(outUppers, outLowers, impNames)
+            zippedList = zip(outUppers, outLowers, SNnames)
         elif sortBy == 'midpoint':
             midpoints = [outUppers[i] - (outUppers[i] - outLowers[i]) / 2 for i in range(len(outUppers))]
-            zippedList = zip(midpoints, outUppers, outLowers, outNames)
+            zippedList = zip(midpoints, outUppers, outLowers, TNnames)
         sorted_pairs = sorted(zippedList, reverse=True)
-        outNamesSorted = [tup[-1] for tup in sorted_pairs]
-        outNamesSorted.append('')
-        outNamesSorted.append('(Prior)')
+        TNnamesSorted = [tup[-1] for tup in sorted_pairs]
+        TNnamesSorted.append('')
+        TNnamesSorted.append('(Prior)')
         # Plot
         fig, (ax) = plt.subplots(figsize=(10, 10), ncols=1)
         if sortBy == 'lower':
@@ -640,9 +643,9 @@ def plotPostSamples(logistigateDict, plotType='hist', importerIndsSubset=[],
             sorted_pairs.append((np.nan,np.nan, np.nan, ' '))  # for spacing
             for _, upper, lower, name in sorted_pairs:
                 plt.plot((name, name),(lower, upper), 'o-', color='purple')
-        plt.plot((outNamesSorted[-1], outNamesSorted[-1]), (priorLower, priorUpper), 'o--', color='gray')
+        plt.plot((TNnamesSorted[-1], TNnamesSorted[-1]), (priorLower, priorUpper), 'o--', color='gray')
         plt.ylim([0,1])
-        plt.xticks(range(len(outNamesSorted)),outNamesSorted,rotation=90)
+        plt.xticks(range(len(TNnamesSorted)),TNnamesSorted,rotation=90)
         plt.title('Test Nodes - ' + intStr + '% Intervals'+subTitleStr[1], fontdict={'fontsize': 18, 'fontname':'Trebuchet MS'})
         plt.xlabel('Test Node Name', fontdict={'fontsize': 14,'fontname':'Trebuchet MS'})
         plt.ylabel('Interval value', fontdict={'fontsize': 14, 'fontname':'Trebuchet MS'})
@@ -655,8 +658,9 @@ def plotPostSamples(logistigateDict, plotType='hist', importerIndsSubset=[],
 
     return
 
+
 def printEstimates(logistigateDict,
-                   importerIndsSubset=[], outletIndsSubset=[]):
+                   SNindsSubset=[], TNindsSubset=[]):
     '''
     Prints a formatted table of an estimate dictionary.
     
@@ -664,25 +668,25 @@ def printEstimates(logistigateDict,
     ------
     estDict:  Dictionary returned from methods.Est_TrackedMLE() or
               methods.Est_UntrackedMLE() #OLD NEED TO UPDATE
-    impNames: List of names of importers/upper echelon entities
-    outNames: List of names of outlets/lower echelon entities
+    SNnames: List of names of supply nodes
+    TNnames: List of names of test nodes
     
     OUTPUTS
     -------
     No values are returned; the contents of the estimate dictionary are printed
     in a legible format.
     '''
-    if not all(key in logistigateDict for key in ['outletNames', 'importerNames',
+    if not all(key in logistigateDict for key in ['TNnames', 'SNnames',
                                                   'estDict' ]):
         print('The input dictionary does not contain all required information.' +
               ' Please check and try again.')
         return {}
-    outNames, impNames = logistigateDict['outletNames'], logistigateDict['importerNames']
+    TNnames, SNnames = logistigateDict['TNnames'], logistigateDict['SNnames']
     estDict = logistigateDict['estDict']
 
     impMLE = np.ndarray.tolist(estDict['impEst'])
-    if importerIndsSubset==[]:
-        importerIndsSubset = range(len(impMLE))
+    if SNindsSubset==[]:
+        SNindsSubset = range(len(impMLE))
 
     imp99lower = np.ndarray.tolist(estDict['99lower_imp'])
     imp95lower = np.ndarray.tolist(estDict['95lower_imp'])
@@ -690,15 +694,15 @@ def printEstimates(logistigateDict,
     imp99upper = np.ndarray.tolist(estDict['99upper_imp'])
     imp95upper = np.ndarray.tolist(estDict['95upper_imp'])
     imp90upper = np.ndarray.tolist(estDict['90upper_imp'])
-    impReport = [[impNames[i]] + ["{0:.1%}".format(impMLE[i])] +
+    impReport = [[SNnames[i]] + ["{0:.1%}".format(impMLE[i])] +
                  ["{0:.1%}".format(imp99lower[i])] + ["{0:.1%}".format(imp95lower[i])] +
                  ["{0:.1%}".format(imp90lower[i])] + ["{0:.1%}".format(imp90upper[i])] +
                  ["{0:.1%}".format(imp95upper[i])] + ["{0:.1%}".format(imp99upper[i])]
-                 for i in importerIndsSubset]
+                 for i in SNindsSubset]
 
     outMLE = np.ndarray.tolist(estDict['outEst'])
-    if outletIndsSubset == []:
-        outletIndsSubset = range(len(outMLE))
+    if TNindsSubset == []:
+        TNindsSubset = range(len(outMLE))
 
     out99lower = np.ndarray.tolist(estDict['99lower_out'])
     out95lower = np.ndarray.tolist(estDict['95lower_out'])
@@ -706,31 +710,32 @@ def printEstimates(logistigateDict,
     out99upper = np.ndarray.tolist(estDict['99upper_out'])
     out95upper = np.ndarray.tolist(estDict['95upper_out'])
     out90upper = np.ndarray.tolist(estDict['90upper_out'])
-    outReport = [[outNames[i]] + ["{0:.1%}".format(outMLE[i])] +
+    outReport = [[TNnames[i]] + ["{0:.1%}".format(outMLE[i])] +
                  ["{0:.1%}".format(out99lower[i])] + ["{0:.1%}".format(out95lower[i])] +
                  ["{0:.1%}".format(out90lower[i])] + ["{0:.1%}".format(out90upper[i])] +
                  ["{0:.1%}".format(out95upper[i])] + ["{0:.1%}".format(out99upper[i])]
-                 for i in outletIndsSubset]
+                 for i in TNindsSubset]
 
     print('*' * 120)
     print('ESTIMATE DICTIONARY VALUES')
     print('*' * 120)
-    print(tabulate(impReport, headers=['Importer Name', 'Max. Est.',
+    print(tabulate(impReport, headers=['Supply Node', 'Max. Est.',
                                        '99% Lower', '95% Lower', '90% Lower',
                                        '90% Upper', '95% Upper', '99% Upper']))
     print('*' * 120)
     print('*' * 120)
-    print(tabulate(outReport, headers=['Outlet Name', 'Max. Est.',
+    print(tabulate(outReport, headers=['Test Node', 'Max. Est.',
                                        '99% Lower', '95% Lower', '90% Lower',
                                        '90% Upper', '95% Upper', '99% Upper']))
 
     return
 
+
 def Summarize(inputDict):
     '''
     This method prints a summary of the contents of a Logistigate-type dictionary
     '''
-    if not all(key in inputDict for key in ['outletNames', 'importerNames',
+    if not all(key in inputDict for key in ['TNnames', 'SNnames',
                                             'type', 'diagSens', 'diagSpec',
                                             'dataTbl']):
         print('The input dictionary does not contain the minimal required information' +
@@ -738,8 +743,8 @@ def Summarize(inputDict):
         return {}
     print('The ' + str(len(inputDict['dataTbl'])) + ' ' + str(inputDict['type']) +\
           ' data points within this Logistigate dictionary\nconsist of ' +\
-          str(len(inputDict['outletNames'])) + ' outlets and ' +\
-          str(len(inputDict['importerNames'])) + ' importers.')
+          str(len(inputDict['TNnames'])) + ' test nodes and ' +\
+          str(len(inputDict['SNnames'])) + ' supply nodes.')
     print('These data were generated by a diagnostic tool with a sensitivity\nof ' +\
           str(inputDict['diagSens']) + ' and a specificity of ' + str(inputDict['diagSpec']) + '.')
 
@@ -748,7 +753,6 @@ def Summarize(inputDict):
 #################################
 #### SAMPLING PLAN UTILITIES ####
 #################################
-
 
 def generate_sampling_array(design, numtests, roundalg = 'lo'):
     """Uses design and budget with designated rounding algorithm to produce a sampling array across traces"""
@@ -1001,7 +1005,6 @@ def zProbTrVec(snNum, gammaMat, sens=1., spec=1.):
     return sens * zMat + (1 - spec) * (1 - zMat)
 
 
-# todo: NEXT 3 FUNCTIONS NEED TO BE REFORMATTED FOR LG MOVE; 14-MAY-23
 def plot_marg_util(margutilarr, testmax, testint, al=0.6, titlestr='', type='cumulative', colors=[], dashes=[],
                    labels=[], utilmax=-1, linelabels=False):
     """
@@ -1125,7 +1128,7 @@ def plot_plan(allocarr, paramlist, testInt=1, al=0.6, titleStr='', colors=[], da
     """
     Produces a plot of an array of allocations relative to the parameters in paramList, i.e., this plots paramlist on
     the x-axis and allocarr on the y-axis.
-    allocArr should have numTN rows and |paramList| columns
+    allocArr should have TNnum rows and |paramList| columns
     """
     _ = plt.figure(figsize=(13,8))
     if len(colors) == 0:
@@ -1151,350 +1154,3 @@ def plot_plan(allocarr, paramlist, testInt=1, al=0.6, titleStr='', colors=[], da
     return
 
 
-
-#### Necessary NUTS functions ####
-"""
-This package implements the No-U-Turn Sampler (NUTS) algorithm 6 from the NUTS
-paper (Hoffman & Gelman, 2011).
-
-Content
--------
-
-The package mainly contains:
-  nuts6                     return samples using the NUTS
-  test_nuts6                example usage of this package
-
-and subroutines of nuts6:
-  build_tree                the main recursion in NUTS
-  find_reasonable_epsilon   Heuristic for choosing an initial value of epsilon
-  leapfrog                  Perfom a leapfrog jump in the Hamiltonian space
-  stop_criterion            Compute the stop condition in the main loop
-
-
-A few words about NUTS
-----------------------
-
-Hamiltonian Monte Carlo or Hybrid Monte Carlo (HMC) is a Markov chain Monte
-Carlo (MCMC) algorithm that avoids the random walk behavior and sensitivity to
-correlated parameters, biggest weakness of many MCMC methods. Instead, it takes
-a series of steps informed by first-order gradient information.
-
-This feature allows it to converge much more quickly to high-dimensional target
-distributions compared to simpler methods such as Metropolis, Gibbs sampling
-(and derivatives).
-
-However, HMC's performance is highly sensitive to two user-specified
-parameters: a step size, and a desired number of steps.  In particular, if the
-number of steps is too small then the algorithm will just exhibit random walk
-behavior, whereas if it is too large it will waste computations.
-
-Hoffman & Gelman introduced NUTS or the No-U-Turn Sampler, an extension to HMC
-that eliminates the need to set a number of steps.  NUTS uses a recursive
-algorithm to find likely candidate points that automatically stops when it
-starts to double back and retrace its steps.  Empirically, NUTS perform at
-least as effciently as and sometimes more effciently than a well tuned standard
-HMC method, without requiring user intervention or costly tuning runs.
-
-Moreover, Hoffman & Gelman derived a method for adapting the step size
-parameter on the fly based on primal-dual averaging.  NUTS can thus be used
-with no hand-tuning at all.
-
-In practice, the implementation still requires a number of steps, a burning
-period and a stepsize. However, the stepsize will be optimized during the
-burning period, and the final values of all the user-defined values will be
-revised by the algorithm.
-
-reference: arXiv:1111.4246
-"The No-U-Turn Sampler: Adaptively Setting Path Lengths in Hamiltonian Monte
-Carlo", Matthew D. Hoffman & Andrew Gelman
-"""
-'''
-from numpy import log, exp, sqrt
-
-
-def leapfrog(theta, r, grad, epsilon, f):
-    """ Perfom a leapfrog jump in the Hamiltonian space
-    INPUTS
-    ------
-    theta: ndarray[float, ndim=1]
-        initial parameter position
-
-    r: ndarray[float, ndim=1]
-        initial momentum
-
-    grad: float
-        initial gradient value
-
-    epsilon: float
-        step size
-
-    f: callable
-        it should return the log probability and gradient evaluated at theta
-        logp, grad = f(theta)
-
-    OUTPUTS
-    -------
-    thetaprime: ndarray[float, ndim=1]
-        new parameter position
-    rprime: ndarray[float, ndim=1]
-        new momentum
-    gradprime: float
-        new gradient
-    logpprime: float
-        new lnp
-    """
-    # make half step in r
-    rprime = r + 0.5 * epsilon * grad
-    # make new step in theta
-    thetaprime = theta + epsilon * rprime
-    # compute new gradient
-    logpprime, gradprime = f(thetaprime)
-    # make half step in r again
-    rprime = rprime + 0.5 * epsilon * gradprime
-    return thetaprime, rprime, gradprime, logpprime
-
-
-def find_reasonable_epsilon(theta0, grad0, logp0, f, epsilonLB=0.005, epsilonUB=0.5):
-    """ Heuristic for choosing an initial value of epsilon """
-    epsilon = (1)
-    r0 = np.random.normal(0., 1., len(theta0))
-
-    # Figure out what direction we should be moving epsilon.
-    _, rprime, gradprime, logpprime = leapfrog(theta0, r0, grad0, epsilon, f)
-    # brutal! This trick make sure the step is not huge leading to infinite
-    # values of the likelihood. This could also help to make sure theta stays
-    # within the prior domain (if any)
-    k = 1.
-    while np.isinf(logpprime) or np.isinf(gradprime).any():
-        k *= 0.5
-        _, rprime, _, logpprime = leapfrog(theta0, r0, grad0, epsilon * k, f)
-
-    epsilon = np.minimum(np.maximum(0.5 * k * epsilon, 2. * epsilonLB), epsilonUB / (2.))
-    # acceptprob = np.exp(logpprime - logp0 - 0.5 * (np.dot(rprime, rprime.T) - np.dot(r0, r0.T)))
-    # a = 2. * float((acceptprob > 0.5)) - 1.
-    logacceptprob = logpprime - logp0 - 0.5 * (np.dot(rprime, rprime) - np.dot(r0, r0))
-    a = 1. if logacceptprob > np.log(0.5) else -1.
-    # Keep moving epsilon in that direction until acceptprob crosses 0.5.
-    # while ( (acceptprob ** a) > (2. ** (-a))):
-    while a * logacceptprob > -a * np.log(2):
-        epsilon = epsilon * (1.5 ** a)
-        if epsilon < epsilonLB or epsilon > epsilonUB:
-            break
-        _, rprime, _, logpprime = leapfrog(theta0, r0, grad0, epsilon, f)
-        # acceptprob = np.exp(logpprime - logp0 - 0.5 * ( np.dot(rprime, rprime.T) - np.dot(r0, r0.T)))
-        logacceptprob = logpprime - logp0 - 0.5 * (np.dot(rprime, rprime) - np.dot(r0, r0))
-
-    # print("find_reasonable_epsilon=", epsilon) EOW commented out
-
-    return epsilon
-
-
-def stop_criterion(thetaminus, thetaplus, rminus, rplus):
-    """ Compute the stop condition in the main loop
-    dot(dtheta, rminus) >= 0 & dot(dtheta, rplus >= 0)
-
-    INPUTS
-    ------
-    thetaminus, thetaplus: ndarray[float, ndim=1]
-        under and above position
-    rminus, rplus: ndarray[float, ndim=1]
-        under and above momentum
-
-    OUTPUTS
-    -------
-    criterion: bool
-        return if the condition is valid
-    """
-    dtheta = thetaplus - thetaminus
-    return (np.dot(dtheta, rminus.T) >= 0) & (np.dot(dtheta, rplus.T) >= 0)
-
-
-def build_tree(theta, r, grad, logu, v, j, epsilon, f, joint0):
-    """The main recursion."""
-    if (j == 0):
-        # Base case: Take a single leapfrog step in the direction v.
-        thetaprime, rprime, gradprime, logpprime = leapfrog(theta, r, grad, v * epsilon, f)
-        joint = logpprime - 0.5 * np.dot(rprime, rprime.T)
-        # Is the new point in the slice?
-        nprime = int(logu < joint)
-        # Is the simulation wildly inaccurate?
-        sprime = int((logu - 1000.) < joint)
-        # Set the return values---minus=plus for all things here, since the
-        # "tree" is of depth 0.
-        thetaminus = thetaprime[:]
-        thetaplus = thetaprime[:]
-        rminus = rprime[:]
-        rplus = rprime[:]
-        gradminus = gradprime[:]
-        gradplus = gradprime[:]
-        # Compute the acceptance probability.
-        alphaprime = min(1., np.exp(joint - joint0))
-        # alphaprime = min(1., np.exp(logpprime - 0.5 * np.dot(rprime, rprime.T) - joint0))
-        nalphaprime = 1
-    else:
-        # Recursion: Implicitly build the height j-1 left and right subtrees.
-        thetaminus, rminus, gradminus, thetaplus, rplus, gradplus, thetaprime, gradprime, logpprime, nprime, sprime, alphaprime, nalphaprime = build_tree(
-            theta, r, grad, logu, v, j - 1, epsilon, f, joint0)
-        # No need to keep going if the stopping criteria were met in the first subtree.
-        if (sprime == 1):
-            if (v == -1):
-                thetaminus, rminus, gradminus, _, _, _, thetaprime2, gradprime2, logpprime2, nprime2, sprime2, alphaprime2, nalphaprime2 = build_tree(
-                    thetaminus, rminus, gradminus, logu, v, j - 1, epsilon, f, joint0)
-            else:
-                _, _, _, thetaplus, rplus, gradplus, thetaprime2, gradprime2, logpprime2, nprime2, sprime2, alphaprime2, nalphaprime2 = build_tree(
-                    thetaplus, rplus, gradplus, logu, v, j - 1, epsilon, f, joint0)
-            # Choose which subtree to propagate a sample up from.
-            if (np.random.uniform() < (float(nprime2) / max(float(int(nprime) + int(nprime2)), 1.))):
-                thetaprime = thetaprime2[:]
-                gradprime = gradprime2[:]
-                logpprime = logpprime2
-            # Update the number of valid points.
-            nprime = int(nprime) + int(nprime2)
-            # Update the stopping criterion.
-            sprime = int(sprime and sprime2 and stop_criterion(thetaminus, thetaplus, rminus, rplus))
-            # Update the acceptance probability statistics.
-            alphaprime = alphaprime + alphaprime2
-            nalphaprime = nalphaprime + nalphaprime2
-
-    return thetaminus, rminus, gradminus, thetaplus, rplus, gradplus, thetaprime, gradprime, logpprime, nprime, sprime, alphaprime, nalphaprime
-
-
-def nuts6(f, M, Madapt, theta0, delta=0.25):
-    """
-    Implements the No-U-Turn Sampler (NUTS) algorithm 6 from from the NUTS
-    paper (Hoffman & Gelman, 2011).
-
-    Runs Madapt steps of burn-in, during which it adapts the step size
-    parameter epsilon, then starts generating samples to return.
-
-    Note the initial step size is tricky and not exactly the one from the
-    initial paper.  In fact the initial step size could be given by the user in
-    order to avoid potential problems
-
-    INPUTS
-    ------
-    epsilon: float
-        step size
-        see nuts8 if you want to avoid tuning this parameter
-
-    f: callable
-        it should return the log probability and gradient evaluated at theta
-        logp, grad = f(theta)
-
-    M: int
-        number of samples to generate.
-
-    Madapt: int
-        the number of steps of burn-in/how long to run the dual averaging
-        algorithm to fit the step size epsilon.
-
-    theta0: ndarray[float, ndim=1]
-        initial guess of the parameters.
-
-    KEYWORDS
-    --------
-    delta: float
-        targeted acceptance fraction
-
-    OUTPUTS
-    -------
-    samples: ndarray[float, ndim=2]
-    M x D matrix of samples generated by NUTS.
-    note: samples[0, :] = theta0
-    """
-
-    if len(np.shape(theta0)) > 1:
-        raise ValueError('theta0 is expected to be a 1-D array')
-
-    D = len(theta0)
-    samples = np.empty((M + Madapt, D), dtype=float)
-    lnprob = np.empty(M + Madapt, dtype=float)
-
-    logp, grad = f(theta0)
-    samples[0, :] = theta0
-    lnprob[0] = logp
-
-    # Choose a reasonable first epsilon by a simple heuristic.
-    epsilon = find_reasonable_epsilon(theta0, grad, logp, f)
-
-    # Parameters to the dual averaging algorithm.
-    gamma = 0.05
-    t0 = 10
-    kappa = 0.75
-    mu = log(10. * epsilon)
-
-    # Initialize dual averaging algorithm.
-    epsilonbar = 1
-    Hbar = 0
-
-    for m in range(1, M + Madapt):
-        # Resample momenta.
-        r0 = np.random.normal(0, 1, D)
-
-        # joint lnp of theta and momentum r
-        joint = logp - 0.5 * np.dot(r0, r0.T)
-
-        # Resample u ~ uniform([0, exp(joint)]).
-        # Equivalent to (log(u) - joint) ~ exponential(1).
-        logu = float(joint - np.random.exponential(1, size=1))
-
-        # if all fails, the next sample will be the previous one
-        samples[m, :] = samples[m - 1, :]
-        lnprob[m] = lnprob[m - 1]
-
-        # initialize the tree
-        thetaminus = samples[m - 1, :]
-        thetaplus = samples[m - 1, :]
-        rminus = r0[:]
-        rplus = r0[:]
-        gradminus = grad[:]
-        gradplus = grad[:]
-
-        j = 0  # initial heigth j = 0
-        n = 1  # Initially the only valid point is the initial point.
-        s = 1  # Main loop: will keep going until s == 0.
-
-        while (s == 1):
-            # Choose a direction. -1 = backwards, 1 = forwards.
-            v = int(2 * (np.random.uniform() < 0.5) - 1)
-
-            # Double the size of the tree.
-            if (v == -1):
-                thetaminus, rminus, gradminus, _, _, _, thetaprime, gradprime, logpprime, nprime, sprime, alpha, nalpha = build_tree(
-                    thetaminus, rminus, gradminus, logu, v, j, epsilon, f, joint)
-            else:
-                _, _, _, thetaplus, rplus, gradplus, thetaprime, gradprime, logpprime, nprime, sprime, alpha, nalpha = build_tree(
-                    thetaplus, rplus, gradplus, logu, v, j, epsilon, f, joint)
-
-            # Use Metropolis-Hastings to decide whether or not to move to a
-            # point from the half-tree we just generated.
-            _tmp = min(1, float(nprime) / float(n))
-            if (sprime == 1) and (np.random.uniform() < _tmp):
-                samples[m, :] = thetaprime[:]
-                lnprob[m] = logpprime
-                logp = logpprime
-                grad = gradprime[:]
-            # Update number of valid points we've seen.
-            n += nprime
-
-            # Decide if it's time to stop.
-            s = sprime and stop_criterion(thetaminus, thetaplus, rminus, rplus) and (n < 50)  # (n<50) EOW EDIT
-
-            # Increment depth.
-            j += 1
-
-        # Do adaptation of epsilon if we're still doing burn-in.
-        eta = 1. / float(m + t0)
-        Hbar = (1. - eta) * Hbar + eta * (delta - alpha / float(nalpha))
-        if (m <= Madapt):
-            epsilon = exp(mu - sqrt(m) / gamma * Hbar)
-            epsilon = np.minimum(np.maximum(epsilon, 0.001), 1)
-            eta = m ** -kappa
-            epsilonbar = exp((1. - eta) * log(epsilonbar) + eta * log(epsilon))
-        else:
-            epsilon = epsilonbar
-
-    samples = samples[Madapt:, :]
-    lnprob = lnprob[Madapt:]
-    return samples, lnprob, epsilon
-'''
