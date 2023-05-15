@@ -430,8 +430,6 @@ def initDataDict(N, Y, diagSens=1., diagSpec=1., dataType='Tracked', trueRates=[
     dataTblDict.update({'N': N, 'Y': Y, 'outletNames': outNames, 'importerNames': impNames, 'diagSens': diagSens,
                         'diagSpec': diagSpec, 'type': dataType, 'transMat': transMat, 'trueRates': trueRates})
 
-    dataTblDict = GetVectorForms(dataTblDict)
-
     return dataTblDict
 
 def scorePostSamplesIntervals(logistigateDict):
