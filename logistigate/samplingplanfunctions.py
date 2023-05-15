@@ -40,14 +40,14 @@ def sampling_plan_loss_fast(design, numtests, priordatadict, paramdict):
     if 'roundalg' in paramdict: # Set default rounding algorithm for plan
         roundalg = paramdict['roundalg'].copy()
     else:
-        roundalg = 'roundDesignLow'
+        roundalg = 'lo'
     # Initialize samples to be drawn from traces, per the design, using a rounding algorithm
     sampMat = util.generate_sampling_array(design, numtests, roundalg)
 
     # Get weights matrix
     W = build_weights_matrix(paramdict['truthdraws'], paramdict['datadraws'], sampMat, priordatadict)
     # Get weighted loss and retrieve average minimum
-    wtLossMat = np.matmul(paramdict['lossMat'], W)
+    wtLossMat = np.matmul(paramdict['lossmatrix'], W)
     wtLossMins = wtLossMat.min(axis=0)
     return np.average(wtLossMins)
 
@@ -636,14 +636,14 @@ def sampling_plan_loss_mcmc(design, numtests, priordatadict, paramdict):
     return retval
 '''
 
-def GetOptAllocation(U):
-    '''
+def get_opt_allocation(U):
+    """
     :param U
     :return x
     Returns an optimal allocation for maximizing the utility values as captured in U.
     Each row of U should correspond to one test node or trace. U should be 2-dimensional in
     the case of node sampling and 3-dimensional in the case of path sampling.
-    '''
+    """
     import scipy.optimize as spo
 
     Udim = np.ndim(U)
@@ -689,15 +689,16 @@ def GetOptAllocation(U):
 
     return sol, maxU
 
-def smoothAllocationBackward(U):
-    '''
+
+def smooth_alloc_backward(U):
+    """
     Provides a 'smooth' allocation across the marginal utilities in U. The values of U should correspond to TNs in the
     rows and incremental increases in the sampling budget in the columns.
     The algorithm uses greedy decremental steps from a solver-found solution for the maximum budget to find solutions
     for smaller budgets.
-    '''
+    """
     (numTN, numTests) = U.shape
-    sol, objVal = GetOptAllocation(U)
+    sol, objVal = get_opt_allocation(U)
     retArr = np.zeros((numTN, numTests-1)) # First column of U corresponds to no samples
     objValArr = np.zeros(numTests-1) # For returning the objective vales
     retArr[:,-1] = sol
@@ -714,18 +715,17 @@ def smoothAllocationBackward(U):
         currSol[minTNind] -= 1 # Update our current solution
         retArr[:, k] = currSol
         objValArr[k] = objValArr[k+1] - Farr[minTNind]
-
     return retArr, objValArr
 
-def smoothAllocationForward(U):
-    '''
+
+def smooth_alloc_forward(U):
+    """
     Provides a 'smooth' allocation across the marginal utilities in U. The values of U should correspond to TNs in the
     rows and incremental increases in the sampling budget in the columns.
     The algorithm uses greedy decremental steps from a solver-found solution for the maximum budget to find solutions
     for smaller budgets.
-    '''
+    """
     (numTN, numTests) = U.shape
-    #sol, objVal = GetOptAllocation(U)
     retArr = np.zeros((numTN, numTests-1)) # First column of U corresponds to no samples
     objValArr = np.zeros(numTests-1) # For returning the objective vales
     currSol = np.zeros(numTN)
@@ -741,13 +741,13 @@ def smoothAllocationForward(U):
         else:
             objValArr[k] = Farr[maxTNind]
         retArr[:, k] = currSol.copy()
-
     return retArr, objValArr
 
-def forwardAllocateWithBudget(U, b):
-    '''
+
+def smooth_alloc_forward_budget(U, b):
+    """
     Returns allocation solutions a la smoothAllocationForward(), but stops once sampling budget b is reached
-    '''
+    """
     (numTN, numTests) = U.shape
     currSol = np.zeros(numTN)
     # Allocate until budget b allocated
@@ -761,10 +761,49 @@ def forwardAllocateWithBudget(U, b):
         if currSol.max == numTests:
             print('Maximum reached; add more tests')
             return
-
     return currSol
 
-# CLEANED: 10-MAY-23
+
+def get_marg_util_nodes(priordatadict, testmax, testint, paramdict, baseLoss=-1, addcandneighbors=True, drawspool=[],
+                       printUpdate=True):
+    """
+    Returns an array of marginal utility estimates for the PMS data contained in priordatadict.
+    :param testmax: maximum number of tests at each test node
+    :param testint: interval of tests, from zero ot testsMax, by which to calculate estimates
+    :param paramdict: dictionary containing parameters for how the PMS loss is calculated; needs keys: truthdraws,
+                        canddraws, datadraws, lossmatrix
+    :return margUtilArr: array of size (number of test nodes) by (testsMax/testsInt + 1)
+    """
+    (numTN, numSN) = priordatadict['N'].shape
+    if addcandneighbors == True: # Add nearest neighbors to best Bayes estimate
+        newcanddraws, newlossmatrix = lf.add_cand_neighbors(paramdict, drawspool, paramdict['truthdraws'])
+        paramdict.update({'canddraws':newcanddraws, 'lossmatrix':newlossmatrix})
+    lossMat = paramdict['lossmatrix']
+    print('Candidate draws: ' + str(lossMat.shape[0]))
+    print('Target draws: ' + str(lossMat.shape[1]))
+    print('Data draws: ' + str(paramdict['datadraws'].shape[0]))
+    # Establish a baseline loss for comparison with other losses (if not already entered);
+    #   only depends on the loss matrix, as there are no tests
+    if baseLoss < 0:
+        if printUpdate == True:
+            print('Generating baseline loss...')
+        baseLoss = baseloss(lossMat)
+    print('Baseline loss: '+str(baseLoss))
+    # Initialize the return array
+    margUtilArr = np.zeros((numTN, int(testmax / testint) + 1))
+    # Calculate the marginal utility increase under each iteration of tests for each test node
+    for currTN in range(numTN):
+        design = np.zeros(numTN)
+        design[currTN] = 1.
+        for testNum in range(testint, testmax+1, testint):
+            if printUpdate == True:
+                print('Calculating for test node '+str(currTN+1)+' under '+str(testNum)+' tests...')
+            margUtilArr[currTN][int(testNum/testint)] = baseLoss - sampling_plan_loss_fast(design, testNum,
+                                                                                           priordatadict, paramdict)
+        if printUpdate == True:
+            print('Test node '+str(currTN+1)+' utilities: '+str(margUtilArr[currTN]))
+    return margUtilArr
+
 
 def baseloss(L):
     '''Returns the base loss associated with loss matrix L; should be used when determining utility'''

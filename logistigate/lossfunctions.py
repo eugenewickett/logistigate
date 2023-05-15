@@ -137,7 +137,7 @@ def score_diff_matrix(truthdraws, canddraws, paramdict):
     drawsEstMat = np.reshape(np.tile(canddraws.copy(),numdraws),(numcanddraws, numdraws, numnodes))
     drawsTargMat = np.transpose(np.reshape(np.tile(truthdraws.copy(), numcanddraws), (numdraws, numcanddraws, numnodes)),
                                 axes=(1, 0, 2))
-    return np.maximum(drawsEstMat-drawsTargMat,0) + paramdict['underEstWt']*np.maximum(drawsTargMat-drawsEstMat,0)
+    return np.maximum(drawsEstMat-drawsTargMat,0) + paramdict['underestweight']*np.maximum(drawsTargMat-drawsEstMat,0)
 
 '''
 def score_class(est, targ, paramDict): #### OBSOLETE; REMOVE LATER
@@ -204,7 +204,7 @@ def score_class_matrix(truthdraws, canddraws, paramdict):
     drawsEstMat = np.reshape(np.tile(bayesdrawsClass.copy(), numdraws), (numcanddraws, numdraws, numnodes))
     drawsTargMat = np.transpose(np.reshape(np.tile(drawsClass.copy(), numcanddraws),(numdraws, numcanddraws, numnodes)),
                                 axes=(1, 0, 2))
-    return np.maximum(drawsEstMat-drawsTargMat,0) + paramdict['underEstWt']*np.maximum(drawsTargMat-drawsEstMat,0)
+    return np.maximum(drawsEstMat-drawsTargMat,0) + paramdict['underestweight']*np.maximum(drawsTargMat-drawsEstMat,0)
 
 '''
 def score_check(est, targ, paramDict): #### OBSOLETE; REMOVE LATER
@@ -495,11 +495,11 @@ def lossMatrixLinearized(draws, lossdict, indsforbayes=[]):
 def get_score_matrix(truthdraws, canddraws, scoredict):
     """Retrieves score matrix per the name declared in scoredict"""
     S = np.zeros((canddraws.shape[0], truthdraws.shape[0]))
-    if scoredict['name'] == 'AbsDiff':
+    if scoredict['name'] == 'absdiff':
         S = score_diff_matrix(truthdraws, canddraws, scoredict)
-    elif scoredict['name'] == 'Class':
+    elif scoredict['name'] == 'class':
         S = score_class_matrix(truthdraws, canddraws, scoredict)
-    elif scoredict['name'] == 'Check':
+    elif scoredict['name'] == 'check':
         S = score_check_matrix(truthdraws, canddraws, scoredict)
     return S
 
@@ -507,9 +507,9 @@ def get_score_matrix(truthdraws, canddraws, scoredict):
 def get_risk_matrix(truthdraws, canddraws, riskdict):
     """Retrieves risk matrix per the name declared in riskdict"""
     R = np.zeros((canddraws.shape[0], truthdraws.shape[0]))
-    if riskdict['name'] == 'Parabolic':
+    if riskdict['name'] == 'parabolic':
         R = risk_parabolic_matrix(truthdraws, canddraws.shape[0], riskdict)
-    elif riskdict['name'] == 'Check':
+    elif riskdict['name'] == 'check':
         R = risk_check_matrix(truthdraws, canddraws.shape[0], riskdict)
     return R
 
@@ -529,47 +529,48 @@ def build_loss_matrix(truthdraws, canddraws, lossdict):
     L = np.zeros((numcanddraws, numtruthdraws)) # Initialize loss matrix
 
     # Make dummy marketVec if not already available
-    if 'marketVec' not in lossdict.keys():
-        lossdict.update({'marketVec': np.ones(numnodes)})
-    marketvec = lossdict['marketVec']
+    if 'marketvec' not in lossdict.keys():
+        lossdict.update({'marketvec': np.ones(numnodes)})
+    marketvec = lossdict['marketvec']
 
     # Iterate losses one node at a time for memory efficiency, and cumulatively sum
     for currNodeInd in range(numnodes):
         currtruthdraws = truthdraws[:,currNodeInd].reshape((numtruthdraws, 1))
         currcanddraws = canddraws[:, currNodeInd].reshape((numcanddraws, 1))
         # Get score matrix
-        scoremat = get_score_matrix(currtruthdraws, currcanddraws, lossdict['scoreDict'])
+        scoremat = get_score_matrix(currtruthdraws, currcanddraws, lossdict['scoredict'])
         # Get risk matrix
-        riskmat = get_risk_matrix(currtruthdraws, currcanddraws, lossdict['riskDict'])
+        riskmat = get_risk_matrix(currtruthdraws, currcanddraws, lossdict['riskdict'])
         # Add current sum
         L += np.sum(scoremat*riskmat, axis=2) * marketvec[currNodeInd]
 
     return L
 
 
-def add_cand_neighbors(lossdict, drawspool, truthdraws, printUpdate=True):
+def add_cand_neighbors(paramdict, drawspool, truthdraws, printUpdate=True):
     """
     Adds bayesEstNeighborNum (in lossdict) closest neighbors in drawspool of the Bayes estimate as Bayes candidates,
-    and returns new draws and lossMat (the loss matrix) via the integration/target draws in truthdraws
+    and returns new draws and loss matrix via the integration/target draws in truthdraws
     """
     if printUpdate == True:
         print('Adding nearest neighbors of best Bayes candidate...')
 
     # Get best Bayes candidate from current loss matrix
-    bestcand = lossdict['canddraws'][np.argmin(np.average(lossdict['lossMat'], axis=1))]
+    bestcand = paramdict['canddraws'][np.argmin(np.average(paramdict['lossmatrix'], axis=1))]
 
     # Add neighbors of best candidate to set of Bayes draws
     drawDists = cdist(bestcand.reshape(1, len(truthdraws[0])), drawspool)
-    neighborinds = np.argpartition(drawDists[0], lossdict['bayesEstNeighborNum'])[:lossdict['bayesEstNeighborNum']]
+    neighborinds = np.argpartition(drawDists[0], paramdict['candneighnum'])[:paramdict['candneighnum']]
     neighborArr = drawspool[neighborinds]
 
     # Update loss matrix
-    templossdict = {'scoreDict': lossdict['scoreDict'], 'riskDict': lossdict['riskDict'], 'marketVec': lossdict['marketVec']}
+    templossdict = {'scoredict': paramdict['scoredict'].copy(), 'riskdict': paramdict['riskdict'].copy(),
+                    'marketvec': paramdict['marketvec'].copy()}
     lossMatNeighbors = build_loss_matrix(truthdraws, neighborArr, templossdict)
 
     # Update return items
-    canddraws = np.vstack((lossdict['canddraws'], neighborArr))
-    lossmat = np.vstack((lossdict['lossMat'],lossMatNeighbors))
+    canddraws = np.vstack((paramdict['canddraws'], neighborArr))
+    lossmat = np.vstack((paramdict['lossmatrix'],lossMatNeighbors))
 
     return canddraws, lossmat
 

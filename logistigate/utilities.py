@@ -694,11 +694,11 @@ def Summarize(inputDict):
 #################################
 
 
-def generate_sampling_array(design, numtests, roundalg = 'roundDesignLow'):
+def generate_sampling_array(design, numtests, roundalg = 'lo'):
     """Uses design and budget with designated rounding algorithm to produce a sampling array across traces"""
-    if roundalg == 'roundDesignLow':
+    if roundalg == 'lo':
         samplearray = round_design_low(design, numtests)
-    elif roundalg == 'roundDesignHigh':
+    elif roundalg == 'hi':
         samplearray = round_design_high(design, numtests)
     else:
         print('Nonvalid rounding algorithm entered')
@@ -943,6 +943,151 @@ def zProbTrVec(snNum, gammaMat, sens=1., spec=1.):
            np.transpose(np.reshape(np.tile(py, (m)), (k, m, n)), (0, 2, 1))
     # each term is a k-by-n-by-m array
     return sens * zMat + (1 - spec) * (1 - zMat)
+
+
+# todo: NEXT 3 FUNCTIONS NEED TO BE REFORMATTED FOR LG MOVE; 14-MAY-23
+def plotMargUtil(margUtilArr,testMax,testInt,al=0.6,titleStr='',type='cumulative',colors=[],dashes=[],labels=[],
+                 utilMax=-1,lineLabels=False):
+    '''Produces a plot of an array of marginal utility increases
+    :param type: one of 'cumulative' or 'delta'; cumulative plots show the additive change in utility; delta plos show
+                the marginal change in utility for the next set of testInt tests
+    '''
+    if len(colors) == 0:
+        colors = cm.rainbow(np.linspace(0, 1, margUtilArr.shape[0]))
+    if len(dashes) == 0:
+        dashes = [[1,desind] for desind in range(margUtilArr.shape[0])]
+    if len(labels) == 0:
+        labels = ['Design '+str(desind+1) for desind in range(margUtilArr.shape[0])]
+    if type == 'cumulative':
+        x1 = range(0, testMax + 1, testInt)
+        if utilMax > 0.:
+            yMax = utilMax
+        else:
+            yMax = margUtilArr.max()*1.1
+        for desind in range(margUtilArr.shape[0]):
+            plt.plot(x1, margUtilArr[desind], dashes=dashes[desind], linewidth=2.5, color=colors[desind],
+                     label=labels[desind], alpha=al)
+        if lineLabels:
+            for tnind in range(margUtilArr.shape[0]):
+                plt.text(testMax * 1.01, margUtilArr[tnind, -1], labels[tnind].ljust(15), fontsize=5)
+    elif type == 'delta':
+        x1 = range(testInt, testMax + 1, testInt)
+        deltaArr = np.zeros((margUtilArr.shape[0],margUtilArr.shape[1]-1))
+        for rw in range(deltaArr.shape[0]):
+            for col in range(deltaArr.shape[1]):
+                deltaArr[rw,col] = margUtilArr[rw,col+1]-margUtilArr[rw,col]
+        if utilMax > 0.:
+            yMax = utilMax
+        else:
+            yMax = deltaArr.max()*1.1
+        for desind in range(deltaArr.shape[0]):
+            plt.plot(x1, deltaArr[desind], dashes=dashes[desind], linewidth=2.5, color=colors[desind],
+                     label=labels[desind], alpha=al)
+        if lineLabels:
+            for tnind in range(deltaArr.shape[0]):
+                plt.text(testMax * 1.01, deltaArr[tnind, -1], labels[tnind].ljust(15), fontsize=5)
+    plt.legend()
+    plt.ylim([0., yMax])
+    plt.xlabel('Number of Tests')
+    if type=='delta':
+        plt.ylabel('Marginal Utility Gain')
+    else:
+        plt.ylabel('Utility Gain')
+    plt.title('Marginal Utility with Increasing Tests\n'+titleStr)
+    plt.savefig('MARGUTILPLOT.png')
+    plt.show()
+    plt.close()
+    return
+
+
+def plotMargUtilGroups(margUtilGroupList,testMax,testInt,titleStr='',type='cumulative',colors=[],dashes=[],
+                       labels=[], utilMax=-1,lineLabels=False):
+    '''Produces a plot of groups of arrays of marginal utility increases
+    :param margUtilGroupList: a list of lists, with each member comprising the utility arrays for each allocation
+    :param type: one of 'cumulative' or 'delta'; cumulative plots show the additive change in utility; delta plos show
+                the marginal change in utility for the next set of testInt tests
+    '''
+
+    if len(colors) == 0:
+        colors = cm.rainbow(np.linspace(0, 1, len(margUtilGroupList)))
+    if len(dashes) == 0:
+        dashes = [[1,desind] for desind in range(len(margUtilGroupList))]
+    if utilMax < 0:
+        for lst in margUtilGroupList:
+            currMax = np.amax(np.array(lst))
+            if currMax>utilMax:
+                utilMax = currMax
+        utilMax = utilMax*1.1
+    if len(labels) == 0:
+        labels = ['Group '+str(i+1) for i in range(len(margUtilGroupList))]
+
+    if type == 'cumulative':
+        x = range(testInt, testMax + 1, testInt)
+    elif type == 'delta':
+        x = range(testInt, testMax + 1, testInt)
+
+    for groupInd, margUtilGroup in enumerate(margUtilGroupList):
+        groupArr = np.array(margUtilGroup)
+        groupAvgArr = np.average(groupArr, axis=0)
+        # Compile error bars
+        stdevs = [np.std(groupArr[:, i]) for i in range(groupArr.shape[1]) ]
+        group05Arr = [groupAvgArr[i] - (1.96*stdevs[i] / np.sqrt(groupArr.shape[0])) for i in range(groupArr.shape[1])]
+        group95Arr = [groupAvgArr[i] + (1.96*stdevs[i] / np.sqrt(groupArr.shape[0])) for i in range(groupArr.shape[1])]
+        plt.plot(x, groupAvgArr,color=colors[groupInd],linewidth=0.5, alpha=1., label=labels[groupInd]+' 95% CI')
+        plt.fill_between(x, groupAvgArr, group05Arr, color=colors[groupInd], alpha=0.2)
+        plt.fill_between(x, groupAvgArr, group95Arr, color=colors[groupInd], alpha=0.2)
+        #lowerr = [groupAvgArr[i] - group05Arr[i] for i in range(groupAvgArr.shape[0])]
+        #upperr = [group95Arr[i] - groupAvgArr[i] for i in range(groupAvgArr.shape[0])]
+        #err = [lowerr, upperr]
+        #plt.errorbar(x, groupAvgArr, yerr=err, capsize=2, color=colors[groupInd],
+        #             ecolor=[colors[groupInd][i]*0.6 for i in range(len(colors[groupInd]))],
+        #             linewidth=2, elinewidth=0.5)
+        if lineLabels == True:
+            plt.text(x[-1] * 1.01, groupAvgArr[-1], labels[groupInd].ljust(12), fontsize=5)
+    plt.ylim(0,utilMax)
+    plt.xlim(0,x[-1]*1.12)
+    leg = plt.legend(loc='upper left')
+    for legobj in leg.legendHandles:
+        legobj.set_linewidth(1.0)
+    plt.xlabel('Sampling Budget',fontsize=12)
+    plt.ylabel('Design Utility',fontsize=12)
+    plt.title('Design Utility vs. Sampling Budget\n'+titleStr,fontsize=16)
+    plt.tight_layout()
+    plt.show()
+    plt.close()
+
+    return
+
+
+def plotAlloc(allocArr,paramList,testInt=1,al=0.6,titleStr='',colors=[],dashes=[],labels=[],
+              allocMax=-1, lineLabels=False):
+    '''
+    Produces a plot of an array of allocations relative to the parameters in paramList.
+    allocArr should have numTN rows and |paramList| columns
+    '''
+    fig = plt.figure(figsize=(13,8))
+    if len(colors) == 0:
+        colors = cm.rainbow(np.linspace(0, 1, allocArr.shape[0]))
+    if len(dashes) == 0:
+        dashes = [[1,tnind] for tnind in range(allocArr.shape[0])]
+    if len(labels) == 0:
+        labels = ['Test Node '+str(tnind+1) for tnind in range(allocArr.shape[0])]
+    for tnind in range(allocArr.shape[0]):
+        plt.plot(paramList, allocArr[tnind]*testInt, dashes=dashes[tnind], linewidth=2.5, color=colors[tnind],
+                 label=labels[tnind], alpha=al)
+    if allocMax < 0:
+        allocMax = allocArr.max()*testInt*1.1
+    plt.legend(fontsize=12)
+    plt.ylim([0., allocMax])
+    plt.xlabel('Parameter Value', fontsize=14)
+    plt.ylabel('Test Node Allocation', fontsize=14)
+    plt.title('Test Node Allocation\n'+titleStr, fontsize=18)
+    plt.tight_layout()
+    plt.savefig('NODEALLOC.png')
+    plt.show()
+    plt.close()
+    return
+
 
 
 #### Necessary NUTS functions ####
