@@ -16,14 +16,13 @@ else:
     from . import utilities as util
 
 import numpy as np
-import time
 from scipy.spatial.distance import cdist
 
 # Set computational tolerance
 tol = 1e-8
 
 def risk_parabolic(SFPratevec, paramdict={'threshold': 0.5}): #### OBSOLETE; REMOVE LATER
-    '''Parabolic risk term for vector of SFP rates. Threshold is the top of the parabola. '''
+    """Parabolic risk term for vector of SFP rates. Threshold is the top of the parabola. """
     riskvec = np.empty((len(SFPratevec)))
     for ind in range(len(SFPratevec)):
         currRate = SFPratevec[ind]
@@ -36,7 +35,7 @@ def risk_parabolic(SFPratevec, paramdict={'threshold': 0.5}): #### OBSOLETE; REM
 
 
 def risk_parabolic_array(SFPrateArr, paramdict={'threshold': 0.2}):
-    '''Parabolic risk term for vector of SFP rates. Threshold is the top of the parabola. '''
+    """Parabolic risk term for vector of SFP rates. Threshold is the top of the parabola. """
     if paramdict['threshold'] <= 0.5:
         retVal = (SFPrateArr+ 2*(0.5 - paramdict['threshold']))*(1-SFPrateArr)
     else:
@@ -45,7 +44,7 @@ def risk_parabolic_array(SFPrateArr, paramdict={'threshold': 0.2}):
 
 
 def risk_parabolic_matrix(draws, nummatrixrows, paramdict={'threshold':0.2}):
-    '''Parabolic risk term in matrix form'''
+    """Parabolic risk term in matrix form"""
     retArr = risk_parabolic_array(draws, paramdict)
     return np.transpose(np.reshape(np.tile(retArr.copy(), nummatrixrows), (len(draws), nummatrixrows, len(draws[0]))),(1,0,2))
 
@@ -58,7 +57,7 @@ def risk_parabolicMatBayesSet(draws,paramDict, bayesdraws):
 '''
 
 def risk_check(SFPratevec, paramDict={'threshold': 0.5, 'slope': 0.5}): #### OBSOLETE; REMOVE LATER
-    '''Check risk term, which has minus 'slope' to the right of 'threshold' and (1-'slope') to the left of threshold'''
+    """Check risk term, which has minus 'slope' to the right of 'threshold' and (1-'slope') to the left of threshold"""
     riskvec = np.empty((len(SFPratevec)))
     for i in range(len(SFPratevec)):
         riskvec[i] = (1 - SFPratevec[i]*(paramDict['slope']-(1-paramDict['threshold']/SFPratevec[i]
@@ -67,12 +66,14 @@ def risk_check(SFPratevec, paramDict={'threshold': 0.5, 'slope': 0.5}): #### OBS
 
 
 def risk_check_array(SFPrateArr, paramdict={'threshold': 0.5, 'slope': 0.5}):
-    '''Check risk term for an array, which has minus 'slope' to the right of 'threshold' and (1-'slope') to the left of threshold'''
+    """Check risk term for an array, which has minus 'slope' to the right of 'threshold' and (1-'slope') to the left
+    of threshold """
     return 1 - SFPrateArr*(paramdict['slope']-((1-paramdict['threshold']/SFPrateArr)*np.minimum(np.maximum(paramdict['threshold'] - SFPrateArr, 0),tol)*(1/tol)))
 
 
 def risk_check_matrix(draws, nummatrixrows, paramdict={'threshold': 0.5, 'slope': 0.5}):
-    '''Check risk term for an array, which has minus 'slope' to the right of 'threshold' and (1-'slope') to the left of threshold'''
+    """Check risk term for an array, which has minus 'slope' to the right of 'threshold' and (1-'slope') to the left
+    of threshold"""
     retArr = risk_check_array(draws, paramdict)
     return np.transpose(np.reshape(np.tile(retArr.copy(), nummatrixrows), (len(draws), nummatrixrows, len(draws[0]))), (1,0,2))
 
@@ -84,34 +85,37 @@ def risk_checkMatBayesSet(draws, paramDict, bayesdraws):
     return np.transpose(np.reshape(np.tile(retArr.copy(),numbayes),(len(draws),numbayes,len(draws[0]))),(1,0,2))
 '''
 
+'''
 def score_diff(est, targ, paramDict): #### OBSOLETE; REMOVE LATER
-    '''
+    """
     Returns the difference between vectors est and targ underEstWt, the weight of underestimation error relative to
     overestimation error.
     paramDict requires keys: underEstWt
-    '''
+    """
     scorevec = np.empty((len(targ)))
     for i in range(len(targ)):
         scorevec[i] = (paramDict['underEstWt']*max(targ[i] - est[i], 0) + max(est[i]-targ[i],0))
     return scorevec
+'''
 
-
+'''
 def score_diffArr(est, targArr, paramDict):
-    '''
+    """
     Returns array of differences between vector est and array of vectors targArr using underEstWt, the weight of
     underestimation error relative to overestimation error.
     paramDict requires keys: underEstWt
-    '''
+    """
     return np.maximum(est-targArr,0) + paramDict['underEstWt']*np.maximum(targArr-est,0)
+'''
 
-
+'''
 def score_diffMat(draws, paramDict, indsforbayes=[]):
-    '''
+    """
     Returns matrix of pair-wise differences for set of SFP-rate draws using underEstWt, the weight of
     underestimation error relative to overestimation error. Rows correspond to estimates, columns to targets
     paramDict requires keys: underEstWt
     :param indsforbayes: which indices of draws to use as estimates; used for limiting the matrix size
-    '''
+    """
     numdraws, numnodes = len(draws), len(draws[0])
     if len(indsforbayes) == 0:
         indsforbayes = np.arange(numdraws)
@@ -120,43 +124,43 @@ def score_diffMat(draws, paramDict, indsforbayes=[]):
     drawsTargMat = np.transpose(np.reshape(np.tile(draws.copy(), numbayesinds), (numdraws, numbayesinds, numnodes)),
                                 axes=(1, 0, 2))
     return np.maximum(drawsEstMat-drawsTargMat,0) + paramDict['underEstWt']*np.maximum(drawsTargMat-drawsEstMat,0)
-
+'''
 
 def score_diff_matrix(truthdraws, canddraws, paramdict):
-    '''
+    """
     Returns matrix of pair-wise differences for set of SFP-rate draws using underEstWt, the weight of
     underestimation error relative to overestimation error. Rows correspond to estimates, columns to targets
     paramDict requires keys: underEstWt
     :param indsforbayes: which indices of draws to use as estimates; used for limiting the matrix size
-    '''
+    """
     numdraws, numnodes, numcanddraws = len(truthdraws), len(truthdraws[0]), len(canddraws)
     drawsEstMat = np.reshape(np.tile(canddraws.copy(),numdraws),(numcanddraws, numdraws, numnodes))
     drawsTargMat = np.transpose(np.reshape(np.tile(truthdraws.copy(), numcanddraws), (numdraws, numcanddraws, numnodes)),
                                 axes=(1, 0, 2))
     return np.maximum(drawsEstMat-drawsTargMat,0) + paramdict['underEstWt']*np.maximum(drawsTargMat-drawsEstMat,0)
 
-
+'''
 def score_class(est, targ, paramDict): #### OBSOLETE; REMOVE LATER
-    '''
+    """
     Returns the difference between classification of vectors est and targ using threshold, based on underEstWt,
     the weight of underestimation error relative to overestimation error.
     paramDict requires keys: threshold, underEstWt
-    '''
-
+    """
     scorevec = np.empty((len(targ)))
     for i in range(len(targ)):
         estClass = np.array([1 if est[i] >= paramDict['threshold'] else 0 for i in range(len(est))])
         targClass = np.array([1 if targ[i] >= paramDict['threshold'] else 0 for i in range(len(targ))])
         scorevec[i] = (paramDict['underEstWt']*max(targClass[i] - estClass[i], 0) + max(estClass[i]-targClass[i],0))
     return scorevec
+'''
 
-
+'''
 def score_classArr(est, targArr, paramDict):
-    '''
+    """
     Returns the difference between classification of vectors est and targ using threshold, based on underEstWt,
     the weight of underestimation error relative to overestimation error.
     paramDict requires keys: threshold, underEstWt
-    '''
+    """
     estClass = (est-paramDict['threshold'])
     estClass[estClass >= 0.] = 1.
     estClass[estClass < 0.] = 0.
@@ -164,13 +168,14 @@ def score_classArr(est, targArr, paramDict):
     targClass[targClass >= 0.] = 1.
     targClass[targClass < 0.] = 0.
     return score_diffArr(estClass,targClass,paramDict)
+'''
 
-
+'''
 def score_classMat(draws, paramDict, indsforbayes=[]):
-    '''
+    """
     Returns classification loss for each pairwise combination of draws. Rows correspond to estimates, columns to targets
     :param indsforbayes: which indices of draws to use as estimates; used for limiting the matrix size
-    '''
+    """
     numdraws, numnodes = len(draws), len(draws[0])
     drawsClass = draws.copy()
     drawsClass[drawsClass >= paramDict['threshold']] = 1.
@@ -182,13 +187,13 @@ def score_classMat(draws, paramDict, indsforbayes=[]):
     drawsTargMat = np.transpose(np.reshape(np.tile(drawsClass.copy(),numbayesinds),(numdraws,numbayesinds,numnodes)),
                                 axes=(1, 0, 2))
     return np.maximum(drawsEstMat-drawsTargMat,0) + paramDict['underEstWt']*np.maximum(drawsTargMat-drawsEstMat,0)
-
+'''
 
 def score_class_matrix(truthdraws, canddraws, paramdict):
-    '''
+    """
     Returns classification loss for each pairwise combination of draws. Rows correspond to estimates, columns to targets
     :param indsforbayes: which indices of draws to use as estimates; used for limiting the matrix size
-    '''
+    """
     numdraws, numnodes, numcanddraws = len(truthdraws), len(truthdraws[0]), len(canddraws)
     drawsClass = truthdraws.copy()
     bayesdrawsClass = canddraws.copy()
@@ -201,35 +206,37 @@ def score_class_matrix(truthdraws, canddraws, paramdict):
                                 axes=(1, 0, 2))
     return np.maximum(drawsEstMat-drawsTargMat,0) + paramdict['underEstWt']*np.maximum(drawsTargMat-drawsEstMat,0)
 
-
+'''
 def score_check(est, targ, paramDict): #### OBSOLETE; REMOVE LATER
-    '''
+    """
     Returns a check difference between vectors est and targ using slope, which can be used to weigh underestimation and
     overestimation differently. Slopes less than 0.5 mean underestimation causes a higher loss than overestimation.
     paramDict requires keys: slope
-    '''
+    """
     scorevec = np.empty((len(targ)))
     for i in range(len(targ)):
         scorevec[i] = (est[i]-targ[i])*(paramDict['slope']- (1 if est[i]<targ[i] else 0))
     return scorevec
+'''
 
-
+'''
 def score_checkArr(est, targArr, paramDict):
-    '''
+    """
     Returns a check difference between vectors est and targ using slope, which can be used to weigh underestimation and
     overestimation differently. Slopes less than 0.5 mean underestimation causes a higher loss than overestimation.
     paramDict requires keys: slope
-    '''
+    """
     return (est-targArr) * (paramDict['slope'] - np.minimum(np.maximum(targArr-est,0),1e-8)*1e8)
+'''
 
-
+'''
 def score_checkMat(draws, paramDict, indsforbayes=[]):
-    '''
+    """
     Returns a check difference between vectors est and targ using slope, which can be used to weigh underestimation and
     overestimation differently. Slopes less than 0.5 mean underestimation causes a higher loss than overestimation.
     :param paramDict requires keys: slope
     :param indsforbayes: which indices of draws to use as estimates; used for limiting the matrix size
-    '''
+    """
     numdraws, numnodes = len(draws), len(draws[0])
     if len(indsforbayes) == 0:
         indsforbayes = np.arange(numdraws)
@@ -238,28 +245,27 @@ def score_checkMat(draws, paramDict, indsforbayes=[]):
     drawsTargMat = np.transpose(np.reshape(np.tile(draws.copy(), numbayesinds), (numdraws, numbayesinds, numnodes)),
                                 axes=(1, 0, 2))
     return (drawsEstMat-drawsTargMat) * (paramDict['slope'] - np.minimum(np.maximum(drawsTargMat-drawsEstMat,0),tol)*(1/tol))
+'''
 
-
-def score_check_matrix(draws, bayesdraws, paramDict):
-    '''
+def score_check_matrix(truthdraws, canddraws, paramdict):
+    """
     Returns a check difference between vectors est and targ using slope, which can be used to weigh underestimation and
     overestimation differently. Slopes less than 0.5 mean underestimation causes a higher loss than overestimation.
     :param paramDict requires keys: slope
     :param indsforbayes: which indices of draws to use as estimates; used for limiting the matrix size
-    '''
-    numdraws, numnodes = len(draws), len(draws[0])
-    numbayesdraws = len(bayesdraws)
-    drawsEstMat = np.reshape(np.tile(bayesdraws.copy(), numdraws), (numbayesdraws, numdraws, numnodes))
-    drawsTargMat = np.transpose(np.reshape(np.tile(draws.copy(), numbayesdraws), (numdraws, numbayesdraws, numnodes)),
+    """
+    numtruthdraws, numcanddraws, numnodes = len(truthdraws), len(canddraws), len(truthdraws[0])
+    drawsEstMat = np.reshape(np.tile(canddraws.copy(), numtruthdraws), (numcanddraws, numtruthdraws, numnodes))
+    drawsTargMat = np.transpose(np.reshape(np.tile(truthdraws.copy(), numcanddraws), (numtruthdraws, numcanddraws, numnodes)),
                                 axes=(1, 0, 2))
-    return (drawsEstMat-drawsTargMat) * (paramDict['slope'] - np.minimum(np.maximum(drawsTargMat-drawsEstMat,0),tol)*(1/tol))
+    return (drawsEstMat-drawsTargMat) * (paramdict['slope'] - np.minimum(np.maximum(drawsTargMat-drawsEstMat,0),tol)*(1/tol))
 
-
+'''
 def bayesEst(samps, scoredict):
-    '''
+    """
     Returns the Bayes estimate for a set of SFP rates based on the type of score and parameters used
     scoredict: must have key 'name' and other necessary keys for calculating the associated Bayes estimate
-    '''
+    """
     scorename = scoredict['name']
     if scorename == 'AbsDiff':
         underEstWt = scoredict['underEstWt']
@@ -274,16 +280,16 @@ def bayesEst(samps, scoredict):
         est = np.array(classlst)
     else:
         print('Not a valid score name')
-
     return est
+'''
 
-
+'''
 def bayesEstAdapt(samps, wts, scoredict, printUpdate=True):
-    '''
+    """
     Returns the Bayes estimate for a set of SFP rates, adjusted for weighting of samples, based on the type of score
         and parameters used
     scoredict: must have key 'name' and other necessary keys for calculating the associated Bayes estimate
-    '''
+    """
     # First identify the quantile we need
     if scoredict['name'] == 'AbsDiff':
         q =  scoredict['underEstWt']/(1+ scoredict['underEstWt'])
@@ -313,14 +319,15 @@ def bayesEstAdapt(samps, wts, scoredict, printUpdate=True):
             print('end ' + str(gind) + ': ' + str(round(time.time())))
 
     return est
+'''
 
-
+'''
 def bayesEstAdaptArr(sampsArr, wtsArr, scoredict, printUpdate=True):
-    '''
+    """
     Returns the Bayes estimate for a set of SFP rates, adjusted for weighting of samples, based on the type of score
         and parameters used
     scoredict: must have key 'name' and other necessary keys for calculating the associated Bayes estimate
-    '''
+    """
     # First identify the quantile we need
     if scoredict['name'] == 'AbsDiff':
         q =  scoredict['underEstWt']/(1+ scoredict['underEstWt'])
@@ -343,34 +350,35 @@ def bayesEstAdaptArr(sampsArr, wtsArr, scoredict, printUpdate=True):
         sortMat2 = np.array([sortMat[i,:,sortMat[i,1,:].argsort()] for i in range(numdraws)])
         critInds = np.array([np.argmax(np.cumsum(sortMat2[i,:,0])>=wtTargArr[i]) for i in range(numdraws)])
         estArr[:,nodeind] = np.array([sortMat2[i,critInds[i],1] for i in range(numdraws)])
-
     return estArr
+'''
 
-
+'''
 def loss_pms(est, targ, score, scoreDict, risk, riskDict, market):
-    '''
+    """
     Loss/utility function tailored for PMS.
     score, risk: score and risk functions with associated parameter dictionaries scoreDict, riskDict,
         that return vectors
     market: vector of market weights
-    '''
+    """
     currloss = 0. # Initialize the loss/utility
     scorevec = score(est, targ, scoreDict)
     riskvec = risk(targ, riskDict)
     for i in range(len(targ)):
         currloss += scorevec[i] * riskvec[i] * market[i]
     return currloss
+'''
 
-
+'''
 def loss_pmsArr(est, targArr, lossDict):
-    '''
+    """
     Loss/utility function tailored for PMS.
     est: estimate vector of SFP rates (supply node rates first)
     targVec: array of SFP-rate vectors; intended to represent a distribution of SFP rates
     score, risk: score and risk functions with associated parameter dictionaries scoreDict, riskDict,
         that return vectors
     market: vector of market weights
-    '''
+    """
     # Retrieve scores
     if lossDict['scoreDict']['name'] == 'AbsDiff':
         scoreArr = score_diffArr(est, targArr, lossDict['scoreDict'])
@@ -388,17 +396,18 @@ def loss_pmsArr(est, targArr, lossDict):
         lossDict.update({'marketVec':np.ones(len(est))})
     # Return sum loss across all nodes
     return np.sum(scoreArr*riskArr*lossDict['marketVec'],axis=1)
+'''
 
-
+'''
 def loss_pmsArr2(estArr, targArr, lossDict):
-    '''
+    """
     Loss/utility function tailored for PMS.
     est: array of estimate vectors of SFP rates (supply node rates first)
     targVec: array of SFP-rate vectors; intended to represent a distribution of SFP rates
     score, risk: score and risk functions with associated parameter dictionaries scoreDict, riskDict,
         that return vectors
     market: vector of market weights
-    '''
+    """
     # Retrieve scores
     if lossDict['scoreDict']['name'] == 'AbsDiff':
         scoreArr = score_diffArr(estArr, targArr, lossDict['scoreDict'])
@@ -416,6 +425,7 @@ def loss_pmsArr2(estArr, targArr, lossDict):
         lossDict.update({'marketVec':np.ones(len(estArr[0]))})
     # Return sum loss across all nodes
     return np.sum(scoreArr*riskArr*lossDict['marketVec'],axis=1)
+'''
 
 '''
 def lossMatrix(draws,lossdict,indsforbayes=[]):
@@ -483,6 +493,7 @@ def lossMatrixLinearized(draws, lossdict, indsforbayes=[]):
 '''
 
 def get_score_matrix(truthdraws, canddraws, scoredict):
+    """Retrieves score matrix per the name declared in scoredict"""
     S = np.zeros((canddraws.shape[0], truthdraws.shape[0]))
     if scoredict['name'] == 'AbsDiff':
         S = score_diff_matrix(truthdraws, canddraws, scoredict)
@@ -494,6 +505,7 @@ def get_score_matrix(truthdraws, canddraws, scoredict):
 
 
 def get_risk_matrix(truthdraws, canddraws, riskdict):
+    """Retrieves risk matrix per the name declared in riskdict"""
     R = np.zeros((canddraws.shape[0], truthdraws.shape[0]))
     if riskdict['name'] == 'Parabolic':
         R = risk_parabolic_matrix(truthdraws, canddraws.shape[0], riskdict)
@@ -503,14 +515,14 @@ def get_risk_matrix(truthdraws, canddraws, riskdict):
 
 
 def build_loss_matrix(truthdraws, canddraws, lossdict):
-    '''
+    """
     Returns a matrix of losses associated with each pair of SFP-rate draws from truthdraws and canddraws according to
     the specifications of lossdict; truthdraws is the distribution target, and canddraws is the set of possible Bayes
     estimates. Iterates through nodes one at a time, as in lossMatrixLinearized().
     :param canddraws, truthdraws: MCMC draws for building the loss matrix; the row corresponds to canddraws and the
             column corresponds to truthdraws
     :param lossdict: dictionary containing score and risk dictionaries, as well as an optional market-share vector
-    '''
+    """
     # Loop through score, risk, and market for each node of 'draws'
     (numtruthdraws, numnodes) = truthdraws.shape
     numcanddraws = canddraws.shape[0]
@@ -535,30 +547,29 @@ def build_loss_matrix(truthdraws, canddraws, lossdict):
     return L
 
 
-def addBayesNeighbors(lossdict, masterdraws, targdraws, printUpdate=True):
-    '''
-    Adds bayesEstNeighborNum (in lossdict) closest neighbors in masterdraws of the Bayes estimate as Bayes candidates,
-    and returns new draws and lossMat (the loss matrix) via the integration/target draws in targdraws.
-    :param bayesdraws: MCMC samples separate from 'draws' that are used to build the loss matrix
-    '''
+def add_cand_neighbors(lossdict, drawspool, truthdraws, printUpdate=True):
+    """
+    Adds bayesEstNeighborNum (in lossdict) closest neighbors in drawspool of the Bayes estimate as Bayes candidates,
+    and returns new draws and lossMat (the loss matrix) via the integration/target draws in truthdraws
+    """
     if printUpdate == True:
         print('Adding nearest neighbors of best Bayes candidate...')
 
     # Get best Bayes candidate from current loss matrix
-    bestCand = lossdict['bayesDraws'][np.argmin(np.average(lossdict['lossMat'], axis=1))]
+    bestcand = lossdict['canddraws'][np.argmin(np.average(lossdict['lossMat'], axis=1))]
 
     # Add neighbors of best candidate to set of Bayes draws
-    drawDists = cdist(bestCand.reshape(1, len(targdraws[0])), masterdraws)
-    nieghborInds = np.argpartition(drawDists[0], lossdict['bayesEstNeighborNum'])[:lossdict['bayesEstNeighborNum']]
-    neighborArr = masterdraws[nieghborInds]
+    drawDists = cdist(bestcand.reshape(1, len(truthdraws[0])), drawspool)
+    neighborinds = np.argpartition(drawDists[0], lossdict['bayesEstNeighborNum'])[:lossdict['bayesEstNeighborNum']]
+    neighborArr = drawspool[neighborinds]
 
     # Update loss matrix
     templossdict = {'scoreDict': lossdict['scoreDict'], 'riskDict': lossdict['riskDict'], 'marketVec': lossdict['marketVec']}
-    lossMatNeighbors = build_loss_matrix(targdraws, neighborArr, templossdict)
+    lossMatNeighbors = build_loss_matrix(truthdraws, neighborArr, templossdict)
 
     # Update return items
-    bayesdraws = np.vstack((lossdict['bayesDraws'], neighborArr))
+    canddraws = np.vstack((lossdict['canddraws'], neighborArr))
     lossmat = np.vstack((lossdict['lossMat'],lossMatNeighbors))
 
-    return bayesdraws, lossmat
+    return canddraws, lossmat
 
