@@ -1124,7 +1124,7 @@ def plot_group_utility(marg_util_group_list, testmax, testint, titleStr='', colo
     return
 
 
-def plot_plan(allocarr, paramlist, testInt=1, al=0.6, titleStr='', colors=[], dashes=[], labels=[], allocMax=-1):
+def plot_plan(allocarr, paramlist, testint=1, al=0.6, titlestr='', colors=[], dashes=[], labels=[], allocmax=-1):
     """
     Produces a plot of an array of allocations relative to the parameters in paramList, i.e., this plots paramlist on
     the x-axis and allocarr on the y-axis.
@@ -1138,15 +1138,15 @@ def plot_plan(allocarr, paramlist, testInt=1, al=0.6, titleStr='', colors=[], da
     if len(labels) == 0:
         labels = ['Test Node '+str(tnind+1) for tnind in range(allocarr.shape[0])]
     for tnind in range(allocarr.shape[0]):
-        plt.plot(paramlist, allocarr[tnind]*testInt, dashes=dashes[tnind], linewidth=2.5, color=colors[tnind],
+        plt.plot(paramlist, allocarr[tnind]*testint, dashes=dashes[tnind], linewidth=2.5, color=colors[tnind],
                  label=labels[tnind], alpha=al)
-    if allocMax < 0:
-        allocMax = allocarr.max()*testInt*1.1
+    if allocmax < 0:
+        allocmax = allocarr.max()*testint*1.1
     plt.legend(fontsize=12)
-    plt.ylim([0., allocMax])
+    plt.ylim([0., allocmax])
     plt.xlabel('Parameter Value', fontsize=14)
     plt.ylabel('Test Node Allocation', fontsize=14)
-    plt.title('Test Node Allocation\n'+titleStr, fontsize=18)
+    plt.title('Test Node Allocation\n'+titlestr, fontsize=18)
     plt.tight_layout()
     plt.savefig('NODEALLOC.png')
     plt.show()
