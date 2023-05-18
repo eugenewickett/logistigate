@@ -1066,8 +1066,8 @@ def plot_marg_util(margutilarr, testmax, testint, al=0.6, titlestr='', type='cum
     return
 
 
-def plot_group_utility(marg_util_group_list, testmax, testint, titleStr='', colors=[], dashes=[],
-                       labels=[], utilMax=-1, lineLabels=False):
+def plot_group_utility(marg_util_group_list, testmax, testint, titlestr='', colors=[], dashes=[],
+                       labels=[], utilmax=-1, linelabels=False):
     """
     Produces a 95% confidence interval plot of groups of arrays of marginal utility increases; useful for comparing
     utility of different plans
@@ -1080,12 +1080,12 @@ def plot_group_utility(marg_util_group_list, testmax, testint, titleStr='', colo
         colors = cm.rainbow(np.linspace(0, 1, len(marg_util_group_list)))
     if len(dashes) == 0:
         dashes = [[1,desind] for desind in range(len(marg_util_group_list))]
-    if utilMax < 0:
+    if utilmax < 0:
         for lst in marg_util_group_list:
             currMax = np.amax(np.array(lst))
-            if currMax>utilMax:
-                utilMax = currMax
-        utilMax = utilMax*1.1
+            if currMax > utilmax:
+                utilmax = currMax
+        utilmax = utilmax*1.1
     if len(labels) == 0:
         labels = ['Group '+str(i+1) for i in range(len(marg_util_group_list))]
 
@@ -1107,16 +1107,16 @@ def plot_group_utility(marg_util_group_list, testmax, testint, titleStr='', colo
         #plt.errorbar(x, groupAvgArr, yerr=err, capsize=2, color=colors[groupInd],
         #             ecolor=[colors[groupInd][i]*0.6 for i in range(len(colors[groupInd]))],
         #             linewidth=2, elinewidth=0.5)
-        if lineLabels == True:
+        if linelabels == True:
             plt.text(x[-1] * 1.01, groupAvgArr[-1], labels[groupInd].ljust(12), fontsize=5)
-    plt.ylim(0,utilMax)
+    plt.ylim(0, utilmax)
     plt.xlim(0,x[-1]*1.12)
     leg = plt.legend(loc='upper left')
     for legobj in leg.legendHandles:
         legobj.set_linewidth(1.0)
     plt.xlabel('Sampling Budget',fontsize=12)
     plt.ylabel('Design Utility',fontsize=12)
-    plt.title('Design Utility vs. Sampling Budget\n'+titleStr,fontsize=16)
+    plt.title('Design Utility vs. Sampling Budget\n'+titlestr,fontsize=16)
     plt.tight_layout()
     plt.show()
     plt.close()
