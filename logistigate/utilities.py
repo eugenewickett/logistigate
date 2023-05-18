@@ -3,6 +3,7 @@ Stores utilities for use with lg.py and methods.py
 """
 import csv
 import numpy as np
+from numpy.random import choice
 import random
 from tabulate import tabulate
 import matplotlib
