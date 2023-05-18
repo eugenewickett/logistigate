@@ -421,9 +421,9 @@ def initDataDict(N, Y, diagSens=1., diagSpec=1., dataType='Tracked', trueRates=[
     if trueRates == []:
         trueRates = np.zeros(SNnum + TNnum)  # SNs first, TNs second
 
-    # Generate random sourcing matrix
-    if len(Q) < 1:
-        sourcMat = np.zeros(shape=(TNnum, SNnum))
+    # Generate sourcing matrix
+    if len(Q) < 1: # Use observed traces to estimate Q
+        N / np.sum(N, axis=1).reshape(TNnum, 1)
     else:
         sourcMat = Q.copy()
 
