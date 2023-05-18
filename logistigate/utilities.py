@@ -1010,8 +1010,8 @@ def zProbTrVec(snNum, gammaMat, sens=1., spec=1.):
 def distribute_draws(drawspool, numcanddraws, numtruthdraws, numdatadraws):
     """Uses entered numbers to produce random draws subsets"""
     canddraws = drawspool[choice(np.arange(drawspool.shape[0]), size=numcanddraws, replace=False)]
-    truthdraws = currcanddraws[choice(np.arange(numcanddraws), size=numtruthdraws, replace=False)]
-    datadraws = currtruthdraws[choice(np.arange(numtruthdraws), size=numdatadraws, replace=False)]
+    truthdraws = canddraws[choice(np.arange(numcanddraws), size=numtruthdraws, replace=False)]
+    datadraws = truthdraws[choice(np.arange(numtruthdraws), size=numdatadraws, replace=False)]
     return canddraws, truthdraws, datadraws
 
 
