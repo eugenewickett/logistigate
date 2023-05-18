@@ -423,7 +423,7 @@ def initDataDict(N, Y, diagSens=1., diagSpec=1., dataType='Tracked', trueRates=[
 
     # Generate sourcing matrix
     if len(Q) < 1: # Use observed traces to estimate Q
-        N / np.sum(N, axis=1).reshape(TNnum, 1)
+        sourcMat = N / np.sum(N, axis=1).reshape(TNnum, 1)
     else:
         sourcMat = Q.copy()
 
