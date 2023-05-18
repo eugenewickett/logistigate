@@ -547,6 +547,15 @@ def build_loss_matrix(truthdraws, canddraws, lossdict):
     return L
 
 
+def build_diffscore_checkrisk_dict(scoreunderestwt=1., riskthreshold=0.2, riskslope=0.5, marketvec=1.,
+                                       candneighnum=0):
+    '''Builds a loss dictionary corresponding to the entered arguments'''
+    scoredict = {'name': 'absdiff', 'underestweight': scoreunderestwt}
+    riskdict = {'name': 'check', 'threshold': riskthreshold, 'slope': riskslope}
+    paramdict = {'scoredict': scoredict, 'riskdict': riskdict, 'marketvec': marketvec}
+    paramdict.update({'candneighnum': candneighnum})
+    return paramdict
+
 def add_cand_neighbors(paramdict, drawspool, truthdraws, printUpdate=True):
     """
     Adds bayesEstNeighborNum (in lossdict) closest neighbors in drawspool of the Bayes estimate as Bayes candidates,
