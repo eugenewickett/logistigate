@@ -764,8 +764,7 @@ def smooth_alloc_forward_budget(U, b):
     return currSol
 
 
-def get_marg_util_nodes(priordatadict, testmax, testint, paramdict, baseLoss=-1, addcandneighbors=True, drawspool=[],
-                       printUpdate=True):
+def get_marg_util_nodes(priordatadict, testmax, testint, paramdict, printupdate=True):
     """
     Returns an array of marginal utility estimates for the PMS data contained in priordatadict.
     :param testmax: maximum number of tests at each test node
@@ -774,35 +773,24 @@ def get_marg_util_nodes(priordatadict, testmax, testint, paramdict, baseLoss=-1,
                         canddraws, datadraws, lossmatrix
     :return margUtilArr: array of size (number of test nodes) by (testsMax/testsInt + 1)
     """
+    if not all(key in paramdict for key in ['baseloss', 'lossmatrix']):
+        print('The parameter dictionary is missing the loss matrix or the base loss.')
+        return []
     (numTN, numSN) = priordatadict['N'].shape
-    if addcandneighbors == True: # Add nearest neighbors to best Bayes estimate
-        newcanddraws, newlossmatrix = lf.add_cand_neighbors(paramdict, drawspool, paramdict['truthdraws'])
-        paramdict.update({'canddraws':newcanddraws, 'lossmatrix':newlossmatrix})
-    lossMat = paramdict['lossmatrix']
-    print('Candidate draws: ' + str(lossMat.shape[0]))
-    print('Target draws: ' + str(lossMat.shape[1]))
-    print('Data draws: ' + str(paramdict['datadraws'].shape[0]))
-    # Establish a baseline loss for comparison with other losses (if not already entered);
-    #   only depends on the loss matrix, as there are no tests
-    if baseLoss < 0:
-        if printUpdate == True:
-            print('Generating baseline loss...')
-        baseLoss = baseloss(lossMat)
-    print('Baseline loss: '+str(baseLoss))
     # Initialize the return array
-    margUtilArr = np.zeros((numTN, int(testmax / testint) + 1))
+    margutil_arr = np.zeros((numTN, int(testmax / testint) + 1))
     # Calculate the marginal utility increase under each iteration of tests for each test node
     for currTN in range(numTN):
         design = np.zeros(numTN)
         design[currTN] = 1.
-        for testNum in range(testint, testmax+1, testint):
-            if printUpdate == True:
-                print('Calculating for test node '+str(currTN+1)+' under '+str(testNum)+' tests...')
-            margUtilArr[currTN][int(testNum/testint)] = baseLoss - sampling_plan_loss_fast(design, testNum,
-                                                                                           priordatadict, paramdict)
-        if printUpdate == True:
-            print('Test node '+str(currTN+1)+' utilities: '+str(margUtilArr[currTN]))
-    return margUtilArr
+        if printupdate == True:
+            print('Design: ' + str(design.round(2)))
+        for testnum in range(testint, testmax+1, testint):
+            if printupdate == True:
+                print('Calculating utility for '+str(testnum)+' tests...')
+            margutil_arr[currTN][int(testnum/testint)] = paramdict['baseloss'] - sampling_plan_loss_fast(design,
+                                                                                    testnum, priordatadict, paramdict)
+    return margutil_arr
 
 
 def baseloss(L):
