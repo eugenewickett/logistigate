@@ -1015,6 +1015,23 @@ def distribute_draws(drawspool, numcanddraws, numtruthdraws, numdatadraws):
     return canddraws, truthdraws, datadraws
 
 
+def print_param_checks(paramdict):
+    """Print key parameter values; intended as check on the current run"""
+    print('Estimating plan utility with following parameters...')
+    if paramdict['scoredict']['name'] == 'absdiff':
+        print('Absolute difference score with underestimation penalty of '+str(paramdict['scoredict']['underestweight']))
+    if paramdict['riskdict']['name'] == 'check':
+        print('Check risk with threshold of '+ str(paramdict['riskdict']['threshold']) + ' and slope of ' +\
+              str(paramdict['riskdict']['slope']))
+
+    print('Candidate draws: ' + str(paramdict['lossmatrix'].shape[0]))
+    print('Truth draws: ' + str(paramdict['lossmatrix'].shape[1]))
+    print('Data draws: ' + str(paramdict['datadraws'].shape[0]))
+    print('Baseline loss: ' + str(paramdict['baseloss']))
+
+    return
+
+
 def plot_marg_util(margutilarr, testmax, testint, al=0.6, titlestr='', type='cumulative', colors=[], dashes=[],
                    labels=[], utilmax=-1, linelabels=False):
     """
