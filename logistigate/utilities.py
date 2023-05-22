@@ -1096,8 +1096,9 @@ def plot_marg_util(margutilarr, testmax, testint, al=0.6, titlestr='', type='cum
 def plot_marg_util_nodes_group(marg_util_group_list, testmax, testint, titlestr='', colors=[], utilmax=-1):
     """Plots multiple marginal utility matrices at nodes"""
     testarr = np.arange(testint, testmax + testint, testint)
+    numTN = marg_util_group_list[0].shape[0]
     if len(colors) == 0:
-        colors = cm.rainbow(np.linspace(0, 1., marg_util_group_list[0].shape[0]))
+        colors = cm.rainbow(np.linspace(0, 1., numTN))
     for mat in marg_util_group_list:
         for i in range(numTN):
             plt.plot(testarr, mat[i][1:], linewidth=0.2, color=colors[i])
