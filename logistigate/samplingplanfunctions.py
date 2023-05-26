@@ -793,8 +793,8 @@ def get_marg_util_nodes(priordatadict, testmax, testint, paramdict, printupdate=
     return margutil_arr
 
 
-def baseloss(L):
-    '''Returns the base loss associated with loss matrix L; should be used when determining utility'''
+def baseloss_matrix(L):
+    """Returns the base loss associated with loss matrix L; should be used when determining utility"""
     return (np.sum(L, axis=1) / L.shape[1]).min()
 
 
@@ -828,3 +828,69 @@ def get_bayes_min(truthdraws, Wvec, paramdict, xinit='na', optmethod='L-BFGS-B')
     spoOutput = spo.minimize(cand_obj_val, xinit, jac=cand_obj_val_jac, hess=cand_obj_val_hess,
                              method=optmethod, args=(truthdraws, Wvec, paramdict, riskmat))
     return spoOutput
+
+
+def baseloss(truthdraws, paramdict):
+    """
+    Returns the base loss associated with the set of truthdraws and the scoredict/riskdict included in paramdict;
+    should be used when determining utility
+    """
+    opt_output = get_bayes_min_cand(truthdraws, np.ones((truthdraws.shape[0])) / truthdraws.shape[0], paramdict)
+    return opt_output.fun
+
+
+def sampling_plan_loss_fast_opt(design, numtests, priordatadict, paramdict):
+    """
+    Produces the sampling plan loss for a test budget under a given data set and specified parameters, using the fast
+    estimation algorithm.
+    design: sampling probability vector along all test nodes/traces
+    numtests: test budget
+    priordatadict: logistigate data dictionary capturing known data
+    paramdict: parameter dictionary containing a loss matrix, truth and data MCMC draws, and an optional method for
+        rounding the design to an integer allocation
+    """
+    if 'roundalg' in paramdict: # Set default rounding algorithm for plan
+        roundalg = paramdict['roundalg'].copy()
+    else:
+        roundalg = 'lo'
+    # Initialize samples to be drawn from traces, per the design, using a rounding algorithm
+    sampMat = util.generate_sampling_array(design, numtests, roundalg)
+
+    # Get weights matrix
+    W = build_weights_matrix(paramdict['truthdraws'], paramdict['datadraws'], sampMat, priordatadict)
+    # Compile list of optima
+    minvalslist = []
+    for j in range(W.shape[1]):
+        optout = get_bayes_min(paramdict['truthdraws'], W[:, j], paramdict, xinit=paramdict['datadraws'][j])
+        minvalslist.append(opt_output.fun)
+    return np.average(minvalslist)
+
+
+def get_opt_marg_util_nodes(priordatadict, testmax, testint, paramdict, printupdate=True):
+    """
+    Returns an array of marginal utility estimates for the PMS data contained in priordatadict; uses derived optima
+    instead of a loss matrix.
+    :param testmax: maximum number of tests at each test node
+    :param testint: interval of tests, from zero ot testsMax, by which to calculate estimates
+    :param paramdict: dictionary containing parameters for how the PMS loss is calculated; needs keys: truthdraws,
+                        canddraws, datadraws, lossmatrix
+    :return margUtilArr: array of size (number of test nodes) by (testsMax/testsInt + 1)
+    """
+    if not all(key in paramdict for key in ['baseloss']):
+        print('The parameter dictionary is missing a base loss.')
+        return []
+    numTN = priordatadict['N'].shape[0]
+    # Initialize the return array
+    margutil_arr = np.zeros((numTN, int(testmax / testint) + 1))
+    # Calculate the marginal utility increase under each iteration of tests for each test node
+    for currTN in range(numTN):
+        design = np.zeros(numTN)
+        design[currTN] = 1.
+        if printupdate == True:
+            print('Design: ' + str(design.round(2)))
+        for testnum in range(testint, testmax+1, testint):
+            if printupdate == True:
+                print('Calculating utility for '+str(testnum)+' tests...')
+            margutil_arr[currTN][int(testnum/testint)] = paramdict['baseloss'] - sampling_plan_loss_fast_opt(design,
+                                                                                    testnum, priordatadict, paramdict)
+    return margutil_arr
