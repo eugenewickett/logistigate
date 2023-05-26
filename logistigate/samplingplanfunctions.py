@@ -25,6 +25,7 @@ from numpy.random import choice
 import math
 from math import comb
 import scipy.special as sps
+import scipy.stats as spstat
 
 
 def sampling_plan_loss_fast(design, numtests, priordatadict, paramdict):
@@ -839,10 +840,10 @@ def baseloss(truthdraws, paramdict):
     return opt_output.fun
 
 
-def sampling_plan_loss_fast_opt(design, numtests, priordatadict, paramdict):
+def sampling_plan_loss_fast_opt(design, numtests, priordatadict, paramdict, zlevel=0.95):
     """
-    Produces the sampling plan loss for a test budget under a given data set and specified parameters, using the fast
-    estimation algorithm.
+    Produces the sampling plan loss and 95% CI for a test budget under a given data set and specified parameters, using
+    the fast estimation algorithm with direct optimization (instead of a loss matrix).
     design: sampling probability vector along all test nodes/traces
     numtests: test budget
     priordatadict: logistigate data dictionary capturing known data
@@ -863,7 +864,8 @@ def sampling_plan_loss_fast_opt(design, numtests, priordatadict, paramdict):
     for j in range(W.shape[1]):
         optout = get_bayes_min(paramdict['truthdraws'], W[:, j], paramdict, xinit=paramdict['datadraws'][j])
         minvalslist.append(opt_output.fun)
-    return np.average(minvalslist)
+    return np.average(minvalslist),\
+           spstat.t.interval(zlevel, len(minvalslist)-1, loc=np.mean(minvalslist), scale=spstat.sem(minvalslist))
 
 
 def get_opt_marg_util_nodes(priordatadict, testmax, testint, paramdict, printupdate=True):
