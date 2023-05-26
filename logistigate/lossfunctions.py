@@ -581,5 +581,13 @@ def add_cand_neighbors(paramdict, drawspool, truthdraws, printUpdate=True):
     canddraws = np.vstack((paramdict['canddraws'], neighborArr))
     lossmat = np.vstack((paramdict['lossmatrix'],lossMatNeighbors))
 
+    if printUpdate == True:
+        print('Nearest neighbors added')
+
     return canddraws, lossmat
 
+
+def get_crit_ratio_est(truthdraws, paramdict):
+    """Retrieve Bayes estimate candidate that is the critical ratio for the SFP rate at each node"""
+    return np.quantile(truthdraws,
+                paramdict['scoredict']['underestweight'] / (1 + paramdict['scoredict']['underestweight']), axis=0)

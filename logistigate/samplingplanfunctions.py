@@ -796,3 +796,35 @@ def get_marg_util_nodes(priordatadict, testmax, testint, paramdict, printupdate=
 def baseloss(L):
     '''Returns the base loss associated with loss matrix L; should be used when determining utility'''
     return (np.sum(L, axis=1) / L.shape[1]).min()
+
+
+def cand_obj_val(x, truthdraws, Wvec, paramdict, riskmat):
+    """Objective for optimization step"""
+    scoremat = lf.score_diff_matrix(truthdraws, x.reshape(1, truthdraws[0].shape[0]), paramdict['scoredict'])[0]
+    return np.sum(np.sum(scoremat * riskmat, axis=1) * Wvec)
+
+
+def cand_obj_val_jac(x, truthdraws, Wvec, paramdict, riskmat):
+    """Objective gradient for optimization step"""
+    jacmat = np.where(x < truthdraws, -paramdict['scoredict']['underestweight'], 1) * riskmat \
+                * Wvec.reshape(truthdraws.shape[0], 1)
+    return np.sum(jacmat, axis=0)
+
+
+def cand_obj_val_hess(x, truthdraws, Wvec, paramdict, riskmat):
+    """Objective Hessian for optimization step"""
+    return np.zeros((x.shape[0],x.shape[0]))
+
+
+def get_bayes_min(truthdraws, Wvec, paramdict, xinit='na', optmethod='L-BFGS-B'):
+    """Optimization function for a set of parameters, truthdraws, and weights matrix"""
+    # Initialize with random truthdraw if not provided
+    if isinstance(xinit, str):
+        xinit = truthdraws[choice(np.arange(truthdraws.shape[0]))]
+    # Get risk matrix
+    riskmat = lf.risk_check_array(truthdraws, paramdict['riskdict'])
+    # Minimize expected candidate loss
+    #bds = spo.Bounds(np.repeat(0., xinit.shape[0]), np.repeat(1., xinit.shape[0]))
+    spoOutput = spo.minimize(cand_obj_val, xinit, jac=cand_obj_val_jac, hess=cand_obj_val_hess,
+                             method=optmethod, args=(truthdraws, Wvec, paramdict, riskmat))
+    return spoOutput
