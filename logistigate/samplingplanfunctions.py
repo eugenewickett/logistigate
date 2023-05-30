@@ -838,7 +838,7 @@ def baseloss(truthdraws, paramdict):
     Returns the base loss associated with the set of truthdraws and the scoredict/riskdict included in paramdict;
     should be used when determining utility
     """
-    opt_output = get_bayes_min_cand(truthdraws, np.ones((truthdraws.shape[0])) / truthdraws.shape[0], paramdict)
+    opt_output = get_bayes_min(truthdraws, np.ones((truthdraws.shape[0])) / truthdraws.shape[0], paramdict)
     return opt_output.fun
 
 
