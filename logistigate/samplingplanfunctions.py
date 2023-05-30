@@ -26,6 +26,7 @@ import math
 from math import comb
 import scipy.special as sps
 import scipy.stats as spstat
+import scipy.optimize as spo
 
 
 def sampling_plan_loss_fast(design, numtests, priordatadict, paramdict):
@@ -645,8 +646,6 @@ def get_opt_allocation(U):
     Each row of U should correspond to one test node or trace. U should be 2-dimensional in
     the case of node sampling and 3-dimensional in the case of path sampling.
     """
-    import scipy.optimize as spo
-
     Udim = np.ndim(U)
     if Udim == 2: # Node Sampling
         (numTN, numTests) = U.shape

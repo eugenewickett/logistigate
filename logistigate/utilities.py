@@ -1015,6 +1015,13 @@ def distribute_draws(drawspool, numcanddraws, numtruthdraws, numdatadraws):
     return canddraws, truthdraws, datadraws
 
 
+def distribute_truthdata_draws(drawspool, numtruthdraws, numdatadraws):
+    """Uses entered numbers to produce random draws subsets"""
+    truthdraws = drawspool[choice(np.arange(drawspool.shape[0]), size=numtruthdraws, replace=False)]
+    datadraws = truthdraws[choice(np.arange(numtruthdraws), size=numdatadraws, replace=False)]
+    return truthdraws, datadraws
+
+
 def print_param_checks(paramdict):
     """Print key parameter values; intended as check on the current run"""
     print('Estimating plan utility with following parameters...')
