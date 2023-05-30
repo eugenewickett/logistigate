@@ -840,7 +840,7 @@ def baseloss(truthdraws, paramdict):
     return opt_output.fun
 
 
-def sampling_plan_loss_fast_opt(design, numtests, priordatadict, paramdict, zlevel=0.95):
+def sampling_plan_loss_list(design, numtests, priordatadict, paramdict):
     """
     Produces the sampling plan loss and 95% CI for a test budget under a given data set and specified parameters, using
     the fast estimation algorithm with direct optimization (instead of a loss matrix).
@@ -863,9 +863,16 @@ def sampling_plan_loss_fast_opt(design, numtests, priordatadict, paramdict, zlev
     minvalslist = []
     for j in range(W.shape[1]):
         optout = get_bayes_min(paramdict['truthdraws'], W[:, j], paramdict, xinit=paramdict['datadraws'][j])
-        minvalslist.append(opt_output.fun)
-    return np.average(minvalslist),\
-           spstat.t.interval(zlevel, len(minvalslist)-1, loc=np.mean(minvalslist), scale=spstat.sem(minvalslist))
+        minvalslist.append(optout.fun)
+    return minvalslist
+
+
+def process_loss_list(minvalslist, zlevel=0.95):
+    """
+    Return the average and CI of a list; intended for use with sampling_plan_loss_list()
+    """
+    return np.average(minvalslist), \
+           spstat.t.interval(zlevel, len(minvalslist)-1, loc=np.average(minvalslist), scale=spstat.sem(minvalslist))
 
 
 def get_opt_marg_util_nodes(priordatadict, testmax, testint, paramdict, printupdate=True):
