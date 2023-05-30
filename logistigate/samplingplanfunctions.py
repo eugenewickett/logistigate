@@ -824,7 +824,7 @@ def get_bayes_min(truthdraws, Wvec, paramdict, xinit='na', optmethod='L-BFGS-B')
     # Get risk matrix
     riskmat = lf.risk_check_array(truthdraws, paramdict['riskdict'])
     # Minimize expected candidate loss
-    if optmethod=='L-BFGS-S':
+    if optmethod=='L-BFGS-B':
         spoOutput = spo.minimize(cand_obj_val, xinit, jac=cand_obj_val_jac,
                                  method=optmethod, args=(truthdraws, Wvec, paramdict, riskmat))
     else:
@@ -877,7 +877,7 @@ def process_loss_list(minvalslist, zlevel=0.95):
            spstat.t.interval(zlevel, len(minvalslist)-1, loc=np.average(minvalslist), scale=spstat.sem(minvalslist))
 
 
-def get_opt_marg_util_nodes(priordatadict, testmax, testint, paramdict, printupdate=True):
+def get_opt_marg_util_nodes(priordatadict, testmax, testint, paramdict, zlevel=0.95, printupdate=True, plotupdate=True):
     """
     Returns an array of marginal utility estimates for the PMS data contained in priordatadict; uses derived optima
     instead of a loss matrix.
@@ -892,7 +892,9 @@ def get_opt_marg_util_nodes(priordatadict, testmax, testint, paramdict, printupd
         return []
     numTN = priordatadict['N'].shape[0]
     # Initialize the return array
-    margutil_arr = np.zeros((numTN, int(testmax / testint) + 1))
+    margutil_avg_arr, margutil_hi_arr, margutil_lo_arr = np.zeros((numTN, int(testmax / testint) + 1)),\
+                                                         np.zeros((numTN, int(testmax / testint) + 1)),\
+                                                         np.zeros((numTN, int(testmax / testint) + 1))
     # Calculate the marginal utility increase under each iteration of tests for each test node
     for currTN in range(numTN):
         design = np.zeros(numTN)
@@ -902,6 +904,11 @@ def get_opt_marg_util_nodes(priordatadict, testmax, testint, paramdict, printupd
         for testnum in range(testint, testmax+1, testint):
             if printupdate == True:
                 print('Calculating utility for '+str(testnum)+' tests...')
-            margutil_arr[currTN][int(testnum/testint)] = paramdict['baseloss'] - sampling_plan_loss_fast_opt(design,
-                                                                                    testnum, priordatadict, paramdict)
-    return margutil_arr
+            currlosslist = sampling_plan_loss_list(design, testnum, priordatadict, paramdict)
+            avg_loss, avg_loss_CI = process_loss_list(currlosslist, zlevel)
+            margutil_avg_arr[currTN][int(testnum / testint)] = paramdict['baseloss'] - avg_loss
+            margutil_hi_arr[currTN][int(testnum / testint)] = paramdict['baseloss'] - avg_loss_CI[0]
+            margutil_lo_arr[currTN][int(testnum / testint)] = paramdict['baseloss'] - avg_loss_CI[1]
+            if plotupdate == True:
+                pass # plot marginal utilities
+    return margutil_avg_arr, margutil_hi_arr, margutil_lo_arr

@@ -1099,6 +1099,73 @@ def plot_marg_util(margutilarr, testmax, testint, al=0.6, titlestr='', type='cum
     plt.close()
     return
 
+def plot_marg_util_CI(margutilarr_avg, margutilarr_hi, margutilarr_lo,  testmax, testint, al=0.8, titlestr='', type='cumulative', colors=[], dashes=[],
+                   labels=[], utilmax=-1, linelabels=False):
+    """
+    Same as plot_marg_util but includes a confidence interval
+    :param testmax, testint: maximum test range and test interval reflected in margutilarr
+    :param al: alpha level for line transparency
+    :param titlestr: plot subtitle
+    :param colors, dashes, labels: plot parameters
+    :param utilmax: optional y-axis maximum
+    :param linelabels: Boolean indicating whether labels should be added to each line
+    :param type: one of 'cumulative' or 'delta'; cumulative plots show the additive change in utility; delta plos show
+                the marginal change in utility for the next set of testInt tests
+    """
+    if len(colors) == 0:
+        colors = cm.rainbow(np.linspace(0, 1, margutilarr_avg.shape[0]))
+    if len(dashes) == 0:
+        dashes = [[1,desind] for desind in range(margutilarr_avg.shape[0])]
+    if len(labels) == 0:
+        labels = ['Design '+str(desind+1) for desind in range(margutilarr_avg.shape[0])]
+    if type == 'cumulative':
+        x1 = range(0, testmax + 1, testint)
+        if utilmax > 0.:
+            yMax = utilmax
+        else:
+            yMax = margutilarr_hi.max()*1.1
+        for desind in range(margutilarr_avg.shape[0]):
+            plt.plot(x1, margutilarr_avg[desind], dashes=dashes[desind], linewidth=2.5, color=colors[desind],
+                     label=labels[desind], alpha=al)
+            plt.fill_between(x1, margutilarr_lo[desind], margutilarr_hi[desind], dashes=dashes[desind],
+                             color=colors[desind], alpha=0.3*al)
+        if linelabels:
+            for tnind in range(margutilarr_avg.shape[0]):
+                plt.text(testmax * 1.01, margutilarr_avg[tnind, -1], labels[tnind].ljust(15), fontsize=5)
+    elif type == 'delta':
+        x1 = range(testint, testmax + 1, testint)
+        deltaArr = np.zeros((margutilarr_avg.shape[0],margutilarr_avg.shape[1]-1))
+        deltaArr_hi = np.zeros((margutilarr_avg.shape[0], margutilarr_avg.shape[1] - 1))
+        deltaArr_lo = np.zeros((margutilarr_avg.shape[0], margutilarr_avg.shape[1] - 1))
+        for rw in range(deltaArr.shape[0]):
+            for col in range(deltaArr.shape[1]):
+                deltaArr[rw, col] = margutilarr_avg[rw, col + 1] - margutilarr_avg[rw, col]
+                deltaArr_hi[rw, col] = margutilarr_hi[rw, col + 1] - margutilarr_hi[rw, col]
+                deltaArr_lo[rw, col] = margutilarr_lo[rw, col + 1] - margutilarr_lo[rw, col]
+        if utilmax > 0.:
+            yMax = utilmax
+        else:
+            yMax = deltaArr.max()*1.1
+        for desind in range(deltaArr.shape[0]):
+            plt.plot(x1, deltaArr[desind], dashes=dashes[desind], linewidth=2.5, color=colors[desind],
+                     label=labels[desind], alpha=al)
+            plt.fill_between(x1, margutilarr_lo[desind], margutilarr_hi[desind], dashes=dashes[desind],
+                             color=colors[desind], alpha=0.3 * al)
+        if linelabels:
+            for tnind in range(deltaArr.shape[0]):
+                plt.text(testmax * 1.01, deltaArr[tnind, -1], labels[tnind].ljust(15), fontsize=5)
+    plt.legend()
+    plt.ylim([0., yMax])
+    plt.xlabel('Number of Tests')
+    if type=='delta':
+        plt.ylabel('Marginal Utility Gain')
+    else:
+        plt.ylabel('Utility Gain')
+    plt.title('Marginal Utility with Increasing Tests\n'+titlestr)
+    plt.show()
+    plt.close()
+    return
+
 
 def plot_marg_util_nodes_group(marg_util_group_list, testmax, testint, titlestr='', colors=[], utilmax=-1):
     """Plots multiple marginal utility matrices at nodes"""
