@@ -824,9 +824,12 @@ def get_bayes_min(truthdraws, Wvec, paramdict, xinit='na', optmethod='L-BFGS-B')
     # Get risk matrix
     riskmat = lf.risk_check_array(truthdraws, paramdict['riskdict'])
     # Minimize expected candidate loss
-    #bds = spo.Bounds(np.repeat(0., xinit.shape[0]), np.repeat(1., xinit.shape[0]))
-    spoOutput = spo.minimize(cand_obj_val, xinit, jac=cand_obj_val_jac, hess=cand_obj_val_hess,
-                             method=optmethod, args=(truthdraws, Wvec, paramdict, riskmat))
+    if optmethod=='L-BFGS-S':
+        spoOutput = spo.minimize(cand_obj_val, xinit, jac=cand_obj_val_jac,
+                                 method=optmethod, args=(truthdraws, Wvec, paramdict, riskmat))
+    else:
+        spoOutput = spo.minimize(cand_obj_val, xinit, jac=cand_obj_val_jac, hess=cand_obj_val_hess,
+                                 method=optmethod, args=(truthdraws, Wvec, paramdict, riskmat))
     return spoOutput
 
 
@@ -841,7 +844,7 @@ def baseloss(truthdraws, paramdict):
 
 def sampling_plan_loss_list(design, numtests, priordatadict, paramdict):
     """
-    Produces the sampling plan loss and 95% CI for a test budget under a given data set and specified parameters, using
+    Produces a list of sampling plan losses for a test budget under a given data set and specified parameters, using
     the fast estimation algorithm with direct optimization (instead of a loss matrix).
     design: sampling probability vector along all test nodes/traces
     numtests: test budget
