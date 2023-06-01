@@ -801,12 +801,12 @@ def baseloss_matrix(L):
 def cand_obj_val(x, truthdraws, Wvec, paramdict, riskmat):
     """Objective for optimization step"""
     scoremat = lf.score_diff_matrix(truthdraws, x.reshape(1, truthdraws[0].shape[0]), paramdict['scoredict'])[0]
-    return np.sum(np.sum(scoremat * riskmat, axis=1) * Wvec)
+    return np.sum(np.sum(scoremat * riskmat * paramdict['marketvec'], axis=1) * Wvec)
 
 
 def cand_obj_val_jac(x, truthdraws, Wvec, paramdict, riskmat):
     """Objective gradient for optimization step"""
-    jacmat = np.where(x < truthdraws, -paramdict['scoredict']['underestweight'], 1) * riskmat \
+    jacmat = np.where(x < truthdraws, -paramdict['scoredict']['underestweight'], 1) * riskmat * paramdict['marketvec'] \
                 * Wvec.reshape(truthdraws.shape[0], 1)
     return np.sum(jacmat, axis=0)
 
