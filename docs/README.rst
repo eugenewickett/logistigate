@@ -27,3 +27,5 @@ to regulators, Tracked and Untracked:
 The paper proposing these methods is available on Arxiv at
 https://arxiv.org/abs/2207.05671
 .
+
+This work was funded through two National Science Foundation grants: EAGER Award 1842369 and NSF 1953111.
