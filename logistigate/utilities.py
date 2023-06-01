@@ -1098,6 +1098,7 @@ def plot_marg_util(margutilarr, testmax, testint, al=0.6, titlestr='', type='cum
     plt.close()
     return
 
+
 def plot_marg_util_CI(margutilarr_avg, margutilarr_hi=[], margutilarr_lo=[],  testmax=0, testint=0, al=0.6, titlestr='',
                       type='cumulative', colors=[], dashes=[],
                       labels=[], utilmax=-1,  addlinelabels=False):
