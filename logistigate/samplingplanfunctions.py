@@ -877,7 +877,8 @@ def process_loss_list(minvalslist, zlevel=0.95):
            spstat.t.interval(zlevel, len(minvalslist)-1, loc=np.average(minvalslist), scale=spstat.sem(minvalslist))
 
 
-def get_opt_marg_util_nodes(priordatadict, testmax, testint, paramdict, zlevel=0.95, printupdate=True, plotupdate=True):
+def get_opt_marg_util_nodes(priordatadict, testmax, testint, paramdict, zlevel=0.95,
+                            printupdate=True, plotupdate=True):
     """
     Returns an array of marginal utility estimates for the PMS data contained in priordatadict; uses derived optima
     instead of a loss matrix.
@@ -902,13 +903,15 @@ def get_opt_marg_util_nodes(priordatadict, testmax, testint, paramdict, zlevel=0
         if printupdate == True:
             print('Design: ' + str(design.round(2)))
         for testnum in range(testint, testmax+1, testint):
-            if printupdate == True:
-                print('Calculating utility for '+str(testnum)+' tests...')
             currlosslist = sampling_plan_loss_list(design, testnum, priordatadict, paramdict)
             avg_loss, avg_loss_CI = process_loss_list(currlosslist, zlevel)
             margutil_avg_arr[currTN][int(testnum / testint)] = paramdict['baseloss'] - avg_loss
             margutil_hi_arr[currTN][int(testnum / testint)] = paramdict['baseloss'] - avg_loss_CI[0]
             margutil_lo_arr[currTN][int(testnum / testint)] = paramdict['baseloss'] - avg_loss_CI[1]
-            if plotupdate == True:
-                pass # plot marginal utilities
+            if printupdate == True:
+                print('Utility for '+str(testnum)+' tests: ' + str(paramdict['baseloss'] - avg_loss))
+        if plotupdate == True:
+            util.plot_marg_util_CI(margutil_avg_arr, margutilarr_hi=margutil_hi_arr,
+                                   margutilarr_lo=margutil_lo_arr, testmax=testmax, testint=testint,
+                                   titlestr='Familiar setting')
     return margutil_avg_arr, margutil_hi_arr, margutil_lo_arr
