@@ -30,6 +30,7 @@ to regulators, Tracked and Untracked:
 * In the Untracked case, the lower-echelon location where the product is obtained is known, as well as the system's sourcing-probability matrix.
 
 The paper proposing these methods is available on Arxiv at
-https://arxiv.org/abs/2207.05671.
+https://arxiv.org/abs/2207.05671
+.
 
 This work was funded through two National Science Foundation grants: EAGER Award 1842369 and NSF 1953111.
