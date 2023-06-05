@@ -878,7 +878,7 @@ def process_loss_list(minvalslist, zlevel=0.95):
 
 
 def get_opt_marg_util_nodes(priordatadict, testmax, testint, paramdict, zlevel=0.95,
-                            printupdate=True, plotupdate=True):
+                            printupdate=True, plotupdate=True, plottitlestr=''):
     """
     Returns an array of marginal utility estimates for the PMS data contained in priordatadict; uses derived optima
     instead of a loss matrix.
@@ -913,5 +913,5 @@ def get_opt_marg_util_nodes(priordatadict, testmax, testint, paramdict, zlevel=0
         if plotupdate == True:
             util.plot_marg_util_CI(margutil_avg_arr, margutilarr_hi=margutil_hi_arr,
                                    margutilarr_lo=margutil_lo_arr, testmax=testmax, testint=testint,
-                                   titlestr='Familiar setting')
+                                   titlestr=plottitlestr)
     return margutil_avg_arr, margutil_hi_arr, margutil_lo_arr
