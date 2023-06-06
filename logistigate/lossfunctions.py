@@ -18,7 +18,7 @@ else:
 import numpy as np
 from scipy.spatial.distance import cdist
 import time
-from statsmodels.stats.weightstats import DescrStatsW
+
 
 # Set computational tolerance; needed for value comparison and some division steps
 tol = 1e-8
@@ -96,14 +96,6 @@ def score_check_matrix(truthdraws, canddraws, paramdict):
                                 axes=(1, 0, 2))
     return (drawsEstMat-drawsTargMat) * (paramdict['slope'] - np.minimum(np.maximum(drawsTargMat-drawsEstMat,0),tol)*(1/tol))
 
-
-def bayesest_absdiff(draws, Wvec, scoredict):
-    """
-    Returns the Bayes estimate for a set of SFP rates, adjusted for weighting of samples, for the absolute difference
-        score
-    """
-    statobj = DescrStatsW(data=draws, weights=Wvec)
-    return statobj.quantile(probs=scoredict['underEstWt']/(1+ scoredict['underEstWt']),return_pandas=False)
 
 
 def get_score_matrix(truthdraws, canddraws, scoredict):

@@ -27,6 +27,7 @@ from math import comb
 import scipy.special as sps
 import scipy.stats as spstat
 import scipy.optimize as spo
+from statsmodels.stats.weightstats import DescrStatsW
 
 
 def sampling_plan_loss_fast(design, numtests, priordatadict, paramdict):
@@ -827,10 +828,22 @@ def get_bayes_min(truthdraws, Wvec, paramdict, xinit='na', optmethod='L-BFGS-B')
     if optmethod=='L-BFGS-B':
         spoOutput = spo.minimize(cand_obj_val, xinit, jac=cand_obj_val_jac,
                                  method=optmethod, args=(truthdraws, Wvec, paramdict, riskmat))
+    elif optmethod=='critratio':
+        q = paramdict['scoredict']['underestweight'] / (1+paramdict['scoredict']['underestweight'])
+        spoOutput = bayesest_critratio(truthdraws, Wvec, q)
     else:
         spoOutput = spo.minimize(cand_obj_val, xinit, jac=cand_obj_val_jac, hess=cand_obj_val_hess,
                                  method=optmethod, args=(truthdraws, Wvec, paramdict, riskmat))
     return spoOutput
+
+
+def bayesest_critratio(draws, Wvec, critratio):
+    """
+    Returns the Bayes estimate for a set of SFP rates, adjusted for weighting of samples, for the absolute difference
+        score
+    """
+    statobj = DescrStatsW(data=draws, weights=Wvec)
+    return statobj.quantile(probs=critratio,return_pandas=False)
 
 
 def baseloss(truthdraws, paramdict):
