@@ -873,7 +873,6 @@ def sampling_plan_loss_list(design, numtests, priordatadict, paramdict):
         roundalg = 'lo'
     # Initialize samples to be drawn from traces, per the design, using a rounding algorithm
     sampMat = util.generate_sampling_array(design, numtests, roundalg)
-
     # Get weights matrix
     W = build_weights_matrix(paramdict['truthdraws'], paramdict['datadraws'], sampMat, priordatadict)
     # Get risk matrix
