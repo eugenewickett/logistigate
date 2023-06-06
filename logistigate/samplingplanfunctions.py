@@ -853,7 +853,7 @@ def baseloss(truthdraws, paramdict):
     """
     q = paramdict['scoredict']['underestweight'] / (1 + paramdict['scoredict']['underestweight'])
     est = bayesest_critratio(truthdraws, np.ones((truthdraws.shape[0])) / truthdraws.shape[0], q)
-    return cand_obj_val(est, truthdraws,np.ones((truthdraws.shape[0])) / truthdraws.shape[0], paramdict,
+    return cand_obj_val(est, truthdraws, np.ones((truthdraws.shape[0])) / truthdraws.shape[0], paramdict,
                         lf.risk_check_array(truthdraws, paramdict['riskdict']))
 
 
@@ -883,7 +883,7 @@ def sampling_plan_loss_list(design, numtests, priordatadict, paramdict):
     minslist = []
     for j in range(W.shape[1]):
         est = bayesest_critratio(paramdict['truthdraws'], W[:, j], q)
-        minslist.append(cand_obj_val(est, W[:, j], paramdict, R))
+        minslist.append(cand_obj_val(est, paramdict['truthdraws'], W[:, j], paramdict, R))
     return minslist
 
 
