@@ -884,7 +884,7 @@ def sampling_plan_loss_list(design, numtests, priordatadict, paramdict):
     minslist = []
     for j in range(W.shape[1]):
         est = bayesest_critratio(paramdict['truthdraws'], W[:, j], q)
-        minslist.append(cand_obj_val(est, truthdraws,np.ones((truthdraws.shape[0])) / truthdraws.shape[0],paramdict,R))
+        minslist.append(cand_obj_val(est, W[:, j], paramdict, R))
     return minslist
 
 
