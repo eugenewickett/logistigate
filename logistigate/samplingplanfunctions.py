@@ -851,7 +851,8 @@ def baseloss(truthdraws, paramdict):
     Returns the base loss associated with the set of truthdraws and the scoredict/riskdict included in paramdict;
     should be used when determining utility
     """
-    est = bayesest_critratio(truthdraws, np.ones((truthdraws.shape[0])) / truthdraws.shape[0], paramdict)
+    q = paramdict['scoredict']['underestweight'] / (1 + paramdict['scoredict']['underestweight'])
+    est = bayesest_critratio(truthdraws, np.ones((truthdraws.shape[0])) / truthdraws.shape[0], q)
     return cand_obj_val(est, truthdraws,np.ones((truthdraws.shape[0])) / truthdraws.shape[0], paramdict,
                         lf.risk_check_array(truthdraws, paramdict['riskdict']))
 
