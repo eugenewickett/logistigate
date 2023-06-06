@@ -851,8 +851,9 @@ def baseloss(truthdraws, paramdict):
     Returns the base loss associated with the set of truthdraws and the scoredict/riskdict included in paramdict;
     should be used when determining utility
     """
-    opt_output = get_bayes_min(truthdraws, np.ones((truthdraws.shape[0])) / truthdraws.shape[0], paramdict)
-    return opt_output.fun
+    est = bayesest_critratio(truthdraws, np.ones((truthdraws.shape[0])) / truthdraws.shape[0], paramdict)
+    return cand_obj_val(est, truthdraws,np.ones((truthdraws.shape[0])) / truthdraws.shape[0], paramdict,
+                        lf.risk_check_array(truthdraws, paramdict['riskdict']))
 
 
 def sampling_plan_loss_list(design, numtests, priordatadict, paramdict):
@@ -874,12 +875,16 @@ def sampling_plan_loss_list(design, numtests, priordatadict, paramdict):
 
     # Get weights matrix
     W = build_weights_matrix(paramdict['truthdraws'], paramdict['datadraws'], sampMat, priordatadict)
+    # Get risk matrix
+    R = lf.risk_check_array(paramdict['truthdraws'], paramdict['riskdict'])
+    # Get critical ratio
+    q = paramdict['scoredict']['underestweight'] / (1 + paramdict['scoredict']['underestweight'])
     # Compile list of optima
-    minvalslist = []
+    minslist = []
     for j in range(W.shape[1]):
-        optout = get_bayes_min(paramdict['truthdraws'], W[:, j], paramdict, xinit=paramdict['datadraws'][j])
-        minvalslist.append(optout.fun)
-    return minvalslist
+        est = bayesest_critratio(paramdict['truthdraws'], W[:, j], q)
+        minslist.append(cand_obj_val(est, truthdraws,np.ones((truthdraws.shape[0])) / truthdraws.shape[0],paramdict,R))
+    return minslist
 
 
 def process_loss_list(minvalslist, zlevel=0.95):
