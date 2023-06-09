@@ -1148,7 +1148,7 @@ def plot_marg_util_CI(margutilarr_avg, margutilarr_hi=[], margutilarr_lo=[],  te
         plt.ylabel('Marginal Utility Gain')
     else:
         plt.ylabel('Utility Gain')
-    plt.title('Marginal Utility with Increasing Tests\n'+titlestr)
+    plt.title('Utility with Increasing Tests\n'+titlestr)
     plt.show()
     plt.close()
     return
