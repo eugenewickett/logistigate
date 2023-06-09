@@ -1090,9 +1090,10 @@ def plot_marg_util(margutilarr, testmax, testint, al=0.6, titlestr='', type='cum
     plt.xlabel('Number of Tests')
     if type=='delta':
         plt.ylabel('Marginal Utility Gain')
+        plt.title('Marginal Utility vs. Increasing Tests\n' + titlestr)
     else:
         plt.ylabel('Utility Gain')
-    plt.title('Marginal Utility with Increasing Tests\n'+titlestr)
+        plt.title('Utility vs. Increasing Tests\n' + titlestr)
     plt.savefig('MARGUTILPLOT.png')
     plt.show()
     plt.close()
