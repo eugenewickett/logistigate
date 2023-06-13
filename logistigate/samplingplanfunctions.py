@@ -933,3 +933,47 @@ def get_opt_marg_util_nodes(priordatadict, testmax, testint, paramdict, zlevel=0
                                    margutilarr_lo=margutil_lo_arr, testmax=testmax, testint=testint,
                                    titlestr=plottitlestr)
     return margutil_avg_arr, margutil_hi_arr, margutil_lo_arr
+
+def get_greedy_allocation(priordatadict, testmax, testint, paramdict, zlevel=0.95,
+                            printupdate=True, plotupdate=True, plottitlestr=''):
+    """
+    Greedy allocation algorithm that uses marginal utility evaluations at each test node to allocate the next
+    testint tests
+    """
+    if not all(key in paramdict for key in ['baseloss']):
+        paramdict.update({'baseloss': baseloss(paramdict['truthdraws'], paramdict)})
+    numTN = priordatadict['N'].shape[0]
+    # Initialize the return arrays: zlevel CIs on utility, and an allocation array
+    util_avg, util_hi, util_lo = np.zeros((int(testmax / testint) + 1)), \
+                                 np.zeros((int(testmax / testint) + 1)), \
+                                 np.zeros((int(testmax / testint) + 1))
+    alloc = np.zeros((numTN, int(testmax / testint) + 1))
+    for testnumind, testnum in enumerate(range(testint, testmax+1, testint)):
+        # Iterate from previous best allocation
+        bestalloc = alloc[:, testnumind]
+        nextTN = -1
+        currbestloss_avg, currbestloss_CI = -1, (-1, -1)
+        for currTN in range(numTN): # Loop through each test node and identify best direction via lowest avg loss
+            curralloc = bestalloc.copy()
+            curralloc[currTN] += 1 # Increment 1 at current test node
+            currdes = curralloc / np.sum(curralloc) # Make a proportion design
+            currlosslist = sampf.sampling_plan_loss_list(currdes, testnum, priordatadict, paramdict)
+            currloss_avg, currloss_CI = process_loss_list(currlosslist, zlevel=zlevel)
+            if printupdate:
+                print('TN '+str(currTN)+' loss avg.: '+str(currloss_avg))
+            if nextTN == -1 or currloss_avg < currbestloss_avg: # Update with better loss
+                nextTN = currTN
+                currbestloss_avg = currloss_avg
+                currbestloss_CI = currloss_CI
+        # Store best results
+        alloc[:, testnumind+1] = alloc[:, testnumind].copy()
+        alloc[nextTN, testnumind] += 1
+        util_avg[testnumind + 1] = paramdict['baseloss'] - currbestloss_avg
+        util_hi[testnumind + 1] = paramdict['baseloss'] - currbestloss_CI[0]
+        util_lo[testnumind + 1] = paramdict['baseloss'] - currbestloss_CI[1]
+        if printupdate:
+            print('TN '+str(nextTN)+' added, with utility CI of ('+str(util_lo[testnumind + 1])+', '+
+                  str(util_hi[testnumind + 1])+')')
+        if plotupdate:
+            util.plot_marg_util_CI(util_avg,util_hi,util_lo,testmax,testint)
+    return alloc, util_avg, util_hi, util_lo
