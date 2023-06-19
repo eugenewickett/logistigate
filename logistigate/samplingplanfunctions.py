@@ -935,7 +935,7 @@ def get_opt_marg_util_nodes(priordatadict, testmax, testint, paramdict, zlevel=0
     return margutil_avg_arr, margutil_hi_arr, margutil_lo_arr
 
 def get_greedy_allocation(priordatadict, testmax, testint, paramdict, zlevel=0.95,
-                            printupdate=True, plotupdate=True, plottitlestr=''):
+                            printupdate=True, plotupdate=True, plottitlestr='', distW=-1):
     """
     Greedy allocation algorithm that uses marginal utility evaluations at each test node to allocate the next
     testint tests
@@ -957,7 +957,17 @@ def get_greedy_allocation(priordatadict, testmax, testint, paramdict, zlevel=0.9
             curralloc = bestalloc.copy()
             curralloc[currTN] += 1  # Increment 1 at current test node
             currdes = curralloc / np.sum(curralloc)  # Make a proportion design
-            currlosslist = sampling_plan_loss_list(currdes, testnum, priordatadict, paramdict)
+            if distW > 0:  # Run weights matrices in batches to avoid very large matrices
+                tempdatadraws = paramdict['datadraws'].copy()
+                currlosslist = []
+                for Wind in range(int(np.ceil(tempdatadraws.shape[0] / distW))):
+                    currdatadraws = tempdatadraws[Wind * distW:(Wind + 1) * distW]
+                    paramdict.update({'datadraws': currdatadraws})
+                    currlosslist = currlosslist + \
+                                   sampling_plan_loss_list(currdes, testnum, priordatadict, paramdict)
+                paramdict.update({'datadraws': tempdatadraws})
+            else:
+                currlosslist = sampling_plan_loss_list(currdes, testnum, priordatadict, paramdict)
             currloss_avg, currloss_CI = process_loss_list(currlosslist, zlevel=zlevel)
             if printupdate:
                 print('TN ' + str(currTN) + ' loss avg.: ' + str(currloss_avg))
