@@ -830,20 +830,20 @@ def get_bayes_min(truthdraws, Wvec, paramdict, xinit='na', optmethod='L-BFGS-B')
                                  method=optmethod, args=(truthdraws, Wvec, paramdict, riskmat))
     elif optmethod=='critratio':
         q = paramdict['scoredict']['underestweight'] / (1+paramdict['scoredict']['underestweight'])
-        spoOutput = bayesest_critratio(truthdraws, riskmat, Wvec, q)
+        spoOutput = bayesest_critratio(truthdraws, Wvec, q)
     else:
         spoOutput = spo.minimize(cand_obj_val, xinit, jac=cand_obj_val_jac, hess=cand_obj_val_hess,
                                  method=optmethod, args=(truthdraws, Wvec, paramdict, riskmat))
     return spoOutput
 
 
-def bayesest_critratio(draws, riskmat, Wvec, critratio):
+def bayesest_critratio(draws, Wvec, critratio):
     """
     Returns the Bayes estimate for a set of SFP rates, adjusted for weighting of samples, for the absolute difference
         score
     """
-    statobj_list = [DescrStatsW(data=draws[:, i], weights=np.multiply(Wvec, riskmat[:, i])) for i in range(draws.shape[1])]
-    return np.array([statobj.quantile(probs=critratio,return_pandas=False) for statobj in statobj_list]).T[0]
+    statobj = DescrStatsW(data=draws, weights=Wvec)
+    return statobj.quantile(probs=critratio,return_pandas=False)
 
 
 def baseloss(truthdraws, paramdict):
@@ -852,9 +852,9 @@ def baseloss(truthdraws, paramdict):
     should be used when determining utility
     """
     q = paramdict['scoredict']['underestweight'] / (1 + paramdict['scoredict']['underestweight'])
-    R = lf.risk_check_array(truthdraws, paramdict['riskdict'])
-    est = bayesest_critratio(truthdraws, R, np.ones((truthdraws.shape[0])) / truthdraws.shape[0], q)
-    return cand_obj_val(est, truthdraws, np.ones((truthdraws.shape[0])) / truthdraws.shape[0], paramdict, R)
+    est = bayesest_critratio(truthdraws, np.ones((truthdraws.shape[0])) / truthdraws.shape[0], q)
+    return cand_obj_val(est, truthdraws, np.ones((truthdraws.shape[0])) / truthdraws.shape[0], paramdict,
+                        lf.risk_check_array(truthdraws, paramdict['riskdict']))
 
 
 def sampling_plan_loss_list(design, numtests, priordatadict, paramdict):
@@ -882,7 +882,7 @@ def sampling_plan_loss_list(design, numtests, priordatadict, paramdict):
     # Compile list of optima
     minslist = []
     for j in range(W.shape[1]):
-        est = bayesest_critratio(paramdict['truthdraws'], R, W[:, j], q)
+        est = bayesest_critratio(paramdict['truthdraws'], W[:, j], q)
         minslist.append(cand_obj_val(est, paramdict['truthdraws'], W[:, j], paramdict, R))
     return minslist
 
