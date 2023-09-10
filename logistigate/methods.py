@@ -409,7 +409,7 @@ def Tracked_NegLogPost_Hess(beta, N, Y, sens, spec, prior):
 
 ######################### END TRACKED FUNCTIONS #########################
 
-def GeneratePostSamples(dataTblDict):
+def GeneratePostSamples(dataTblDict, maxTime=600):
     '''
     Retrives posterior samples under the appropriate Tracked or Untracked
     likelihood model, given data inputs, and entered posterior sampler.
@@ -426,6 +426,7 @@ def GeneratePostSamples(dataTblDict):
         posterior samples; requies a key 'MCMCType' that is one of
         'MetropolisHastings', 'Langevin', 'NUTS', or 'STAN'; necessary arguments
         for the sampler should be contained as keys within MCMCDict
+    maxTime is the allowed run time for sampling generation, in seconds
     OUTPUTS
     -------
     Returns dataTblDict with key 'postSamples' that contains the non-transformed
@@ -463,7 +464,7 @@ def GeneratePostSamples(dataTblDict):
                 return Untracked_LogPost(beta,N,Y,sens,spec,Q,prior),\
                        Untracked_LogPost_Grad(beta,N,Y,sens,spec,Q,prior)
         
-        samples, lnprob, epsilon = adjnuts.nuts6(TargetForNUTS,M,Madapt,beta0,delta)
+        samples, lnprob, epsilon = adjnuts.nuts6(TargetForNUTS,M,Madapt,beta0,delta,maxTime=maxTime)
         
         dataTblDict.update({'acc_rate':'NA'}) # FIX LATER
     # Run Langevin MC

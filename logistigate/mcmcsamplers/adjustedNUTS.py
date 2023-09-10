@@ -207,7 +207,7 @@ def build_tree(theta, r, grad, logu, v, j, epsilon, f, joint0):
     return thetaminus, rminus, gradminus, thetaplus, rplus, gradplus, thetaprime, gradprime, logpprime, nprime, sprime, alphaprime, nalphaprime
 
 
-def nuts6(f, M, Madapt, theta0, delta=0.25):
+def nuts6(f, M, Madapt, theta0, delta=0.25, maxTime=600): # EOW add maxTime
     """
     Implements the No-U-Turn Sampler (NUTS) algorithm 6 from from the NUTS
     paper (Hoffman & Gelman, 2011).
@@ -331,7 +331,7 @@ def nuts6(f, M, Madapt, theta0, delta=0.25):
             # Increment depth.
             j += 1
             
-            if time.time() - startTime > 600: # EOW add; max time exceeded
+            if time.time() - startTime > maxTime: # EOW add; max time exceeded
                 print('Max time exceeded for NUTS')
                 return samples[Madapt:, :], lnprob[Madapt:], epsilon
 
