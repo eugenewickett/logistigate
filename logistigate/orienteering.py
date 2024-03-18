@@ -25,7 +25,10 @@ from math import comb
 import scipy.special as sps
 import scipy.stats as spstat
 import scipy.optimize as spo
+from scipy.optimize import LinearConstraint
+from scipy.optimize import milp
 from statsmodels.stats.weightstats import DescrStatsW
+
 
 def scipytoallocation(spo_x, distNames, regNames, seqlist_trim_df, eliminateZeros=False):
     """function for turning scipy solution into something interpretable"""
@@ -47,3 +50,13 @@ def scipytoallocation(spo_x, distNames, regNames, seqlist_trim_df, eliminateZero
         pathstr = pathstr + str(regNames[regind]) + ' '
     print('Path: '+ pathstr)
     return
+
+
+def GetConstraintsWithPathCut(numVar, numTN, pathInd):
+    """
+    Returns constraint object for use with scipy optimize, where the path variable must be 1 at pathInd
+    """
+    newconstraintmat = np.zeros((1, numVar)) # size of new constraints matrix
+    newconstraintmat[0, numTN*3 + pathInd] = 1.
+    return spo.LinearConstraint(newconstraintmat, np.ones(1), np.ones(1))
+
