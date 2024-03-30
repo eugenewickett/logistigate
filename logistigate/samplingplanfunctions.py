@@ -1003,8 +1003,8 @@ def sampling_plan_loss_list_importance(design, numtests, priordatadict, paramdic
         tempwtarray = tempwtarray/np.sum(tempwtarray)
         tempimportancedraws = np.delete(impdict['postSamples'], tempremoveinds, axis=0)
         tempRimport = np.delete(Rimport, tempremoveinds, axis=0)
-        est = sampf.bayesest_critratio(tempimportancedraws, tempwtarray, q)
-        minslist.append(sampf.cand_obj_val(est, tempimportancedraws, tempwtarray, paramdict, tempRimport))
+        est = bayesest_critratio(tempimportancedraws, tempwtarray, q)
+        minslist.append(cand_obj_val(est, tempimportancedraws, tempwtarray, paramdict, tempRimport))
 
     return minslist
 
