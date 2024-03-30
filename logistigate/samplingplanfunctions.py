@@ -887,6 +887,128 @@ def sampling_plan_loss_list(design, numtests, priordatadict, paramdict):
     return minslist
 
 
+def sampling_plan_loss_list_importance(design, numtests, priordatadict, paramdict, numimportdraws,
+                                 numdatadrawsforimportance=1000, impweightoutlierprop=0.01):
+    """
+    Produces a list of sampling plan losses, a la sampling_plan_loss_list(). This method uses the importance
+    sampling approach, using numdatadrawsforimportance draws to produce an 'average' data set. An MCMC set of
+    numimportdraws is produced assuming this average data set; this MCMC set should be closer to the important region
+    of SFP rates for this design. The importance weights can produce outliers that increase loss variance; parameter
+    impweightoutlierprop indicates the weight quantile for which the corresponding MCMC draws are removed from loss
+    calculations.
+
+    design: sampling probability vector along all test nodes/traces
+    numtests: test budget
+    priordatadict: logistigate data dictionary capturing known data
+    paramdict: parameter dictionary containing a loss matrix, truth and data MCMC draws, and an optional method for
+        rounding the design to an integer allocation
+    """
+    if 'roundalg' in paramdict: # Set default rounding algorithm for plan
+        roundalg = paramdict['roundalg'].copy()
+    else:
+        roundalg = 'lo'
+    # Initialize samples to be drawn from traces, per the design, using a rounding algorithm
+    sampMat = util.generate_sampling_array(design, numtests, roundalg)
+    (numTN, numSN), Q, s, r = priordatadict['N'].shape, priordatadict['Q'], priordatadict['diagSens'], priordatadict['diagSpec']
+    # Identify an 'average' data set that will help establish the important region for importance sampling
+    importancedatadrawinds = np.random.choice(np.arange(paramdict['datadraws'].shape[0]),
+                                          size = numdatadrawsforimportance, # Oversample if needed
+                                          replace=paramdict['datadraws'].shape[0] < numdatadrawsforimportance)
+    importancedatadraws = paramdict['datadraws'][importancedatadrawinds]
+    zMatData = util.zProbTrVec(numSN, importancedatadraws, sens=s, spec=r)  # Probs. using data draws
+    NMat = np.moveaxis(np.array([np.random.multinomial(sampMat[tnInd], Q[tnInd], size=numdatadrawsforimportance)
+                                 for tnInd in range(numTN)]), 1, 0).astype(int)
+    YMat = np.random.binomial(NMat, zMatData)
+    # Get average rounded data set from these few draws
+    NMatAvg, YMatAvg = np.round(np.average(NMat, axis=0)).astype(int), np.round(np.average(YMat, axis=0)).astype(int)
+    # Add these data to a new data dictionary and generate a new set of MCMC draws
+    impdict = priordatadict.copy()
+    impdict['N'], impdict['Y'] = priordatadict['N'] + NMatAvg, priordatadict['Y'] + YMatAvg
+    # Generate a new MCMC importance set
+    impdict['numPostSamples'] = numimportdraws
+    impdict = methods.GeneratePostSamples(impdict, maxTime=5000)
+
+    # Get simulated data likelihoods - don't normalize
+    numdatadraws =  paramdict['datadraws'].shape[0]
+    zMatTruth = util.zProbTrVec(numSN, impdict['postSamples'], sens=s, spec=r)  # Matrix of SFP probabilities, as a function of SFP rate draws
+    zMatData = util.zProbTrVec(numSN, paramdict['datadraws'], sens=s, spec=r)  # Probs. using data draws
+    NMat = np.moveaxis(np.array([np.random.multinomial(sampMat[tnInd], Q[tnInd], size=numdatadraws)
+                                 for tnInd in range(numTN)]), 1, 0).astype(int)
+    YMat = np.random.binomial(NMat, zMatData)
+    tempW = np.zeros(shape=(numimportdraws, numdatadraws))
+    for snInd in range(numSN):  # Loop through each SN and TN combination; DON'T vectorize as resulting matrix can be too big
+        for tnInd in range(numTN):
+            if sampMat[tnInd] > 0 and Q[tnInd, snInd] > 0:  # Save processing by only looking at feasible traces
+                # Get zProbs corresponding to current trace
+                bigZtemp = np.transpose(
+                    np.reshape(np.tile(zMatTruth[:, tnInd, snInd], numdatadraws), (numdatadraws, numimportdraws)))
+                bigNtemp = np.reshape(np.tile(NMat[:, tnInd, snInd], numimportdraws), (numimportdraws, numdatadraws))
+                bigYtemp = np.reshape(np.tile(YMat[:, tnInd, snInd], numimportdraws), (numimportdraws, numdatadraws))
+                combNYtemp = np.reshape(np.tile(spsp.comb(NMat[:, tnInd, snInd], YMat[:, tnInd, snInd]), numimportdraws),
+                                        (numimportdraws, numdatadraws))
+                tempW += (bigYtemp * np.log(bigZtemp)) + ((bigNtemp - bigYtemp) * np.log(1 - bigZtemp)) + np.log(
+                    combNYtemp)
+    Wimport = np.exp(tempW)
+
+    # Get risk matrix
+    Rimport = lf.risk_check_array(impdict['postSamples'], paramdict['riskdict'])
+    # Get critical ratio
+    q = paramdict['scoredict']['underestweight'] / (1 + paramdict['scoredict']['underestweight'])
+
+    # Get likelihood weights WRT original data set: p(gamma|d_0)
+    zMatImport = util.zProbTrVec(numSN, impdict['postSamples'], sens=s, spec=r)  # Matrix of SFP probabilities along each trace
+    NMatPrior, YMatPrior = priordatadict['N'], priordatadict['Y']
+    Vimport = np.zeros(shape = numimportdraws)
+    for snInd in range(numSN):  # Loop through each SN and TN combination; DON'T vectorize as resulting matrix can be too big
+        for tnInd in range(numTN):
+            if NMatPrior[tnInd, snInd] > 0:
+                bigZtemp = np.transpose(
+                    np.reshape(np.tile(zMatImport[:, tnInd, snInd], 1), (1, numimportdraws)))
+                bigNtemp = np.reshape(np.tile(NMatPrior[tnInd, snInd], numimportdraws), (numimportdraws, 1))
+                bigYtemp = np.reshape(np.tile(YMatPrior[tnInd, snInd], numimportdraws), (numimportdraws, 1))
+                combNYtemp = np.reshape(np.tile(spsp.comb(NMatPrior[tnInd, snInd], YMatPrior[tnInd, snInd]),
+                                                numimportdraws), (numimportdraws, 1))
+                Vimport += np.squeeze( (bigYtemp * np.log(bigZtemp)) + ((bigNtemp - bigYtemp) * np.log(1 - bigZtemp)) + np.log(
+                    combNYtemp))
+    Vimport = np.exp(Vimport)
+
+    # Get likelihood weights WRT average data set: p(gamma|d_0, d_imp)
+    NMatPrior, YMatPrior = impdict['N'].copy(), impdict['Y'].copy()
+    Uimport = np.zeros(shape=numimportdraws)
+    for snInd in range(
+            numSN):  # Loop through each SN and TN combination; DON'T vectorize as resulting matrix can be too big
+        for tnInd in range(numTN):
+            if NMatPrior[tnInd, snInd] > 0:
+                bigZtemp = np.transpose(
+                    np.reshape(np.tile(zMatImport[:, tnInd, snInd], 1), (1, numimportdraws)))
+                bigNtemp = np.reshape(np.tile(NMatPrior[tnInd, snInd], numimportdraws), (numimportdraws, 1))
+                bigYtemp = np.reshape(np.tile(YMatPrior[tnInd, snInd], numimportdraws), (numimportdraws, 1))
+                combNYtemp = np.reshape(np.tile(spsp.comb(NMatPrior[tnInd, snInd], YMatPrior[tnInd, snInd]),
+                                                numimportdraws), (numimportdraws, 1))
+                Uimport += np.squeeze(
+                    (bigYtemp * np.log(bigZtemp)) + ((bigNtemp - bigYtemp) * np.log(1 - bigZtemp)) + np.log(
+                        combNYtemp))
+    Uimport = np.exp(Uimport)
+
+    # Importance likelihood ratio for importance draws
+    VoverU = (Vimport / Uimport)
+
+    # Compile list of optima
+    minslist = []
+    for j in range(Wimport.shape[1]):
+        tempwtarray = Wimport[:, j] * VoverU * numimportdraws / np.sum(Wimport[:, j] * VoverU)
+        # Remove inds for top impweightoutlierprop of weights
+        tempremoveinds = np.where(tempwtarray>np.quantile(tempwtarray, 1-impweightoutlierprop))
+        tempwtarray = np.delete(tempwtarray, tempremoveinds)
+        tempwtarray = tempwtarray/np.sum(tempwtarray)
+        tempimportancedraws = np.delete(impdict['postSamples'], tempremoveinds, axis=0)
+        tempRimport = np.delete(Rimport, tempremoveinds, axis=0)
+        est = sampf.bayesest_critratio(tempimportancedraws, tempwtarray, q)
+        minslist.append(sampf.cand_obj_val(est, tempimportancedraws, tempwtarray, paramdict, tempRimport))
+
+    return minslist
+
+
 def process_loss_list(minvalslist, zlevel=0.95):
     """
     Return the average and CI of a list; intended for use with sampling_plan_loss_list()
