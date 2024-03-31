@@ -1009,6 +1009,21 @@ def sampling_plan_loss_list_importance(design, numtests, priordatadict, paramdic
     return minslist
 
 
+def getImportanceUtilityEstimate2(n, lgdict, paramdict, numimportdraws, numdatadrawsforimportance=1000,
+                                  impweightoutlierprop=0.01, zlevel=0.95):
+    """
+    Return a utility estimate average and confidence interval for allocation array n, using a second MCMC set of
+    'importance' draws
+    """
+    testnum = int(np.sum(n))
+    des = n / testnum
+    currlosslist = sampling_plan_loss_list_importance(des, testnum, lgdict, paramdict, numimportdraws,
+                                                            numdatadrawsforimportance, impweightoutlierprop)
+    currloss_avg, currloss_CI = process_loss_list(currlosslist, zlevel=zlevel)
+    return paramdict['baseloss'] - currloss_avg, (paramdict['baseloss'] - currloss_CI[1],
+                                                  paramdict['baseloss'] - currloss_CI[0])
+
+
 def process_loss_list(minvalslist, zlevel=0.95):
     """
     Return the average and CI of a list; intended for use with sampling_plan_loss_list()
