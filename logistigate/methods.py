@@ -667,7 +667,8 @@ def GetMCMCTracePlots(lgdict, numburnindraws=2000, numdraws=5000):
     """
     # Generate MCMC draws
     templgdict = lgdict.copy()
-    templgdict['MCMCdict'].update({'Madapt':numburnindraws, 'numPostSamples': numdraws})
+    templgdict['MCMCdict'].update({'Madapt':numburnindraws})
+    templgdict.update({'numPostSamples': numdraws})
     templgdict = GeneratePostSamples(templgdict, maxTime=5000)
     # Make a grid of subplots
     numTN, numSN = lgdict['TNnum'], lgdict['SNnum']
