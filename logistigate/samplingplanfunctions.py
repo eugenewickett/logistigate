@@ -1009,7 +1009,7 @@ def sampling_plan_loss_list_importance(design, numtests, priordatadict, paramdic
     return minslist
 
 
-def getImportanceUtilityEstimate2(n, lgdict, paramdict, numimportdraws, numdatadrawsforimportance=1000,
+def getImportanceUtilityEstimate(n, lgdict, paramdict, numimportdraws, numdatadrawsforimportance=1000,
                                   impweightoutlierprop=0.01, zlevel=0.95):
     """
     Return a utility estimate average and confidence interval for allocation array n, using a second MCMC set of
