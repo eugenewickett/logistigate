@@ -10,6 +10,8 @@ import scipy.optimize as spo
 import scipy.stats as spstat
 import scipy.special as sps
 import time
+import matplotlib.pyplot as plt
+import matplotlib
 
 # THESE IMPORTS ARE FOR DEVELOPING NEW CODE, ETC.;
 # NEED TO BE CHANGED BACK TO THOSE BELOW BEFORE UPLOADING TO GITHUB
