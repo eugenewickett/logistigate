@@ -1262,3 +1262,35 @@ def plot_plan(allocarr, paramlist, testint=1, al=0.6, titlestr='', colors=[], da
     return
 
 
+def GetMCMCTracePlots(lgdict, numburnindraws=2000, numdraws=5000):
+    """
+    Provides a grid of trace plots across all nodes for numdraws draws of the corresponding SFP rates
+    """
+    # Generate MCMC draws
+    templgdict = lgdict.copy()
+    templgdict['MCMCdict'].update({'Madapt':numburnindraws, 'numPostSamples': numdraws})
+    templgdict = methods.GeneratePostSamples(templgdict, maxTime=5000)
+    # Make a grid of subplots
+    numTN, numSN = lgdict['TNnum'], lgdict['SNnum']
+    dim1 = int(np.ceil(np.sqrt(numTN + numSN)))
+    dim2 = int(np.ceil((numTN + numSN) / dim1))
+
+    plotrownum, plotcolnum = 4, 4
+    numloops = int(np.ceil((numTN + numSN) / (plotrownum * plotcolnum)))
+
+    currnodeind = 0
+
+    for currloop in range(numloops):
+        fig, ax = plt.subplots(nrows=plotrownum, ncols=plotcolnum, figsize=(10,10))
+        for row in ax:
+            for col in row:
+                if currnodeind < numTN + numSN:
+                    col.plot(templgdict['postSamples'][:, currnodeind], linewidth=0.5)
+                    col.title.set_text('Node ' + str(currnodeind))
+                    col.xaxis.set_major_locator(matplotlib.ticker.NullLocator())
+                    col.yaxis.set_major_locator(matplotlib.ticker.NullLocator())
+                    currnodeind += 1
+        plt.tight_layout()
+        plt.show()
+
+    return
