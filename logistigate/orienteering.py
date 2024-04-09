@@ -28,6 +28,7 @@ import scipy.optimize as spo
 from scipy.optimize import LinearConstraint
 from scipy.optimize import milp
 from statsmodels.stats.weightstats import DescrStatsW
+import itertools
 
 
 def scipytoallocation(spo_x, distNames, regNames, seqlist_trim_df, eliminateZeros=False):
