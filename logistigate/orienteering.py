@@ -38,7 +38,7 @@ def scipytoallocation(spo_x, distNames, regNames, seqlist_trim_df, eliminateZero
     n1 = np.round(spo_x[tnnum:tnnum * 2])
     n2 = np.round(spo_x[tnnum * 2:tnnum * 3])
     x = np.round(spo_x[tnnum * 3:]) # Solver sometimes gives non-integer solutions
-    path = seqlist_trim_df.iloc[np.where(x == 1)[0][0],0]
+    path = eval(seqlist_trim_df.iloc[np.where(x == 1)[0][0],0])
     # Print district name with key solution elements
     for distind, distname in enumerate(distNames):
         if not eliminateZeros:
