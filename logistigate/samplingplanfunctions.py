@@ -1072,10 +1072,11 @@ def get_opt_marg_util_nodes(priordatadict, testmax, testint, paramdict, zlevel=0
     return margutil_avg_arr, margutil_hi_arr, margutil_lo_arr
 
 def get_greedy_allocation(priordatadict, testmax, testint, paramdict, zlevel=0.95,
+                          numimpdraws = 1000, numdatadrawsforimp = 1000, impwtoutlierprop = 0.01,
                             printupdate=True, plotupdate=True, plottitlestr='', distW=-1):
     """
     Greedy allocation algorithm that uses marginal utility evaluations at each test node to allocate the next
-    testint tests
+    testint tests; updated 18-SEP-24 to use importance sampling
     """
     if not all(key in paramdict for key in ['baseloss']):
         paramdict.update({'baseloss': baseloss(paramdict['truthdraws'], paramdict)})
@@ -1103,7 +1104,11 @@ def get_greedy_allocation(priordatadict, testmax, testint, paramdict, zlevel=0.9
                     currlosslist = currlosslist + sampling_plan_loss_list(currdes, testnum, priordatadict, paramdict)
                 paramdict.update({'datadraws': tempdatadraws})
             else:
-                currlosslist = sampling_plan_loss_list(currdes, testnum, priordatadict, paramdict)
+                currlosslist = sampling_plan_loss_list_importance(currdes, testnum, priordatadict, paramdict,
+                                                                  numimportdraws=numimpdraws,
+                                                                  numdatadrawsforimportance=numdatadrawsforimp,
+                                                                  impweightoutlierprop=impwtoutlierprop)
+                #currlosslist = sampling_plan_loss_list(currdes, testnum, priordatadict, paramdict)
             currloss_avg, currloss_CI = process_loss_list(currlosslist, zlevel=zlevel)
             if printupdate:
                 print('TN ' + str(currTN) + ' loss avg.: ' + str(currloss_avg))
