@@ -834,6 +834,24 @@ def balance_design(N, ntilde):
     return D
 
 
+def unif_design_mat(numTN, testmax, testint=1):
+    """
+    Generates a design matrix that allocates tests uniformly across all test nodes, for a max number of tests (testmax),
+    a testing interval (testint), and a number of test nodes (numTN)
+    """
+    numcols = int(testmax/testint)
+    testarr = np.arange(testint, testmax + testint, testint)
+    des = np.zeros((numTN, int(testmax/testint)))
+    for j in range(numcols):
+        des[:, j] = np.ones(numTN) * np.floor(testarr[j]/numTN)
+        numtoadd = testarr[j] - np.sum(des[:, j])
+        if numtoadd > 0:
+            for k in range(int(numtoadd)):
+                des[k, j] += 1
+                
+    return des / testarr
+
+
 def plotLossVecs(lveclist, lvecnames=[], type='CI', CIalpha = 0.05,legendlabel=[],
                  plottitle='Confidence Intervals for Loss Averages', plotlim=[]):
     '''
