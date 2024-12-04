@@ -848,7 +848,7 @@ def unif_design_mat(numTN, testmax, testint=1):
         if numtoadd > 0:
             for k in range(int(numtoadd)):
                 des[k, j] += 1
-                
+
     return des / testarr
 
 

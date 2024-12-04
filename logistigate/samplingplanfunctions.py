@@ -913,7 +913,7 @@ def sampling_plan_loss_list_importance(design, numtests, priordatadict, paramdic
     # Identify an 'average' data set that will help establish the important region for importance sampling
     importancedatadrawinds = np.random.choice(np.arange(paramdict['datadraws'].shape[0]),
                                           size = numdatadrawsforimportance, # Oversample if needed
-                                          replace=paramdict['datadraws'].shape[0] < numdatadrawsforimportance)
+                                          replace = paramdict['datadraws'].shape[0] < numdatadrawsforimportance)
     importancedatadraws = paramdict['datadraws'][importancedatadrawinds]
     zMatData = util.zProbTrVec(numSN, importancedatadraws, sens=s, spec=r)  # Probs. using data draws
     NMat = np.moveaxis(np.array([np.random.multinomial(sampMat[tnInd], Q[tnInd], size=numdatadrawsforimportance)
