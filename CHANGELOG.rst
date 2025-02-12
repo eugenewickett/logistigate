@@ -4,6 +4,16 @@ Release Notes
 
 Below are the notes from all logistigate releases.
 
+Release 0.1.3
+-------------
+
+:Date: February 12, 2025
+
+* requirements.txt and setup.py files are updated.
+* Functions pertaining to measuring sampling plan utility are included in samplingplanfunctions.py and lossfunctions.py.
+* README is updated to reflect sampling plan utility.
+* Initial functionality for orienteering is included in orienteering.py.
+
 Release 0.1.2
 -------------
 

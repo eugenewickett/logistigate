@@ -1,6 +1,6 @@
-'''
+"""
 Contains functions for loss construction
-'''
+"""
 
 if __name__ == '__main__' and __package__ is None:
     import sys
