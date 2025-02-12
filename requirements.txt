@@ -3,6 +3,7 @@ scipy
 matplotlib
 tabulate
 nuts
+statsmodels
 sphinx==3.4.3
 sphinxcontrib-bibtex==2.4.1
 ipykernel==6.1.0

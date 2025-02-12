@@ -21,7 +21,7 @@ setup(
     version='0.1.0',  # Required
     author='Eugene Wickett, Karen Smilowitz, Matthew Plumlee',
     author_email='eugenewickett@u.northwestern.edu',
-    description='python implementation of logistigate for supply-chain aberration inference',
+    description='python implementation of logistigate for supply-chain inference',
     long_description=long_description,
     long_description_content_type='text/plain',
     url='https://github.com/eugenewickett/logistigate',
@@ -37,7 +37,7 @@ setup(
     keywords='supply chains, statistical inference, pharmaceutical regulation',
     python_requires='>=3',
     install_requires=['nuts','numpy','tabulate',
-                      'scipy','matplotlib'],
+                      'scipy','matplotlib','statsmodels'],
     #packages=['mypkg'],
     #package_dir={'logistigate': 'src/logistigate'},
     #package_data={'logistigate': ['data/*.csv']},
