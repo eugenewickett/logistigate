@@ -1,6 +1,6 @@
-'''
+"""
 Contains functions for sampling plan evaluation
-'''
+"""
 
 if __name__ == '__main__' and __package__ is None:
     import sys
@@ -40,17 +40,18 @@ def build_weights_matrix(truthdraws, datadraws, allocarr, datadict):
     """
     (numTN, numSN), Q, s, r = datadict['N'].shape, datadict['Q'], datadict['diagSens'], datadict['diagSpec']
     numtruthdraws, numdatadraws = truthdraws.shape[0], datadraws.shape[0]
-    zMatTruth = util.zProbTrVec(numSN, truthdraws, sens=s, spec=r) # Matrix of SFP probabilities, as a function of SFP rate draws
-    zMatData = util.zProbTrVec(numSN, datadraws, sens=s, spec=r) # Probs. using data draws
+    zMatTruth = util.zProbTrVec(numSN, truthdraws, sens=s, spec=r)  # Matrix of SFP probs, as func of SFP-rate draws
+    zMatData = util.zProbTrVec(numSN, datadraws, sens=s, spec=r)  # Probs. using data draws
     NMat = np.moveaxis(np.array([np.random.multinomial(allocarr[tnInd], Q[tnInd], size=numdatadraws)
                                  for tnInd in range(numTN)]), 1, 0).astype(int)
     YMat = np.random.binomial(NMat, zMatData)
     tempW = np.zeros(shape=(numtruthdraws, numdatadraws))
-    for snInd in range(numSN):  # Loop through each SN and TN combination; DON'T vectorize as resulting matrix can be too big
+    for snInd in range(numSN):  # Loop through each SN-TN combo; DON'T vectorize as resulting matrix can be too big
         for tnInd in range(numTN):
             if allocarr[tnInd] > 0 and Q[tnInd, snInd] > 0:  # Save processing by only looking at feasible traces
                 # Get zProbs corresponding to current trace
-                bigZtemp = np.transpose(np.reshape(np.tile(zMatTruth[:, tnInd, snInd], numdatadraws), (numdatadraws, numtruthdraws)))
+                bigZtemp = np.transpose(np.reshape(np.tile(zMatTruth[:, tnInd, snInd], numdatadraws),
+                                                   (numdatadraws, numtruthdraws)))
                 bigNtemp = np.reshape(np.tile(NMat[:, tnInd, snInd], numtruthdraws), (numtruthdraws, numdatadraws))
                 bigYtemp = np.reshape(np.tile(YMat[:, tnInd, snInd], numtruthdraws), (numtruthdraws, numdatadraws))
                 combNYtemp = np.reshape(np.tile(sps.comb(NMat[:, tnInd, snInd], YMat[:, tnInd, snInd]), numtruthdraws),
@@ -171,7 +172,7 @@ def sampling_plan_loss_fast(design, numtests, priordatadict, paramdict):
         rounding the design to an integer allocation
     """
     # A rounding algorithm is needed for ensuring an integer number of tests under a given design
-    if 'roundalg' in paramdict: # Set default rounding algorithm for plan
+    if 'roundalg' in paramdict:  # Set default rounding algorithm for plan
         roundalg = paramdict['roundalg'].copy()
     else:
         roundalg = 'lo'
@@ -196,7 +197,7 @@ def sampling_plan_loss_list(design, numtests, priordatadict, paramdict):
     paramdict: parameter dictionary containing a loss matrix, truth and data MCMC draws, and an optional method for
         rounding the design to an integer allocation
     """
-    if 'roundalg' in paramdict: # Set default rounding algorithm for plan
+    if 'roundalg' in paramdict:  # Set default rounding algorithm for plan
         roundalg = paramdict['roundalg'].copy()
     else:
         roundalg = 'lo'
@@ -217,22 +218,29 @@ def sampling_plan_loss_list(design, numtests, priordatadict, paramdict):
 
 
 def sampling_plan_loss_list_importance(design, numtests, priordatadict, paramdict, numimportdraws,
-                                 numdatadrawsforimportance=1000, impweightoutlierprop=0.01):
+                                       numdatadrawsforimportance=1000, extremadelta=0.01,
+                                       preservevar=True, preservevarzlevel=0.95):
     """
     Produces a list of sampling plan losses, a la sampling_plan_loss_list(). This method uses the importance
     sampling approach, using numdatadrawsforimportance draws to produce an 'average' data set. An MCMC set of
     numimportdraws is produced assuming this average data set; this MCMC set should be closer to the important region
-    of SFP rates for this design. The importance weights can produce outliers that increase loss variance; parameter
-    impweightoutlierprop indicates the weight quantile for which the corresponding MCMC draws are removed from loss
-    calculations.
+    of SFP rates for this design. The importance weights can produce extrema that increase loss variance and bias;
+    parameter extremadelta indicates the weight quantile for which the corresponding MCMC draws are removed
+    from loss calculations, introducing some bias in the draws used for the estimate in order to eliminate the estimate
+    bias stemming from very large importance weights. Removing extrema artificially reduces the utility estimate
+    variance; option preservevar, when True, returns preserve_CI, the interval when using all draws. The width of this
+    interval can then be transferred onto the estimate obtained when removing the extrema.
 
     design: sampling probability vector along all test nodes/traces
     numtests: test budget
     priordatadict: logistigate data dictionary capturing known data
     paramdict: parameter dictionary containing a loss matrix, truth and data MCMC draws, and an optional method for
         rounding the design to an integer allocation
+    numimportdraws: number of MCMC draws to generate in the importance zone
+    numdatadrawsforimportance: number of data sets to simulate for establishing the importance data set average
+    extremadelta: proportion of importance weights to drop from consideration, starting with the largest
     """
-    if 'roundalg' in paramdict: # Set default rounding algorithm for plan
+    if 'roundalg' in paramdict:  # Set default rounding algorithm for plan
         roundalg = paramdict['roundalg'].copy()
     else:
         roundalg = 'lo'
@@ -323,19 +331,40 @@ def sampling_plan_loss_list_importance(design, numtests, priordatadict, paramdic
     VoverU = (Vimport / Uimport)
 
     # Compile list of optima
-    minslist = []
-    for j in range(Wimport.shape[1]):
-        tempwtarray = Wimport[:, j] * VoverU * numimportdraws / np.sum(Wimport[:, j] * VoverU)
-        # Remove inds for top impweightoutlierprop of weights
-        tempremoveinds = np.where(tempwtarray>np.quantile(tempwtarray, 1-impweightoutlierprop))
-        tempwtarray = np.delete(tempwtarray, tempremoveinds)
-        tempwtarray = tempwtarray/np.sum(tempwtarray)
-        tempimportancedraws = np.delete(impdict['postSamples'], tempremoveinds, axis=0)
-        tempRimport = np.delete(Rimport, tempremoveinds, axis=0)
-        est = bayesest_critratio(tempimportancedraws, tempwtarray, q)
-        minslist.append(cand_obj_val(est, tempimportancedraws, tempwtarray, paramdict, tempRimport))
+    # Use minslist WITHOUT extrema removed if preserving variance
+    if preservevar==True:
+        print('Getting preserved variance...')
+        minslist = []
+        for j in range(Wimport.shape[1]):
+            tempwtarray = Wimport[:, j] * VoverU * numimportdraws / np.sum(Wimport[:, j] * VoverU)
+            # Don't remove any extrema
+            tempremoveinds = np.where(tempwtarray > np.quantile(tempwtarray, 1))
+            tempwtarray = np.delete(tempwtarray, tempremoveinds)
+            tempwtarray = tempwtarray / np.sum(tempwtarray)  # Normalize
+            tempimportancedraws = np.delete(impdict['postSamples'], tempremoveinds, axis=0)
+            tempRimport = np.delete(Rimport, tempremoveinds, axis=0)
+            est = bayesest_critratio(tempimportancedraws, tempwtarray, q)
+            minslist.append(cand_obj_val(est, tempimportancedraws, tempwtarray, paramdict, tempRimport))
+        # Get original variance
+        _, preserve_CI = process_loss_list(minslist, zlevel=preservevarzlevel)
+    else:
+        preserve_CI = np.empty(0)
 
-    return minslist
+    if extremadelta > 0:  # Only regenerate minslist if extremadelta exceeds zero
+        minslist = []
+        for j in range(Wimport.shape[1]):
+            print('Getting estiamte with extrema removed...')
+            tempwtarray = Wimport[:, j] * VoverU * numimportdraws / np.sum(Wimport[:, j] * VoverU)
+            # Remove inds for top extremadelta of weights
+            tempremoveinds = np.where(tempwtarray>np.quantile(tempwtarray, 1-extremadelta))
+            tempwtarray = np.delete(tempwtarray, tempremoveinds)
+            tempwtarray = tempwtarray/np.sum(tempwtarray)
+            tempimportancedraws = np.delete(impdict['postSamples'], tempremoveinds, axis=0)
+            tempRimport = np.delete(Rimport, tempremoveinds, axis=0)
+            est = bayesest_critratio(tempimportancedraws, tempwtarray, q)
+            minslist.append(cand_obj_val(est, tempimportancedraws, tempwtarray, paramdict, tempRimport))
+
+    return minslist, preserve_CI
 
 # END GENERATING LOSS LISTS
 ##################################
@@ -354,16 +383,19 @@ def process_loss_list(minvalslist, zlevel=0.95):
 
 
 def getImportanceUtilityEstimate(n, lgdict, paramdict, numimportdraws, numdatadrawsforimportance=1000,
-                                  impweightoutlierprop=0.01, zlevel=0.95):
+                                  extremadelta=0.01, zlevel=0.95, preservevar=True):
     """
     Return a utility estimate average and confidence interval for allocation array n, using a second MCMC set of
     'importance' draws
     """
     testnum = int(np.sum(n))
     des = n / testnum
-    currlosslist = sampling_plan_loss_list_importance(des, testnum, lgdict, paramdict, numimportdraws,
-                                                            numdatadrawsforimportance, impweightoutlierprop)
+    currlosslist, preserve_CI = sampling_plan_loss_list_importance(des, testnum, lgdict, paramdict, numimportdraws,
+                                                                   numdatadrawsforimportance, extremadelta,
+                                                                   preservevar=preservevar, preservevarzlevel=zlevel)
     currloss_avg, currloss_CI = process_loss_list(currlosslist, zlevel=zlevel)
+    if preservevar==True:  # Use the width of preserve_CI to build currloss_CI
+        currloss_CI = preserve_CI - np.average(preserve_CI) + currloss_avg
     return paramdict['baseloss'] - currloss_avg, (paramdict['baseloss'] - currloss_CI[1],
                                                   paramdict['baseloss'] - currloss_CI[0])
 
@@ -444,7 +476,7 @@ def get_opt_marg_util_nodes(priordatadict, testmax, testint, paramdict, zlevel=0
 
 def get_greedy_allocation(priordatadict, testmax, testint, paramdict, zlevel=0.95,
                           estmethod = 'efficient',
-                          numimpdraws = 1000, numdatadrawsforimp = 1000, impwtoutlierprop = 0.01,
+                          numimpdraws = 1000, numdatadrawsforimp=1000, extremadelta=0.01,
                             printupdate=True, plotupdate=True, plottitlestr='', distW=-1):
     """
     Greedy allocation algorithm that uses marginal utility evaluations at each test node to allocate the next
@@ -482,7 +514,7 @@ def get_greedy_allocation(priordatadict, testmax, testint, paramdict, zlevel=0.9
                     currlosslist = sampling_plan_loss_list_importance(currdes, testnum, priordatadict, paramdict,
                                                                   numimportdraws=numimpdraws,
                                                                   numdatadrawsforimportance=numdatadrawsforimp,
-                                                                  impweightoutlierprop=impwtoutlierprop)
+                                                                  extremadelta=extremadelta)
             currloss_avg, currloss_CI = process_loss_list(currlosslist, zlevel=zlevel)
             if printupdate:
                 print('TN ' + str(currTN) + ' loss avg.: ' + str(currloss_avg))
