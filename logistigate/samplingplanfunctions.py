@@ -351,9 +351,9 @@ def sampling_plan_loss_list_importance(design, numtests, priordatadict, paramdic
         preserve_CI = np.empty(0)
 
     if extremadelta > 0:  # Only regenerate minslist if extremadelta exceeds zero
+        print('Getting estimate with extrema removed...')
         minslist = []
         for j in range(Wimport.shape[1]):
-            print('Getting estiamte with extrema removed...')
             tempwtarray = Wimport[:, j] * VoverU * numimportdraws / np.sum(Wimport[:, j] * VoverU)
             # Remove inds for top extremadelta of weights
             tempremoveinds = np.where(tempwtarray>np.quantile(tempwtarray, 1-extremadelta))
