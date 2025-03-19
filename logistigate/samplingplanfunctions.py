@@ -69,12 +69,12 @@ def build_weights_matrix(truthdraws, datadraws, allocarr, datadict):
 ##################################
 
 
-# FOR BASE LOSS
+# FOR INITIALIZATION/BASE LOSS
 ##################################
-
 def baseloss_matrix(L):
     """Returns the base loss associated with loss matrix L; should be used when estimating utility"""
     return (np.sum(L, axis=1) / L.shape[1]).min()
+
 
 def baseloss(truthdraws, paramdict):
     """
@@ -86,7 +86,16 @@ def baseloss(truthdraws, paramdict):
     return cand_obj_val(est, truthdraws, np.ones((truthdraws.shape[0])) / truthdraws.shape[0], paramdict,
                         lf.risk_check_array(truthdraws, paramdict['riskdict']))
 
-# END BASE LOSS
+
+def SetupUtilEstParamDict(lgdict, paramdict, numtruthdraws, numdatadraws, randseed=-1):
+    """Sets up parameter dictionary with desired truth and data draws"""
+    if randseed >= 0:
+        np.random.seed(randseed)
+    truthdraws, datadraws = util.distribute_truthdata_draws(lgdict['postSamples'], numtruthdraws, numdatadraws)
+    paramdict.update({'truthdraws': truthdraws, 'datadraws': datadraws})
+    paramdict.update({'baseloss': baseloss(paramdict['truthdraws'], paramdict)})
+    return
+# END INITIALIZATION/BASE LOSS
 ##################################
 ##################################
 ##################################
@@ -366,6 +375,41 @@ def sampling_plan_loss_list_importance(design, numtests, priordatadict, paramdic
 
     return minslist, preserve_CI
 
+def sampling_plan_loss_list_parallel(design, numtests, priordatadict, paramdict):
+    """
+    Produces a list of sampling plan losses for a test budget under a given data set and specified parameters,
+    using the efficient estimation algorithm, but processing weights one data simulation at a time; this
+    parallelization enables processing of large numbers of truth draws, as it avoids the generation of very large
+    weight matrices (W).
+    design: sampling probability vector along all test nodes/traces
+    numtests: test budget
+    priordatadict: logistigate data dictionary capturing known data
+    paramdict: parameter dictionary containing a loss matrix, truth and data MCMC draws, and an optional method for
+        rounding the design to an integer allocation
+    """
+    if 'roundalg' in paramdict:  # Set default rounding algorithm for plan
+        roundalg = paramdict['roundalg'].copy()
+    else:
+        roundalg = 'lo'
+    # Initialize samples to be drawn from traces, per the design, using a rounding algorithm
+    sampMat = util.generate_sampling_array(design, numtests, roundalg)
+    # Get risk matrix
+    R = lf.risk_check_array(paramdict['truthdraws'], paramdict['riskdict'])
+    # Get critical ratio
+    q = paramdict['scoredict']['underestweight'] / (1 + paramdict['scoredict']['underestweight'])
+    # Compile list of optima
+    minslist = []
+    for j in range(paramdict['datadraws'].shape[0]):
+        if np.mod(j,20) == 0:
+            print('On data sim: ' + str(j))
+        # Get weights matrix
+        W = build_weights_matrix(paramdict['truthdraws'],
+                            np.reshape(paramdict['datadraws'][j], (1, paramdict['datadraws'][j].shape[0])),
+                                       sampMat, priordatadict)
+        est = bayesest_critratio(paramdict['truthdraws'], W[:, 0], q)
+        minslist.append(cand_obj_val(est, paramdict['truthdraws'], W[:, 0], paramdict, R))
+    return minslist
+
 # END GENERATING LOSS LISTS
 ##################################
 ##################################
@@ -398,6 +442,18 @@ def getImportanceUtilityEstimate(n, lgdict, paramdict, numimportdraws, numdatadr
         currloss_CI = preserve_CI - np.average(preserve_CI) + currloss_avg
     return paramdict['baseloss'] - currloss_avg, (paramdict['baseloss'] - currloss_CI[1],
                                                   paramdict['baseloss'] - currloss_CI[0])
+
+
+def getUtilityEstimate_parallel(n, lgdict, paramdict, zlevel=0.95):
+    """
+    Return a utility estimate average and confidence interval for allocation array n,
+    using efficient estimation (NOT importance sampling)
+    """
+    testnum = int(np.sum(n))
+    des = n/testnum
+    currlosslist = sampling_plan_loss_list_parallel(des, testnum, lgdict, paramdict)
+    currloss_avg, currloss_CI = process_loss_list(currlosslist, zlevel=zlevel)
+    return paramdict['baseloss'] - currloss_avg, (paramdict['baseloss']-currloss_CI[1], paramdict['baseloss']-currloss_CI[0])
 
 # END PROCESSING LOSS LISTS
 ##################################

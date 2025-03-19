@@ -1040,6 +1040,26 @@ def distribute_truthdata_draws(drawspool, numtruthdraws, numdatadraws):
     return truthdraws, datadraws
 
 
+def RetrieveMCMCBatches(lgdict, numbatches, filedest_leadstring, maxbatchnum=100, rand=False, randseed=-1):
+    """Adds previously generated MCMC draws to lgdict, using the file destination marked by filedest_leadstring"""
+    if rand==False:
+        tempobj = np.load(filedest_leadstring + '0.npy')  # Initialize
+    elif rand==True:  # Generate a unique list of integers
+        if randseed >= 0:
+            np.random.seed(randseed)
+        groupindlist = np.random.choice(np.arange(0, maxbatchnum), size=numbatches, replace=False)
+        tempobj = np.load(filedest_leadstring + str(groupindlist[0]) + '.npy')  # Initialize
+    for drawgroupind in range(2, numbatches+1):
+        if rand==False:
+            newobj = np.load(filedest_leadstring + str(drawgroupind) + '.npy')
+            tempobj = np.concatenate((tempobj, newobj))
+        elif rand==True:
+            newobj = np.load(filedest_leadstring + str(groupindlist[drawgroupind-1]) + '.npy')
+            tempobj = np.concatenate((tempobj, newobj))
+    lgdict.update({'postSamples': tempobj, 'numPostSamples': tempobj.shape[0]})
+    return
+
+
 def print_param_checks(paramdict):
     """Print key parameter values; intended as check on the current run"""
     print('Estimating plan utility with following parameters...')

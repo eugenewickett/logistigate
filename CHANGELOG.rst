@@ -4,6 +4,14 @@ Release Notes
 
 Below are the notes from all logistigate releases.
 
+Release 0.1.4 (WIP)
+-------------
+
+:Date: March 18, 2025
+
+* Calibration plot generation for determining the number of truth draws added.
+* One-simulation-at-a-time processing for utility estimation added.
+
 Release 0.1.3
 -------------
 
