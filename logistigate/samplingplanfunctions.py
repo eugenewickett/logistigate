@@ -28,6 +28,8 @@ import scipy.special as sps
 import scipy.stats as spstat
 import scipy.optimize as spo
 from statsmodels.stats.weightstats import DescrStatsW
+import matplotlib.pyplot as plt
+import time
 
 
 # FOR BUILDING WEIGHTS MATRIX
@@ -95,6 +97,8 @@ def SetupUtilEstParamDict(lgdict, paramdict, numtruthdraws, numdatadraws, randse
     paramdict.update({'truthdraws': truthdraws, 'datadraws': datadraws})
     paramdict.update({'baseloss': baseloss(paramdict['truthdraws'], paramdict)})
     return
+
+
 # END INITIALIZATION/BASE LOSS
 ##################################
 ##################################
@@ -463,6 +467,127 @@ def getUtilityEstimate_parallel(n, lgdict, paramdict, zlevel=0.95):
 
 # WRAPPER FUNCTIONS
 ##################################
+def makecalibrationplot(lgdict, paramdict, testmax, mcmcfiledest, maxbatchnum=100, batchlist=[5, 10], batchsize=5000,
+                        nrep=10, numdatadraws=100):
+    """
+    Creates plots to assist in the decision of an appropriate number of truth draws to use. Plots utility estimates
+    for a uniform allocation of testmax tests across test nodes, using numdatadraws data draws, for different numbers
+    of batches of MCMC draws. A good number of truth draws is where estimates are reasonably consistent.
+    mcmcfiledest: directory containing previously generated MCMC draws, in sizes of batchsize
+    maxbatchnum: number of MCMC-draw batches in mcmcfiledest
+    batchlist: list of batch numbers to use
+    nrep: replications per number of batches
+    """
+    # Use temporary dictionaries
+    lgdict_temp = lgdict.copy()
+    paramdict_temp = paramdict.copy()
+    # Arrays for storing utility estimates
+    baseloss_arr = np.zeros((len(batchlist), nrep))
+    utilhi_arr = np.zeros((len(batchlist), nrep))
+    utillo_arr = np.zeros((len(batchlist), nrep))
+    # Store time required
+    time_arr = np.zeros((len(batchlist), nrep))
+    # Target allocation
+    unif_alloc = util.unif_design_mat(lgdict['TNnum'], testmax, testmax)[:, 0] * testmax
+    for currbatchind, currbatchnum in enumerate(batchlist):
+        print('Number of MCMC batches: ' + str(currbatchnum) + '\n (' + str(currbatchnum * batchsize) + ' total MCMC draws)')
+        for rep in range(nrep):
+            starttime = time.time()
+            print('Replication: ' + str(rep+1) + ' of ' + str(nrep))
+            # Setup paramdict
+            util.RetrieveMCMCBatches(lgdict_temp, currbatchnum, os.path.join(mcmcfiledest, 'draws'),
+                                maxbatchnum=maxbatchnum, rand=True)
+            SetupUtilEstParamDict(lgdict_temp, paramdict_temp, currbatchnum * 5000, numdatadraws)
+            util.print_param_checks(paramdict_temp)
+            # Get base loss estimate
+            baseloss_arr[currbatchind, rep] = paramdict_temp['baseloss']
+            # Get utility estimate
+            _, util_CI = getUtilityEstimate_parallel(unif_alloc, lgdict_temp, paramdict_temp, zlevel=0.95)
+            utillo_arr[currbatchind, rep] = util_CI[0]
+            utilhi_arr[currbatchind, rep] = util_CI[1]
+            time_arr[currbatchind, rep] = time.time() - starttime
+            print('Time: ' + str(time_arr[currbatchind, rep]) + ' seconds')
+            # Plot
+            fig, ax = plt.subplots()
+            fig.set_figheight(7)
+            fig.set_figwidth(7)
+            x = np.arange(nrep * len(batchlist))
+            flat_utillo = utillo_arr.flatten()
+            flat_utilhi = utilhi_arr.flatten()
+            CIavg = (flat_utillo + flat_utilhi) / 2
+            currcol = 'red'
+            for xiter in range(len(batchlist)):
+                ax.errorbar(x[(xiter * nrep):((xiter * nrep) + nrep)],
+                            CIavg[(xiter * nrep):((xiter * nrep) + nrep)],
+                            yerr=[(CIavg - flat_utillo)[(xiter * nrep):((xiter * nrep) + nrep)],
+                                  (flat_utilhi - CIavg)[(xiter * nrep):((xiter * nrep) + nrep)]],
+                            color=currcol, markersize=5, fmt='o', ecolor='black',
+                            capthick=3)
+                if xiter>=currbatchind:
+                    plt.hlines(np.average(CIavg[(xiter * nrep):((xiter * nrep) + rep + 1)]), xmin=(xiter * nrep) - 1,
+                               xmax=((xiter * nrep) + nrep) + 1, colors=currcol, linestyles='dashed', linewidths=3)
+                else:
+                    plt.hlines(np.average(CIavg[(xiter * nrep):((xiter * nrep) + nrep)]), xmin=(xiter * nrep) - 1,
+                               xmax=((xiter * nrep) + nrep) + 1, colors=currcol, linestyles='dashed', linewidths=3)
+                if currcol == 'red':
+                    currcol = 'blue'
+                else:
+                    currcol = 'red'
+
+            ax.set_title(
+                '95% CI for utility estimate of uniform allocation of ' + str(testmax) + ' tests')
+            # ax.grid('on')
+
+            xticklist = ['' for j in range(nrep * len(batchlist))]
+            for cbatchnameind, cbatchname in enumerate(batchlist):
+                xticklist[cbatchnameind * nrep] = str(cbatchname)
+            plt.xticks(x, xticklist)  # Get textual X labels instead of numerical
+            plt.xlabel('Number of MCMC-draw batches of ' + str(batchsize) + ', grouped by replications')
+            plt.ylabel('Utility estimate')
+            plt.ylim([0, np.max(flat_utilhi) * 1.05])
+            ax.tick_params(axis='x', labelsize=10)
+            label_X = ax.xaxis.get_label()
+            label_Y = ax.yaxis.get_label()
+            label_X.set_style('italic')
+            label_X.set_size(12)
+            label_Y.set_style('italic')
+            label_Y.set_size(12)
+            plt.show()
+    # Plot change in average, relative to most MCMC draws used, as "% higher"
+    # Get averages for each group
+    avgarr = np.zeros((len(batchlist)))
+    for xiter in range(len(batchlist)):
+        avgarr[xiter] = np.average(CIavg[(xiter * nrep):((xiter * nrep) + nrep)])
+    difflist = [(avgarr[i] - avgarr[-1]) / avgarr[-1] for i in range(len(batchlist))]
+    # Plot
+    fig, ax = plt.subplots()
+    fig.set_figheight(7)
+    fig.set_figwidth(7)
+    for i in range(len(batchlist)):
+        if np.mod(i,2) == 1:
+            ax.plot(np.arange(len(batchlist))[i], difflist[i], 'x', color='blue', markersize=8)
+        else:
+            ax.plot(np.arange(len(batchlist))[i], difflist[i], 'x', color='red', markersize=8)
+    ax.grid('on')
+    ax.set_title(
+        'Average estimate difference from estimate of highest number of batches used\nAs percent of smallest estimate')
+    plt.xticks(np.arange(len(batchlist)), batchlist)  # Get textual X labels instead of numerical
+    plt.xlabel('Number of MCMC-draw batches of ' + str(batchsize))
+    plt.ylabel('Percent difference from smallest estimate ')
+    ax.tick_params(axis='x', labelsize=10)
+    label_X = ax.xaxis.get_label()
+    label_Y = ax.yaxis.get_label()
+    label_X.set_style('italic')
+    label_X.set_size(12)
+    label_Y.set_style('italic')
+    label_Y.set_size(12)
+    vals = ax.get_yticks()[1:-1]
+    plt.ylim([0-0.05*max(vals), max(vals)*1.05])
+    ax.set_yticks(vals.tolist())
+    ax.set_yticklabels(['{:,.1%}'.format(x) for x in vals])
+    plt.show()
+    return
+
 def get_marg_util_nodes(priordatadict, testmax, testint, paramdict, printupdate=True):
     """
     Returns an array of marginal utility estimates under the PMS data contained in priordatadict.
@@ -536,7 +661,7 @@ def get_greedy_allocation(priordatadict, testmax, testint, paramdict, zlevel=0.9
                             printupdate=True, plotupdate=True, plottitlestr='', distW=-1):
     """
     Greedy allocation algorithm that uses marginal utility evaluations at each test node to allocate the next
-    testint tests; estmethod is one of 'efficient' or 'importance'
+    testint tests; estmethod is one of 'efficient', 'importance', or 'parallel'
     """
     if not all(key in paramdict for key in ['baseloss']):
         paramdict.update({'baseloss': baseloss(paramdict['truthdraws'], paramdict)})
@@ -571,6 +696,8 @@ def get_greedy_allocation(priordatadict, testmax, testint, paramdict, zlevel=0.9
                                                                   numimportdraws=numimpdraws,
                                                                   numdatadrawsforimportance=numdatadrawsforimp,
                                                                   extremadelta=extremadelta)
+                elif estmethod == 'parallel':
+                    currlosslist = sampling_plan_loss_list_parallel(currdes, testnum, priordatadict, paramdict)
             currloss_avg, currloss_CI = process_loss_list(currlosslist, zlevel=zlevel)
             if printupdate:
                 print('TN ' + str(currTN) + ' loss avg.: ' + str(currloss_avg))
