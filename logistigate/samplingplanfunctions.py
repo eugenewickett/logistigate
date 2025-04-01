@@ -30,7 +30,7 @@ import scipy.optimize as spo
 from statsmodels.stats.weightstats import DescrStatsW
 import matplotlib.pyplot as plt
 import time
-
+import os
 
 # FOR BUILDING WEIGHTS MATRIX
 ##################################
