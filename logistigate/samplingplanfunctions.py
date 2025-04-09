@@ -376,6 +376,31 @@ def sampling_plan_loss_list_importance(design, numtests, priordatadict, paramdic
             tempRimport = np.delete(Rimport, tempremoveinds, axis=0)
             est = bayesest_critratio(tempimportancedraws, tempwtarray, q)
             minslist.append(cand_obj_val(est, tempimportancedraws, tempwtarray, paramdict, tempRimport))
+    elif extremadelta == -1:  # Identify extrema removal that minimizes the resulting loss estimate
+        print('Getting estimate with extrema removed, while fitting to lowest possible estimate...')
+        estincr = True  # Boolean tracking if the current estimate is decreasing
+        currextremadelta, currminsavg = 0.0, 0.0
+        stepint = max(0.0005, 5 / numimportdraws)  # Step interval for trying new extrema deltas
+        while estincr:
+            currextremadelta += stepint
+            print('Current extrema delta: ' + str(currextremadelta))
+            currminslist = []
+            for j in range(Wimport.shape[1]):
+                tempwtarray = Wimport[:, j] * VoverU * numimportdraws / np.sum(Wimport[:, j] * VoverU)
+                # Remove inds for top extremadelta of weights
+                tempremoveinds = np.where(tempwtarray > np.quantile(tempwtarray, 1 - currextremadelta))
+                tempwtarray = np.delete(tempwtarray, tempremoveinds)
+                tempwtarray = tempwtarray / np.sum(tempwtarray)
+                tempimportancedraws = np.delete(impdict['postSamples'], tempremoveinds, axis=0)
+                tempRimport = np.delete(Rimport, tempremoveinds, axis=0)
+                est = bayesest_critratio(tempimportancedraws, tempwtarray, q)
+                currminslist.append(cand_obj_val(est, tempimportancedraws, tempwtarray, paramdict, tempRimport))
+            print('Current loss: ' + str(np.average(currminslist)))
+            if np.average(currminslist) < currminsavg:
+                minslist = currminslist.copy()
+                estincr = False
+            else:
+                currminsavg = np.average(currminslist)
 
     return minslist, preserve_CI
 
