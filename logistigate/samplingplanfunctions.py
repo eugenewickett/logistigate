@@ -378,11 +378,17 @@ def sampling_plan_loss_list_importance(design, numtests, priordatadict, paramdic
             minslist.append(cand_obj_val(est, tempimportancedraws, tempwtarray, paramdict, tempRimport))
     elif extremadelta == -1:  # Identify extrema removal that minimizes the resulting loss estimate
         print('Getting estimate with extrema removed, while fitting to lowest possible estimate...')
-        estincr = True  # Boolean tracking if the current estimate is decreasing
-        currextremadelta, currminsavg = 0.0, 0.0
+        estincr = True  # Boolean tracking if the current estimate is increasing
+        lastminslist = []  # Retain the mins list of the previous iteration
         stepint = max(0.0005, 5 / numimportdraws)  # Step interval for trying new extrema deltas
+        currextremadelta, currminsavg = 0.01 + stepint, 0.0
+        goleft, firstiter = True, True
+        itercount = 0
         while estincr:
-            currextremadelta += stepint
+            if goleft:
+                currextremadelta -= stepint
+            if not goleft:
+                currextremadelta += stepint
             print('Current extrema delta: ' + str(currextremadelta))
             currminslist = []
             for j in range(Wimport.shape[1]):
@@ -397,10 +403,24 @@ def sampling_plan_loss_list_importance(design, numtests, priordatadict, paramdic
                 currminslist.append(cand_obj_val(est, tempimportancedraws, tempwtarray, paramdict, tempRimport))
             print('Current loss: ' + str(np.average(currminslist)))
             if np.average(currminslist) < currminsavg:
-                minslist = currminslist.copy()
-                estincr = False
+                if goleft == False:  # We've already gone left and right; we're done
+                    print('tried left and right; done')
+                    minslist = lastminslist.copy()
+                    estincr = False
+                elif firstiter == True:  # We need to try right also
+                    print('try right')
+                    goleft = False
+                    currextremadelta += stepint
+                else:  # We've gone left multiple times, and need to revert to the last minslist
+                    print('stop going left; done')
+                    minslist = lastminslist.copy()
+                    estincr = False
             else:
-                currminsavg = np.average(currminslist)
+                lastminslist = currminslist.copy()
+                currminsavg = np.average(lastminslist)
+            itercount += 1
+            if itercount > 1:
+                firstiter = False
 
     return minslist, preserve_CI
 
